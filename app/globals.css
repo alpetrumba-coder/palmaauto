@@ -1,0 +1,147 @@
+/**
+ * Глобальные стили и дизайн-токены.
+ * Идея: много «воздуха», нейтральная палитра, системные шрифты (как в интерфейсах Apple).
+ * Адаптив: базовые размеры заданы относительно viewport и rem.
+ */
+
+:root {
+  /* Нейтральная палитра */
+  --color-bg: #f5f5f7;
+  --color-surface: #ffffff;
+  --color-text: #1d1d1f;
+  --color-text-secondary: #6e6e73;
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-accent: #0071e3;
+  --color-accent-hover: #0077ed;
+
+  /* Типографика: системный стек → SF-подобный вид на Apple, fallback везде */
+  --font-sans: system-ui, -apple-system, "SF Pro Text", "SF Pro Display", "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: clamp(1.75rem, 4vw, 2.25rem);
+  --text-hero: clamp(2rem, 5vw, 3rem);
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* Скругления и тени */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --shadow-soft: 0 2px 16px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.08);
+
+  /* Сетка и отступы */
+  --space-unit: 8px;
+  --page-padding: clamp(1rem, 4vw, 2.5rem);
+  --content-max: 1120px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #000000;
+    --color-surface: #1c1c1e;
+    --color-text: #f5f5f7;
+    --color-text-secondary: #98989d;
+    --color-border: rgba(255, 255, 255, 0.12);
+    --color-accent: #0a84ff;
+    --color-accent-hover: #409cff;
+    --shadow-soft: 0 2px 24px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 4px 32px rgba(0, 0, 0, 0.45);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  min-height: 100svh;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Вырезы и индикатор «домой» на телефонах: контент не прилипает к краям */
+body {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Ссылка по умолчанию */
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+/* Контейнер страницы: центрирование, сетка, учёт safe-area (уже частично на body) */
+.page-shell {
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  padding-inline: var(--page-padding);
+}
+
+/* Шапка: отступ сверху под «чёлку» iOS */
+.site-header {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Минимальная зона нажатия ~44px — рекомендации для мобильных интерфейсов */
+.nav-tap-target {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 0.25rem;
+}
+
+/* Заголовки */
+h1,
+h2,
+h3 {
+  line-height: var(--leading-tight);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Плейсхолдер под будущий блок каталога */
+.catalog-placeholder {
+  margin-top: calc(var(--space-unit) * 4);
+  padding: clamp(1.25rem, 5vw, calc(var(--space-unit) * 5));
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: clamp(var(--text-base), 2.5vw, var(--text-lg));
+  text-align: center;
+  line-height: var(--leading-relaxed);
+}
+
+/* Подвал: запас снизу под жестовую зону iOS */
+.site-footer {
+  padding-bottom: max(calc(var(--space-unit) * 3), env(safe-area-inset-bottom, 0px));
+}

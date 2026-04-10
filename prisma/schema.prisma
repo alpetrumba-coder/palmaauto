@@ -1,0 +1,34 @@
+// Prisma: схема БД и генератор клиента.
+// Документация: https://www.prisma.io/docs
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // URL берётся из .env — не храните реальные пароли в репозитории
+  url      = env("DATABASE_URL")
+}
+
+// --- Заготовка этапа 1: минимальная модель под будущих пользователей ---
+// На следующих этапах сюда добавят Car, CarImage, Booking и поля профиля.
+
+/// Роль в системе: клиент сайта, сотрудник проката, полный доступ.
+enum UserRole {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+
+/// Пользователь (пока только каркас; авторизацию подключим на этапе 3).
+model User {
+  id        String   @id @default(cuid())
+  /// Уникальный email для входа и связи
+  email     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  role      UserRole @default(CUSTOMER)
+
+  @@map("users")
+}

@@ -1,0 +1,21 @@
+# Зависимости
+node_modules/
+
+# Сборка Next.js
+.next/
+out/
+
+# Переменные окружения с секретами (шаблон — .env.example)
+.env
+.env*.local
+
+# Логи и ОС
+npm-debug.log*
+.DS_Store
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE (по желанию раскомментируйте)
+# .idea/
+# .vscode/
