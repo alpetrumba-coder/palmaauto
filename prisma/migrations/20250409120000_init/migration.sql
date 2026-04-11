@@ -1,5 +1,5 @@
 -- Первая миграция: минимальная заготовка под пользователей (этап 1 плана).
--- Применение: из корня проекта (`s:\cursor\palmaauto`) выполнить `npx prisma migrate deploy` (или `migrate dev` в разработке).
+-- Применение: из корня проекта (папка с package.json) выполнить `npx prisma migrate deploy` (или `migrate dev` в разработке).
 
 -- Создаём перечисление ролей (соответствует enum UserRole в schema.prisma).
 CREATE TYPE "UserRole" AS ENUM ('CUSTOMER', 'STAFF', 'ADMIN');

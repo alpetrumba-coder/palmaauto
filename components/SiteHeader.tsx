@@ -48,12 +48,9 @@ export function SiteHeader({ variant }: SiteHeaderProps) {
         <nav aria-label="Основная навигация" style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap", alignItems: "center" }}>
           {variant === "public" ? (
             <>
-              <span
-                className="nav-tap-target"
-                style={{ color: "var(--color-text-secondary)", fontSize: "var(--text-sm)" }}
-              >
-                Каталог — скоро
-              </span>
+              <Link href="/cars" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
+                Каталог
+              </Link>
               <Link href="/staff" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
                 Для сотрудников
               </Link>

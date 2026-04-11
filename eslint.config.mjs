@@ -8,4 +8,9 @@ const __dirname = dirname(__filename);
 const compat = new FlatCompat({ baseDirectory: __dirname });
 
 /** Базовые правила Next.js + React; расширяйте по мере необходимости */
-export default [...compat.extends("next/core-web-vitals", "next/typescript")];
+const eslintConfig = [
+  { ignores: [".next/**", "out/**", "node_modules/**", "next-env.d.ts"] },
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
+];
+
+export default eslintConfig;

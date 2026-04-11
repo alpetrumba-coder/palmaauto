@@ -32,3 +32,35 @@ model User {
 
   @@map("users")
 }
+
+/// Автомобиль в автопарке (витрина: только active = true).
+model Car {
+  id              String     @id @default(cuid())
+  /// Стабильный URL-сегмент, например toyota-camry
+  slug            String     @unique
+  make            String
+  model           String
+  description     String     @db.Text
+  /// Цена за сутки в целых рублях (без копеек).
+  pricePerDayRub  Int        @map("price_per_day_rub")
+  active          Boolean    @default(true)
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  images          CarImage[]
+
+  @@map("cars")
+}
+
+/// Фото автомобиля: пока внешний URL (этап 5 — загрузка в S3).
+model CarImage {
+  id        String   @id @default(cuid())
+  carId     String   @map("car_id")
+  url       String
+  sortOrder Int      @default(0) @map("sort_order")
+  alt       String?
+  createdAt DateTime @default(now()) @map("created_at")
+  car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@index([carId])
+  @@map("car_images")
+}

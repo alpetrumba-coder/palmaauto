@@ -17,7 +17,7 @@ export function SiteFooter() {
         textAlign: "center",
       }}
     >
-      © {year} ПальмаАвто. Каркас проекта (этап 1).
+      © {year} ПальмаАвто. Каталог (этап 2); дальше — регистрация и бронь.
     </footer>
   );
 }

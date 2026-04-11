@@ -97,6 +97,12 @@ a:hover {
   text-decoration: underline;
 }
 
+/* Кнопка-ссылка на главной: без подчёркивания при наведении */
+a.cta-link:hover {
+  text-decoration: none;
+  opacity: 0.92;
+}
+
 /* Контейнер страницы: центрирование, сетка, учёт safe-area (уже частично на body) */
 .page-shell {
   width: 100%;
@@ -125,6 +131,20 @@ h3 {
   line-height: var(--leading-tight);
   font-weight: 600;
   letter-spacing: -0.02em;
+}
+
+/* Детальная страница авто: сетка; на широком экране — две колонки */
+.car-detail-layout {
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 2.5rem);
+  align-items: start;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 960px) {
+  .car-detail-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  }
 }
 
 /* Плейсхолдер под будущий блок каталога */
