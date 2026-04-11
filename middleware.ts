@@ -3,11 +3,14 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 /**
- * Защита /staff: только STAFF и ADMIN.
+ * /account — любой авторизованный пользователь.
+ * /staff — только STAFF и ADMIN.
  * JWT через getToken — без импорта Prisma в Edge.
  */
 export async function middleware(req: NextRequest) {
-  if (!req.nextUrl.pathname.startsWith("/staff")) {
+  const path = req.nextUrl.pathname;
+
+  if (!path.startsWith("/staff") && !path.startsWith("/account")) {
     return NextResponse.next();
   }
 
@@ -17,20 +20,32 @@ export async function middleware(req: NextRequest) {
   }
 
   const token = await getToken({ req, secret });
-  if (!token) {
-    const url = new URL("/login", req.url);
-    url.searchParams.set("callbackUrl", req.nextUrl.pathname);
-    return NextResponse.redirect(url);
+
+  if (path.startsWith("/account")) {
+    if (!token) {
+      const url = new URL("/login", req.url);
+      url.searchParams.set("callbackUrl", path);
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
   }
 
-  const role = token.role as string | undefined;
-  if (role !== "STAFF" && role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/", req.url));
+  if (path.startsWith("/staff")) {
+    if (!token) {
+      const url = new URL("/login", req.url);
+      url.searchParams.set("callbackUrl", path);
+      return NextResponse.redirect(url);
+    }
+    const role = token.role as string | undefined;
+    if (role !== "STAFF" && role !== "ADMIN") {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+    return NextResponse.next();
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/staff/:path*"],
+  matcher: ["/staff/:path*", "/account/:path*"],
 };

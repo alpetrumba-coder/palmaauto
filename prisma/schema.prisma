@@ -34,6 +34,7 @@ model User {
   updatedAt    DateTime             @updatedAt @map("updated_at")
   role         UserRole             @default(CUSTOMER)
   resetTokens  PasswordResetToken[]
+  bookings     Booking[]
 
   @@map("users")
 }
@@ -64,8 +65,36 @@ model Car {
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
   images          CarImage[]
+  bookings        Booking[]
 
   @@map("cars")
+}
+
+/// Статус брони: оплата и отмена — на следующих этапах.
+enum BookingStatus {
+  DRAFT
+  PENDING_PAYMENT
+  PAID
+  CANCELLED
+}
+
+/// Бронь: даты включительно (startDate … endDate), цена за весь период.
+model Booking {
+  id            String        @id @default(cuid())
+  userId        String        @map("user_id")
+  carId         String        @map("car_id")
+  startDate     DateTime      @map("start_date") @db.Date
+  endDate       DateTime      @map("end_date") @db.Date
+  status        BookingStatus @default(PENDING_PAYMENT)
+  totalPriceRub Int           @map("total_price_rub")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  car           Car           @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([carId])
+  @@map("bookings")
 }
 
 /// Фото автомобиля: пока внешний URL (этап 5 — загрузка в S3).

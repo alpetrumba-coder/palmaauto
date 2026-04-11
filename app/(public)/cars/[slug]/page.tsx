@@ -2,8 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CarBookingForm } from "@/components/CarBookingForm";
 import { getActiveCarBySlug } from "@/lib/cars";
 import { formatPriceRub } from "@/lib/formatPrice";
+import { formatDateInputUTC, utcToday } from "@/lib/rental-dates";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -35,6 +37,7 @@ export default async function CarDetailPage({ params }: PageProps) {
   }
 
   const title = `${car.make} ${car.model}`;
+  const minDateStr = formatDateInputUTC(utcToday());
 
   return (
     <div className="page-shell" style={{ paddingBlock: "clamp(2rem, 8vw, 3.5rem)" }}>
@@ -75,6 +78,12 @@ export default async function CarDetailPage({ params }: PageProps) {
           >
             {car.description}
           </p>
+          <CarBookingForm
+            carId={car.id}
+            slug={car.slug}
+            pricePerDayRub={car.pricePerDayRub}
+            minDateStr={minDateStr}
+          />
         </div>
 
         {car.images.length > 0 ? (
