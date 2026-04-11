@@ -1,6 +1,21 @@
 import { PrismaClient } from "@prisma/client";
 
 /**
+ * Neon в консоли иногда отдаёт строку с `channel_binding=require`.
+ * Драйвер `pg` в Node часто с ним не устанавливает соединение — Prisma падает на Vercel.
+ * См. обсуждения Neon + Prisma + serverless.
+ */
+function sanitizeDatabaseUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    u.searchParams.delete("channel_binding");
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+/**
  * Единый экземпляр PrismaClient на процесс.
  *
  * В режиме `next dev` при hot reload модуль может пересоздаваться;
@@ -10,10 +25,15 @@ import { PrismaClient } from "@prisma/client";
  */
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 
+const databaseUrl = process.env.DATABASE_URL;
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+    ...(databaseUrl
+      ? { datasources: { db: { url: sanitizeDatabaseUrl(databaseUrl) } } }
+      : {}),
   });
 
 // В проде (Vercel serverless) тоже кэшируем на globalThis — меньше лишних клиентов в одном инстансе.

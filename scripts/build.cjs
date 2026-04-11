@@ -5,7 +5,18 @@
  */
 const { execSync } = require("node:child_process");
 
+function sanitizeDatabaseUrl(url) {
+  try {
+    const u = new URL(url);
+    u.searchParams.delete("channel_binding");
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 if (process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = sanitizeDatabaseUrl(process.env.DATABASE_URL);
   execSync("npx prisma migrate deploy", { stdio: "inherit" });
 } else {
   console.warn(
