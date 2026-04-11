@@ -1,15 +1,21 @@
 import Link from "next/link";
 
+import { auth } from "@/auth";
+
 /**
- * Заглушка внутренней панели по адресу `/staff`.
- * На этапах 5–6 здесь появятся CRUD автопарка и список бронирований.
+ * Внутренняя панель `/staff` — доступ только STAFF | ADMIN (middleware + сессия).
  */
-export default function StaffHomePage() {
+export default async function StaffHomePage() {
+  const session = await auth();
+
   return (
     <div className="page-shell" style={{ paddingBlock: "clamp(2rem, 6vw, 3rem)" }}>
       <h1 style={{ fontSize: "var(--text-3xl)", marginTop: 0 }}>Внутренняя зона</h1>
       <p style={{ color: "var(--color-text-secondary)", maxWidth: "40rem" }}>
-        Экран для сотрудников проката. Доступ по роли будет настроен вместе с авторизацией.
+        Вы вошли как <strong>{session?.user?.email}</strong> (роль: {session?.user?.role}).
+      </p>
+      <p style={{ color: "var(--color-text-secondary)", maxWidth: "40rem" }}>
+        Экран для сотрудников проката. Дальше — CRUD автопарка и бронирования.
       </p>
       <ul style={{ color: "var(--color-text-secondary)", lineHeight: 1.8 }}>
         <li>Управление автопарком и фото — этап 5</li>

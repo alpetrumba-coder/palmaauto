@@ -23,16 +23,31 @@ enum UserRole {
   ADMIN
 }
 
-/// Пользователь (пока только каркас; авторизацию подключим на этапе 3).
+/// Пользователь: вход по email/паролю (хэш в passwordHash).
 model User {
-  id        String   @id @default(cuid())
+  id           String               @id @default(cuid())
   /// Уникальный email для входа и связи
-  email     String   @unique
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  role      UserRole @default(CUSTOMER)
+  email        String               @unique
+  /// Bcrypt-хэш пароля; null — вход по паролю недоступен (старые записи).
+  passwordHash String?              @map("password_hash")
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+  role         UserRole             @default(CUSTOMER)
+  resetTokens  PasswordResetToken[]
 
   @@map("users")
+}
+
+/// Одноразовый токен сброса пароля (в БД хранится хэш токена из письма).
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@map("password_reset_tokens")
 }
 
 /// Автомобиль в автопарке (витрина: только active = true).

@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
+import { hashPassword } from "../lib/password";
+
 const prisma = new PrismaClient();
 
 async function main() {
@@ -94,6 +96,18 @@ async function main() {
   }
 
   console.log("Seed: cars upserted.");
+
+  const adminEmail = process.env.INITIAL_ADMIN_EMAIL?.toLowerCase().trim();
+  const adminPassword = process.env.INITIAL_ADMIN_PASSWORD;
+  if (adminEmail && adminPassword) {
+    const passwordHash = await hashPassword(adminPassword);
+    await prisma.user.upsert({
+      where: { email: adminEmail },
+      create: { email: adminEmail, passwordHash, role: "ADMIN" },
+      update: { passwordHash, role: "ADMIN" },
+    });
+    console.log("Seed: initial admin upserted.");
+  }
 }
 
 main()

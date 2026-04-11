@@ -1,5 +1,8 @@
 import Link from "next/link";
 
+import { InternalAuthNav } from "@/components/InternalAuthNav";
+import { PublicAuthNav } from "@/components/PublicAuthNav";
+
 type SiteHeaderProps = {
   /** `public` — витрина; `internal` — внутренняя зона (другой акцент в навигации). */
   variant: "public" | "internal";
@@ -54,15 +57,14 @@ export function SiteHeader({ variant }: SiteHeaderProps) {
               <Link href="/staff" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
                 Для сотрудников
               </Link>
+              <PublicAuthNav />
             </>
           ) : (
             <>
               <Link href="/staff" className="nav-tap-target" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
                 Панель
               </Link>
-              <Link href="/" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
-                Сайт
-              </Link>
+              <InternalAuthNav />
             </>
           )}
         </nav>

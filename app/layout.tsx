@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+import { AuthSessionProvider } from "@/components/AuthSessionProvider";
+
 /**
  * Корневой layout всего приложения.
  * Здесь только общее для всех зон: стили, метаданные, <html>/<body>.
@@ -32,7 +34,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru">
-      <body>{children}</body>
+      <body>
+        <AuthSessionProvider>{children}</AuthSessionProvider>
+      </body>
     </html>
   );
 }

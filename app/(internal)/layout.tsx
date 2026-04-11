@@ -2,8 +2,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 
 /**
  * Layout внутренней зоны (сотрудники / админ).
- * Позже сюда добавят проверку сессии и роли STAFF | ADMIN.
- * Сейчас маршруты доступны всем — это только визуальный каркас.
+ * Доступ к маршрутам `/staff/*` — middleware (JWT) и роли STAFF | ADMIN.
  */
 export default function InternalLayout({
   children,
