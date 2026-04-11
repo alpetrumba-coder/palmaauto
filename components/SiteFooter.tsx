@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 /**
  * Нижний колонтитул публичной части.
  * На этапе 1 — минимальный; позже можно добавить контакты, юридические ссылки.
@@ -17,7 +19,16 @@ export function SiteFooter() {
         textAlign: "center",
       }}
     >
-      © {year} ПальмаАвто. Каталог (этап 2); дальше — регистрация и бронь.
+      <p style={{ margin: "0 0 0.75rem" }}>
+        <Link
+          href="/admin-panel/login"
+          className="nav-tap-target"
+          style={{ fontWeight: 600, color: "var(--color-text-secondary)", textDecoration: "none" }}
+        >
+          Админпанель
+        </Link>
+      </p>
+      <p style={{ margin: 0 }}>© {year} ПальмаАвто. Каталог (этап 2); дальше — регистрация и бронь.</p>
     </footer>
   );
 }
