@@ -1,19 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 
-/**
- * Neon в консоли иногда отдаёт строку с `channel_binding=require`.
- * Драйвер `pg` в Node часто с ним не устанавливает соединение — Prisma падает на Vercel.
- * См. обсуждения Neon + Prisma + serverless.
- */
-function sanitizeDatabaseUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    u.searchParams.delete("channel_binding");
-    return u.toString();
-  } catch {
-    return url;
-  }
-}
+import { prepareDatabaseUrl } from "@/lib/databaseUrl";
 
 /**
  * Единый экземпляр PrismaClient на процесс.
@@ -32,7 +19,7 @@ export const prisma =
   new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
     ...(databaseUrl
-      ? { datasources: { db: { url: sanitizeDatabaseUrl(databaseUrl) } } }
+      ? { datasources: { db: { url: prepareDatabaseUrl(databaseUrl) } } }
       : {}),
   });
 

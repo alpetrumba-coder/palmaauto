@@ -2,7 +2,9 @@
 // Документация: https://www.prisma.io/docs
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Vercel (Linux): корректный query engine в проде
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {

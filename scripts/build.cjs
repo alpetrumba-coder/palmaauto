@@ -5,19 +5,17 @@
  */
 const { execSync } = require("node:child_process");
 
-function sanitizeDatabaseUrl(url) {
-  try {
-    const u = new URL(url);
-    u.searchParams.delete("channel_binding");
-    return u.toString();
-  } catch {
-    return url;
-  }
-}
+const { stripForMigrateDeploy } = require("./prisma-db-url.cjs");
 
 if (process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = sanitizeDatabaseUrl(process.env.DATABASE_URL);
-  execSync("npx prisma migrate deploy", { stdio: "inherit" });
+  // Миграции: прямое подключение из DIRECT_URL (рекомендует Neon) или та же строка без pgbouncer.
+  const migrateUrl = stripForMigrateDeploy(
+    process.env.DIRECT_URL || process.env.DATABASE_URL,
+  );
+  execSync("npx prisma migrate deploy", {
+    stdio: "inherit",
+    env: { ...process.env, DATABASE_URL: migrateUrl },
+  });
 } else {
   console.warn(
     "[build] DATABASE_URL не задан — пропускаем prisma migrate deploy. Для Vercel укажите переменную в настройках проекта.",

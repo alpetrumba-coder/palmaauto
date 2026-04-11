@@ -87,9 +87,10 @@
 
 ## Деплой на Vercel
 
-1. В **Settings → Environment Variables** задайте **`DATABASE_URL`** — строка PostgreSQL (часто нужен `?sslmode=require` у облачных провайдеров).
-2. Команда сборки — **`npm run build`**: при заданном **`DATABASE_URL`** выполняется **`prisma migrate deploy`**, затем **`next build`** (таблицы `cars` и др. создаются на проде).
-3. Чтобы в каталоге были машины, один раз выполните сид локально против той же БД (`npm run db:seed`) или добавьте записи через Prisma Studio.
+1. В **Settings → Environment Variables** задайте **`DATABASE_URL`** — строка PostgreSQL (у Neon обычно **Pooled**; `sslmode=require` уже в строке). Приложение само добавит **`pgbouncer=true`** для pooler-хоста (иначе Prisma на serverless падает).
+2. Опционально **`DIRECT_URL`** — строка **Direct** из Neon (без `-pooler` в хосте): надёжнее **`prisma migrate deploy`** на сборке. Если не задана, миграции идут через ту же **`DATABASE_URL`**, только без режима pgbouncer.
+3. Команда сборки — **`npm run build`**: при заданном **`DATABASE_URL`** выполняется **`prisma migrate deploy`**, затем **`next build`**.
+4. Чтобы в каталоге были машины, один раз выполните сид локально против той же БД (`npm run db:seed`) или добавьте записи через Prisma Studio.
 
 ## Проверка этапа 1 (по плану)
 
