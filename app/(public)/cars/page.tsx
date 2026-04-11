@@ -4,6 +4,8 @@ import { CarCard } from "@/components/CarCard";
 import { getActiveCars } from "@/lib/cars";
 
 export const dynamic = "force-dynamic";
+/** Prisma требует Node.js runtime, не Edge. */
+export const runtime = "nodejs";
 
 /**
  * Публичный каталог автомобилей (`/cars`). Только активные машины из БД.

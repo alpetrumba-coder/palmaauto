@@ -9,7 +9,7 @@ const compat = new FlatCompat({ baseDirectory: __dirname });
 
 /** Базовые правила Next.js + React; расширяйте по мере необходимости */
 const eslintConfig = [
-  { ignores: [".next/**", "out/**", "node_modules/**", "next-env.d.ts"] },
+  { ignores: [".next/**", "out/**", "node_modules/**", "next-env.d.ts", "scripts/**"] },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 ];
 
