@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { CarCard } from "@/components/CarCard";
+import { CarCatalogGrid } from "@/components/CarCatalogGrid";
 import { getActiveCars } from "@/lib/cars";
 
 export const dynamic = "force-dynamic";
@@ -38,42 +38,10 @@ export default async function CarsCatalogPage() {
           margin: "0 0 calc(var(--space-unit) * 4)",
         }}
       >
-        Выберите класс и бюджет — цена указана за одни сутки проката. Позже здесь появится бронирование по датам.
+        Выберите класс и бюджет — цена указана за одни сутки проката. Бронирование — после входа в аккаунт.
       </p>
 
-      {cars.length === 0 ? (
-        <div className="catalog-placeholder" role="status">
-          В каталоге пока нет доступных автомобилей. Загляните позже или свяжитесь с нами.
-        </div>
-      ) : (
-        <ul
-          className="car-grid"
-          style={{
-            listStyle: "none",
-            margin: 0,
-            padding: 0,
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
-            gap: "clamp(1rem, 3vw, 1.5rem)",
-          }}
-        >
-          {cars.map((car) => {
-            const cover = car.images[0];
-            return (
-              <li key={car.id}>
-                <CarCard
-                  slug={car.slug}
-                  make={car.make}
-                  model={car.model}
-                  pricePerDayRub={car.pricePerDayRub}
-                  coverUrl={cover?.url ?? null}
-                  coverAlt={cover?.alt ?? null}
-                />
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <CarCatalogGrid cars={cars} />
     </div>
   );
 }

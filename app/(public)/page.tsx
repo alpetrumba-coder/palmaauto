@@ -1,10 +1,17 @@
 import Link from "next/link";
 
+import { CarCatalogGrid } from "@/components/CarCatalogGrid";
+import { getActiveCars } from "@/lib/cars";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 /**
- * Главная страница (маршрут `/`).
- * Статический лендинг этапа 1; блок каталога — заглушка до этапа 2.
+ * Главная: лендинг + каталог автомобилей из БД.
  */
-export default function HomePage() {
+export default async function HomePage() {
+  const cars = await getActiveCars();
+
   return (
     <div className="page-shell" style={{ paddingBlock: "clamp(3rem, 10vw, 5rem)" }}>
       <p
@@ -23,35 +30,16 @@ export default function HomePage() {
         style={{
           fontSize: "var(--text-xl)",
           color: "var(--color-text-secondary)",
-          maxWidth: "36rem",
+          maxWidth: "40rem",
           lineHeight: "var(--leading-relaxed)",
           margin: 0,
         }}
       >
-        Удобный выбор машины и бронирование на даты поездки: каталог с ценами за сутки, подбор свободных авто по
+        Удобный выбор машины и бронирование на даты поездки: каталог с ценами за сутки ниже, подбор свободных авто по
         датам и бронь после входа в аккаунт.
       </p>
 
-      <div style={{ marginTop: "calc(var(--space-unit) * 3)", display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-        <Link
-          href="/cars"
-          className="nav-tap-target cta-link"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "0.85rem 1.5rem",
-            borderRadius: "999px",
-            background: "var(--color-accent)",
-            color: "#fff",
-            fontSize: "var(--text-base)",
-            fontWeight: 600,
-            textDecoration: "none",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          Смотреть каталог
-        </Link>
+      <div style={{ marginTop: "calc(var(--space-unit) * 2)" }}>
         <Link
           href="/book"
           className="nav-tap-target"
@@ -71,6 +59,22 @@ export default function HomePage() {
           Подобрать по датам
         </Link>
       </div>
+
+      <section style={{ marginTop: "calc(var(--space-unit) * 4)" }}>
+        <h2 style={{ fontSize: "var(--text-3xl)", margin: "0 0 0.75rem" }}>Автомобили</h2>
+        <p
+          style={{
+            fontSize: "var(--text-lg)",
+            color: "var(--color-text-secondary)",
+            maxWidth: "40rem",
+            lineHeight: "var(--leading-relaxed)",
+            margin: "0 0 calc(var(--space-unit) * 3)",
+          }}
+        >
+          Выберите класс и бюджет — цена за сутки; подробнее на карточке машины.
+        </p>
+        <CarCatalogGrid cars={cars} />
+      </section>
 
       <p style={{ marginTop: "calc(var(--space-unit) * 4)", fontSize: "var(--text-sm)" }}>
         <Link href="/staff" className="nav-tap-target">

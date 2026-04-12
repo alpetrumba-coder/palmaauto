@@ -28,7 +28,7 @@ export function SiteFooter() {
           Админпанель
         </Link>
       </p>
-      <p style={{ margin: 0 }}>© {year} ПальмаАвто. Каталог (этап 2); дальше — регистрация и бронь.</p>
+      <p style={{ margin: 0 }}>© {year} ПальмаАвто. Каталог и бронь на сайте.</p>
     </footer>
   );
 }
