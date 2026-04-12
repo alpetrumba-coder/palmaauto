@@ -75,12 +75,6 @@ export default async function HomePage() {
         </p>
         <CarCatalogGrid cars={cars} />
       </section>
-
-      <p style={{ marginTop: "calc(var(--space-unit) * 4)", fontSize: "var(--text-sm)" }}>
-        <Link href="/staff" className="nav-tap-target">
-          Внутренняя зона (заглушка для сотрудников)
-        </Link>
-      </p>
     </div>
   );
 }
