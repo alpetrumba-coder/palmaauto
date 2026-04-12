@@ -16,7 +16,7 @@ const inputStyle: CSSProperties = {
 
 export function AdminPanelLoginForm() {
   const router = useRouter();
-  const [login, setLogin] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -28,7 +28,7 @@ export function AdminPanelLoginForm() {
     const res = await fetch("/api/admin-panel/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ login, password }),
+      body: JSON.stringify({ email, password }),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string };
     setPending(false);
@@ -43,14 +43,14 @@ export function AdminPanelLoginForm() {
   return (
     <form onSubmit={onSubmit} style={{ marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
       <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Логин
+        Email администратора
         <input
-          type="text"
-          name="login"
+          type="email"
+          name="email"
           autoComplete="username"
           required
-          value={login}
-          onChange={(e) => setLogin(e.target.value)}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           style={inputStyle}
         />
       </label>

@@ -32,7 +32,8 @@ export default async function AdminPanelLoginPage() {
       <div style={{ width: "100%", maxWidth: "22rem" }}>
         <h1 style={{ fontSize: "var(--text-2xl)", marginTop: 0, textAlign: "center" }}>Админ-панель</h1>
         <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", textAlign: "center" }}>
-          Вход по логину и паролю из переменных окружения.
+          Вход тем же email и паролем, что заданы как <code style={{ fontSize: "0.9em" }}>INITIAL_ADMIN_EMAIL</code> и{" "}
+          <code style={{ fontSize: "0.9em" }}>INITIAL_ADMIN_PASSWORD</code> в файле .env.
         </p>
         <AdminPanelLoginForm />
         <p style={{ marginTop: "1.5rem", textAlign: "center", fontSize: "var(--text-sm)" }}>

@@ -8,28 +8,30 @@ import {
 } from "@/lib/admin-panel-session";
 
 export async function POST(req: Request) {
-  const loginEnv = process.env.ADMIN_PANEL_LOGIN;
-  const passwordEnv = process.env.ADMIN_PANEL_PASSWORD;
+  const emailEnv = process.env.INITIAL_ADMIN_EMAIL?.toLowerCase().trim();
+  const passwordEnv = process.env.INITIAL_ADMIN_PASSWORD;
 
-  if (!loginEnv || !passwordEnv) {
+  if (!emailEnv || !passwordEnv) {
     return NextResponse.json(
-      { error: "Админ-панель не настроена (ADMIN_PANEL_LOGIN / ADMIN_PANEL_PASSWORD)." },
+      { error: "Задайте INITIAL_ADMIN_EMAIL и INITIAL_ADMIN_PASSWORD в .env (те же, что для сида админа)." },
       { status: 503 },
     );
   }
 
-  let body: { login?: string; password?: string };
+  let body: { email?: string; password?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Некорректный запрос" }, { status: 400 });
   }
 
-  const login = String(body.login ?? "");
+  const email = String(body.email ?? "")
+    .toLowerCase()
+    .trim();
   const password = String(body.password ?? "");
 
-  if (!safeStringEqual(login, loginEnv) || !safeStringEqual(password, passwordEnv)) {
-    return NextResponse.json({ error: "Неверный логин или пароль." }, { status: 401 });
+  if (!safeStringEqual(email, emailEnv) || !safeStringEqual(password, passwordEnv)) {
+    return NextResponse.json({ error: "Неверный email или пароль." }, { status: 401 });
   }
 
   let token: string;

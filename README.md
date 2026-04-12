@@ -106,7 +106,7 @@
 
 ### Админ-панель (отдельный вход)
 
-- В подвале сайта ссылка **«Админпанель»** ведёт на **`/admin-panel/login`**. Это **не** вход пользователя сайта: логин и пароль задаются в **`.env`**: **`ADMIN_PANEL_LOGIN`** и **`ADMIN_PANEL_PASSWORD`** (нужен и **`AUTH_SECRET`** для подписи cookie). После входа — **`/admin-panel`** (пока заглушка).
+- В подвале ссылка **«Админпанель»** → **`/admin-panel/login`**. Это **не** обычный вход на сайт: используйте **`INITIAL_ADMIN_EMAIL`** и **`INITIAL_ADMIN_PASSWORD`** из **`.env`** (те же, что для **`npm run db:seed`**). Нужен **`AUTH_SECRET`** для cookie. После входа — **`/admin-panel`** (пока заглушка).
 
 После обновления схемы выполните **`npx prisma migrate deploy`** (или деплой на Vercel с `DATABASE_URL`).
 
