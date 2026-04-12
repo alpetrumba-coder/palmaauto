@@ -33,6 +33,14 @@ model User {
   createdAt    DateTime             @default(now()) @map("created_at")
   updatedAt    DateTime             @updatedAt @map("updated_at")
   role         UserRole             @default(CUSTOMER)
+  /// Профиль клиента (редактирование в админ-панели и позже в личном кабинете).
+  lastName     String?              @map("last_name")
+  firstName    String?              @map("first_name")
+  patronymic   String?
+  phone        String?
+  address      String?              @db.Text
+  /// Паспортные данные (серия, номер, кем выдан); хранить и показывать только доверенным ролям.
+  passportData String?              @map("passport_data") @db.Text
   resetTokens  PasswordResetToken[]
   bookings     Booking[]
 
