@@ -57,7 +57,11 @@ export default function AdminPanelHomePage() {
             Бронирование
           </Link>
           <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-            Шахматка: машины по строкам, дни по столбцам, полосы — активные брони.
+            Шахматка и{" "}
+            <Link href="/admin-panel/bookings/new" style={{ fontWeight: 600, color: "inherit" }}>
+              создание брони
+            </Link>{" "}
+            для клиента.
           </p>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>

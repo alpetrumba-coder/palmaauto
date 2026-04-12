@@ -124,6 +124,23 @@ export function BookingChessboard({
         }}
       >
         <h1 style={{ fontSize: "var(--text-2xl)", margin: 0, flex: "1 1 auto" }}>Брони и заявки</h1>
+        <Link
+          href="/admin-panel/bookings/new"
+          className="nav-tap-target"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "0.5rem 1rem",
+            borderRadius: "999px",
+            background: "var(--color-accent)",
+            color: "#fff",
+            fontWeight: 600,
+            fontSize: "var(--text-sm)",
+            textDecoration: "none",
+          }}
+        >
+          Новая бронь
+        </Link>
         <nav aria-label="Период шахматки" style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
           <Link
             href={`/admin-panel/bookings?from=${encodeURIComponent(prevFromStr)}`}
