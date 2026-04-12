@@ -10,7 +10,6 @@ export const metadata: Metadata = {
 
 const roleLabels: Record<string, string> = {
   CUSTOMER: "Клиент",
-  STAFF: "Сотрудник",
   ADMIN: "Администратор",
 };
 

@@ -32,7 +32,6 @@ type UserEditFormProps = { userId: string; initial: UserEditFormInitial };
 
 const roleLabels: Record<string, string> = {
   CUSTOMER: "Клиент",
-  STAFF: "Сотрудник",
   ADMIN: "Администратор",
 };
 

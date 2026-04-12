@@ -12,7 +12,7 @@ export default function PublicLayout({
 }>) {
   return (
     <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
-      <SiteHeader variant="public" />
+      <SiteHeader />
       <main style={{ flex: 1 }}>{children}</main>
       <SiteFooter />
     </div>

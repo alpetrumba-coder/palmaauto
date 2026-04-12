@@ -1,18 +1,12 @@
 import Link from "next/link";
 
-import { InternalAuthNav } from "@/components/InternalAuthNav";
 import { PublicAuthNav } from "@/components/PublicAuthNav";
-
-type SiteHeaderProps = {
-  /** `public` — витрина; `internal` — внутренняя зона (другой акцент в навигации). */
-  variant: "public" | "internal";
-};
 
 /**
  * Верхняя панель сайта: логотип/название и основные ссылки.
- * Стили через inline + CSS-переменные, чтобы не тянуть дополнительные библиотеки на этапе 1.
+ * Управление автопарком и бронями — через `/admin-panel`.
  */
-export function SiteHeader({ variant }: SiteHeaderProps) {
+export function SiteHeader() {
   return (
     <header
       className="site-header"
@@ -49,27 +43,13 @@ export function SiteHeader({ variant }: SiteHeaderProps) {
           ПальмаАвто
         </Link>
         <nav aria-label="Основная навигация" style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap", alignItems: "center" }}>
-          {variant === "public" ? (
-            <>
-              <Link href="/cars" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
-                Каталог
-              </Link>
-              <Link href="/book" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
-                По датам
-              </Link>
-              <Link href="/staff" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
-                Для сотрудников
-              </Link>
-              <PublicAuthNav />
-            </>
-          ) : (
-            <>
-              <Link href="/staff" className="nav-tap-target" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
-                Панель
-              </Link>
-              <InternalAuthNav />
-            </>
-          )}
+          <Link href="/cars" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
+            Каталог
+          </Link>
+          <Link href="/book" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
+            По датам
+          </Link>
+          <PublicAuthNav />
         </nav>
       </div>
     </header>

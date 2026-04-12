@@ -27,9 +27,6 @@ Next.js связывает **папки** с **URL**. Скобки в имени
 | `app/(public)/page.tsx` | Главная страница `/`. |
 | `app/(public)/cars/page.tsx` | Каталог `/cars` (только активные машины из БД). |
 | `app/(public)/cars/[slug]/page.tsx` | Карточка авто `/cars/…`. |
-| `app/(internal)/` | **Внутренняя зона** (сотрудники/админ). Позже сюда добавят защиту по роли. |
-| `app/(internal)/layout.tsx` | Отдельная оболочка для внутренних экранов. |
-| `app/(internal)/staff/page.tsx` | Заглушка по адресу `/staff` (второй layout без конфликта с главной `/`). |
 
 ## `components/`
 

@@ -4,13 +4,12 @@ import { getToken } from "next-auth/jwt";
 
 /**
  * /account — любой авторизованный пользователь.
- * /staff — только STAFF и ADMIN.
  * JWT через getToken — без импорта Prisma в Edge.
  */
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
-  if (!path.startsWith("/staff") && !path.startsWith("/account")) {
+  if (!path.startsWith("/account")) {
     return NextResponse.next();
   }
 
@@ -21,31 +20,15 @@ export async function middleware(req: NextRequest) {
 
   const token = await getToken({ req, secret });
 
-  if (path.startsWith("/account")) {
-    if (!token) {
-      const url = new URL("/login", req.url);
-      url.searchParams.set("callbackUrl", path);
-      return NextResponse.redirect(url);
-    }
-    return NextResponse.next();
-  }
-
-  if (path.startsWith("/staff")) {
-    if (!token) {
-      const url = new URL("/login", req.url);
-      url.searchParams.set("callbackUrl", path);
-      return NextResponse.redirect(url);
-    }
-    const role = token.role as string | undefined;
-    if (role !== "STAFF" && role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
-    return NextResponse.next();
+  if (!token) {
+    const url = new URL("/login", req.url);
+    url.searchParams.set("callbackUrl", path);
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/staff/:path*", "/account/:path*"],
+  matcher: ["/account/:path*"],
 };
