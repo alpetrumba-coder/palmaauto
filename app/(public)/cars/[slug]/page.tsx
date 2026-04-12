@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CarBookingForm } from "@/components/CarBookingForm";
+import { carImageNeedsUnoptimized } from "@/lib/carImageSrc";
 import { getActiveCarBySlug } from "@/lib/cars";
 import { formatPriceRub } from "@/lib/formatPrice";
 import { formatDateInputUTC, utcToday } from "@/lib/rental-dates";
@@ -116,6 +117,7 @@ export default async function CarDetailPage({ params }: PageProps) {
                   sizes="(max-width: 960px) 100vw, min(720px, 50vw)"
                   style={{ objectFit: "cover" }}
                   priority={index === 0}
+                  unoptimized={carImageNeedsUnoptimized(img.url)}
                 />
               </li>
             ))}

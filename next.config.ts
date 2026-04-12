@@ -2,7 +2,8 @@ import type { NextConfig } from "next";
 
 /**
  * Конфигурация Next.js.
- * remotePatterns — внешние URL фото в каталоге (сиды и позже S3 с публичным URL).
+ * Локальные фото каталога: файлы в public/cars/..., в БД путь вида /cars/... (remotePatterns не нужны).
+ * remotePatterns — только если в админке указаны внешние https:// URL (CDN, S3 и т.д.).
  */
 const nextConfig: NextConfig = {
   images: {

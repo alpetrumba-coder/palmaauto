@@ -48,7 +48,13 @@ Next.js связывает **папки** с **URL**. Скобки в имени
 
 ## `public/`
 
-Статические файлы по URL: `/favicon.ico`, картинки без обработки Next.js Image (по необходимости).
+Статические файлы по URL: `/favicon.ico`, иконки и т.д.
+
+**`public/cars/<slug>/`** — фотографии автомобилей для каталога: в БД хранится путь вида **`/cars/<slug>/файл.jpg`**. Памятка: **`public/cars/README.txt`**.
+
+## `app/admin-panel/`
+
+Отдельная зона админ-панели (cookie-сессия, не NextAuth-логин пользователя): **`/admin-panel/login`**, после входа — **`/admin-panel`**, каталог машин — **`/admin-panel/cars`** (список, создание **`/admin-panel/cars/new`**, правка **`/admin-panel/cars/[id]/edit`**). Layout с проверкой сессии: **`app/admin-panel/(dashboard)/`**.
 
 ---
 

@@ -15,12 +15,12 @@ async function main() {
       pricePerDayRub: 4500,
       images: [
         {
-          url: "https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=1200&q=80",
+          url: "/cars/toyota-camry/1.svg",
           alt: "Toyota Camry",
           sortOrder: 0,
         },
         {
-          url: "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=1200&q=80",
+          url: "/cars/toyota-camry/2.svg",
           alt: "Салон автомобиля",
           sortOrder: 1,
         },
@@ -35,7 +35,7 @@ async function main() {
       pricePerDayRub: 5200,
       images: [
         {
-          url: "https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=1200&q=80",
+          url: "/cars/kia-sportage/1.svg",
           alt: "Kia Sportage",
           sortOrder: 0,
         },
@@ -51,7 +51,7 @@ async function main() {
       active: true,
       images: [
         {
-          url: "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=1200&q=80",
+          url: "/cars/mercedes-e-class/1.svg",
           alt: "Mercedes-Benz E-Class",
           sortOrder: 0,
         },
@@ -66,7 +66,7 @@ async function main() {
       active: false,
       images: [
         {
-          url: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=1200&q=80",
+          url: "/cars/skoda-octavia-hidden/1.svg",
           alt: "Škoda Octavia",
           sortOrder: 0,
         },
