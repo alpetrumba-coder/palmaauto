@@ -15,12 +15,12 @@ async function main() {
       pricePerDayRub: 4500,
       images: [
         {
-          url: "/cars/toyota-camry/1.svg",
+          url: "https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=1400&q=85&auto=format&fit=crop",
           alt: "Toyota Camry",
           sortOrder: 0,
         },
         {
-          url: "/cars/toyota-camry/2.svg",
+          url: "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=1400&q=85&auto=format&fit=crop",
           alt: "Салон автомобиля",
           sortOrder: 1,
         },
@@ -35,7 +35,7 @@ async function main() {
       pricePerDayRub: 5200,
       images: [
         {
-          url: "/cars/kia-sportage/1.svg",
+          url: "https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=1400&q=85&auto=format&fit=crop",
           alt: "Kia Sportage",
           sortOrder: 0,
         },
@@ -51,7 +51,7 @@ async function main() {
       active: true,
       images: [
         {
-          url: "/cars/mercedes-e-class/1.svg",
+          url: "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=1400&q=85&auto=format&fit=crop",
           alt: "Mercedes-Benz E-Class",
           sortOrder: 0,
         },
@@ -66,7 +66,7 @@ async function main() {
       active: false,
       images: [
         {
-          url: "/cars/skoda-octavia-hidden/1.svg",
+          url: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=1400&q=85&auto=format&fit=crop",
           alt: "Škoda Octavia",
           sortOrder: 0,
         },
