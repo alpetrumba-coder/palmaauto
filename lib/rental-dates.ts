@@ -32,3 +32,27 @@ export function formatDateInputUTC(d: Date): string {
   const day = String(d.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+/** Сдвиг календарной даты UTC на N суток. */
+export function addUtcDays(d: Date, delta: number): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + delta));
+}
+
+/** Первое число месяца UTC для заданной даты. */
+export function utcStartOfMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+}
+
+/** Последний день месяца UTC. */
+export function utcEndOfMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
+}
+
+/** Подряд `count` дней UTC, начиная с `start` включительно. */
+export function buildUtcDayRange(start: Date, count: number): Date[] {
+  const out: Date[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push(addUtcDays(start, i));
+  }
+  return out;
+}

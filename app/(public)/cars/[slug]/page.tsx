@@ -6,13 +6,14 @@ import { CarBookingForm } from "@/components/CarBookingForm";
 import { carImageNeedsUnoptimized } from "@/lib/carImageSrc";
 import { getActiveCarBySlug } from "@/lib/cars";
 import { formatPriceRub } from "@/lib/formatPrice";
-import { formatDateInputUTC, utcToday } from "@/lib/rental-dates";
+import { formatDateInputUTC, parseDateInput, utcToday } from "@/lib/rental-dates";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ from?: string; to?: string }>;
 };
 
 export async function generateMetadata({ params }: PageProps) {
@@ -30,8 +31,8 @@ export async function generateMetadata({ params }: PageProps) {
 /**
  * Карточка одного автомобиля (`/cars/[slug]`).
  */
-export default async function CarDetailPage({ params }: PageProps) {
-  const { slug } = await params;
+export default async function CarDetailPage({ params, searchParams }: PageProps) {
+  const [{ slug }, sp] = await Promise.all([params, searchParams]);
   const car = await getActiveCarBySlug(slug);
   if (!car) {
     notFound();
@@ -39,6 +40,16 @@ export default async function CarDetailPage({ params }: PageProps) {
 
   const title = `${car.make} ${car.model}`;
   const minDateStr = formatDateInputUTC(utcToday());
+  const pf = sp.from?.trim();
+  const pt = sp.to?.trim();
+  const ds = pf ? parseDateInput(pf) : null;
+  const de = pt ? parseDateInput(pt) : null;
+  let initialFrom: string | undefined;
+  let initialEnd: string | undefined;
+  if (ds && de && ds >= utcToday() && de >= ds) {
+    initialFrom = pf;
+    initialEnd = pt;
+  }
 
   return (
     <div className="page-shell" style={{ paddingBlock: "clamp(2rem, 8vw, 3.5rem)" }}>
@@ -84,6 +95,8 @@ export default async function CarDetailPage({ params }: PageProps) {
             slug={car.slug}
             pricePerDayRub={car.pricePerDayRub}
             minDateStr={minDateStr}
+            initialStartDate={initialFrom}
+            initialEndDate={initialEnd}
           />
         </div>
 

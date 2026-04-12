@@ -6,7 +6,10 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
   await requireAdminPanelSession();
 
   return (
-    <div className="page-shell" style={{ paddingBlock: "clamp(1.5rem, 4vw, 2.5rem)", maxWidth: "52rem" }}>
+    <div
+      className="page-shell"
+      style={{ paddingBlock: "clamp(1.5rem, 4vw, 2.5rem)", maxWidth: "min(100%, 118rem)", marginInline: "auto" }}
+    >
       <header
         style={{
           display: "flex",

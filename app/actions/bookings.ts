@@ -3,11 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
+import { BLOCKING_BOOKING_STATUSES } from "@/lib/booking-overlap";
 import { prisma } from "@/lib/prisma";
 import { inclusiveRentalDays, parseDateInput, utcToday } from "@/lib/rental-dates";
-import type { BookingStatus } from "@prisma/client";
-
-const BLOCKING: BookingStatus[] = ["PENDING_PAYMENT", "PAID"];
 
 export type BookingActionResult = { ok: true } | { ok: false; error: string };
 
@@ -55,7 +53,7 @@ export async function createBookingAction(input: {
   const overlap = await prisma.booking.findFirst({
     where: {
       carId: input.carId,
-      status: { in: BLOCKING },
+      status: { in: BLOCKING_BOOKING_STATUSES },
       AND: [{ startDate: { lte: end } }, { endDate: { gte: start } }],
     },
   });
@@ -78,7 +76,9 @@ export async function createBookingAction(input: {
   });
 
   revalidatePath("/account");
+  revalidatePath("/book");
   revalidatePath(`/cars/${car.slug}`);
+  revalidatePath("/admin-panel/bookings");
 
   return { ok: true };
 }
@@ -108,6 +108,8 @@ export async function cancelBookingAction(bookingId: string): Promise<BookingAct
   });
 
   revalidatePath("/account");
+  revalidatePath("/book");
+  revalidatePath("/admin-panel/bookings");
   if (booking.car) {
     revalidatePath(`/cars/${booking.car.slug}`);
   }

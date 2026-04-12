@@ -54,6 +54,9 @@ export function SiteHeader({ variant }: SiteHeaderProps) {
               <Link href="/cars" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
                 Каталог
               </Link>
+              <Link href="/book" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
+                По датам
+              </Link>
               <Link href="/staff" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
                 Для сотрудников
               </Link>

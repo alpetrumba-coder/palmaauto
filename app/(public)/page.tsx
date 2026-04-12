@@ -28,11 +28,11 @@ export default function HomePage() {
           margin: 0,
         }}
       >
-        Удобный выбор машины и бронирование на даты поездки. Каталог с ценами за сутки уже на сайте; бронь
-        появится на следующих этапах.
+        Удобный выбор машины и бронирование на даты поездки: каталог с ценами за сутки, подбор свободных авто по
+        датам и бронь после входа в аккаунт.
       </p>
 
-      <div style={{ marginTop: "calc(var(--space-unit) * 3)" }}>
+      <div style={{ marginTop: "calc(var(--space-unit) * 3)", display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
         <Link
           href="/cars"
           className="nav-tap-target cta-link"
@@ -51,6 +51,24 @@ export default function HomePage() {
           }}
         >
           Смотреть каталог
+        </Link>
+        <Link
+          href="/book"
+          className="nav-tap-target"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0.85rem 1.5rem",
+            borderRadius: "999px",
+            border: "1px solid var(--color-border)",
+            fontSize: "var(--text-base)",
+            fontWeight: 600,
+            textDecoration: "none",
+            color: "var(--color-text)",
+          }}
+        >
+          Подобрать по датам
         </Link>
       </div>
 

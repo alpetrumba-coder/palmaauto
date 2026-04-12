@@ -16,6 +16,9 @@ export function AdminPanelNav() {
       <Link href="/admin-panel/users" className="nav-tap-target" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
         Пользователи
       </Link>
+      <Link href="/admin-panel/bookings" className="nav-tap-target" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
+        Бронирование
+      </Link>
       <Link href="/" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
         Сайт
       </Link>

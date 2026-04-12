@@ -14,6 +14,9 @@ type CarBookingFormProps = {
   slug: string;
   pricePerDayRub: number;
   minDateStr: string;
+  /** Подстановка из URL подбора по датам (`/cars/slug?from=&to=`). */
+  initialStartDate?: string;
+  initialEndDate?: string;
 };
 
 const inputStyle: CSSProperties = {
@@ -27,10 +30,17 @@ const inputStyle: CSSProperties = {
   color: "var(--color-text)",
 };
 
-export function CarBookingForm({ carId, slug, pricePerDayRub, minDateStr }: CarBookingFormProps) {
+export function CarBookingForm({
+  carId,
+  slug,
+  pricePerDayRub,
+  minDateStr,
+  initialStartDate,
+  initialEndDate,
+}: CarBookingFormProps) {
   const { data: session, status } = useSession();
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
+  const [start, setStart] = useState(initialStartDate ?? "");
+  const [end, setEnd] = useState(initialEndDate ?? "");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [pending, setPending] = useState(false);
