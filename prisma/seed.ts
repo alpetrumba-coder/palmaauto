@@ -110,10 +110,33 @@ async function main() {
   }
 }
 
+function isDbUnreachableError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return (
+    msg.includes("Can't reach database server") ||
+    msg.includes("P1001") ||
+    msg.includes("ECONNREFUSED") ||
+    msg.includes("ETIMEDOUT") ||
+    msg.includes("ENOTFOUND")
+  );
+}
+
 main()
   .then(() => prisma.$disconnect())
   .catch((e) => {
+    if (isDbUnreachableError(e)) {
+      console.error(`
+----------------------------------------------------------------
+Сид не выполнен: нет подключения к PostgreSQL.
+
+Что проверить:
+  • В .env переменная DATABASE_URL — скопируйте заново строку из Neon
+    (Dashboard → ваш проект → Connection string → Pooled).
+  • Проект Neon не в режиме сна / не удалён; пароль не меняли без обновления .env.
+  • VPN/файрвол не режет доступ к хосту Neon на порту 5432.
+----------------------------------------------------------------
+`);
+    }
     console.error(e);
-    prisma.$disconnect();
-    process.exit(1);
+    void prisma.$disconnect().finally(() => process.exit(1));
   });
