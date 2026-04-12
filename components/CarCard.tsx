@@ -1,7 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
 
-import { carImageNeedsUnoptimized } from "@/lib/carImageSrc";
+import { CarPhotoImage } from "@/components/CarPhotoImage";
 import { formatPriceRub } from "@/lib/formatPrice";
 
 type CarCardProps = {
@@ -51,15 +50,7 @@ export function CarCard({ slug, make, model, pricePerDayRub, coverUrl, coverAlt 
           }}
         >
           {coverUrl ? (
-            <Image
-              src={coverUrl}
-              alt={coverAlt ?? title}
-              fill
-              sizes="(max-width: 640px) 100vw, (max-width: 960px) 50vw, 33vw"
-              style={{ objectFit: "cover" }}
-              priority={false}
-              unoptimized={carImageNeedsUnoptimized(coverUrl)}
-            />
+            <CarPhotoImage src={coverUrl} alt={coverAlt ?? title} priority={false} />
           ) : (
             <div
               style={{

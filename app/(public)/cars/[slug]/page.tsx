@@ -1,9 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CarBookingForm } from "@/components/CarBookingForm";
-import { carImageNeedsUnoptimized } from "@/lib/carImageSrc";
+import { CarPhotoImage } from "@/components/CarPhotoImage";
 import { getActiveCarBySlug } from "@/lib/cars";
 import { formatPriceRub } from "@/lib/formatPrice";
 import { formatDateInputUTC, parseDateInput, utcToday } from "@/lib/rental-dates";
@@ -123,15 +122,7 @@ export default async function CarDetailPage({ params, searchParams }: PageProps)
                   maxHeight: "min(70vh, 520px)",
                 }}
               >
-                <Image
-                  src={img.url}
-                  alt={img.alt ?? title}
-                  fill
-                  sizes="(max-width: 960px) 100vw, min(720px, 50vw)"
-                  style={{ objectFit: "cover" }}
-                  priority={index === 0}
-                  unoptimized={carImageNeedsUnoptimized(img.url)}
-                />
+                <CarPhotoImage src={img.url} alt={img.alt ?? title} priority={index === 0} />
               </li>
             ))}
           </ul>

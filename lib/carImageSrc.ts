@@ -27,8 +27,3 @@ function isSafeCarsPublicPath(p: string): boolean {
   const rest = p.slice(1);
   return /^[a-zA-Z0-9._\-/]+$/.test(rest);
 }
-
-/** Для next/image: SVG из public не прогоняются через оптимизатор. */
-export function carImageNeedsUnoptimized(src: string): boolean {
-  return src.trim().toLowerCase().endsWith(".svg");
-}
