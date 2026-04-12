@@ -44,11 +44,11 @@ function validatePayload(p: CarFormPayload): string | null {
   }
   const imgs = p.images.filter((i) => i.url.trim().length > 0);
   if (imgs.length === 0) {
-    return "Добавьте хотя бы одно фото (путь /cars/... или https).";
+    return "Добавьте хотя бы одно фото: путь /cars/..., https или загрузка с диска.";
   }
   for (const img of imgs) {
     if (!isValidCarImageSrc(img.url)) {
-      return "Некорректный адрес фото: укажите путь /cars/... или https-ссылку.";
+      return "Некорректный адрес фото: путь /cars/..., https или результат загрузки (data:image/...).";
     }
   }
   return null;
