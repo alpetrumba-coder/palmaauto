@@ -6,6 +6,7 @@ import type { NextConfig } from "next";
  * remotePatterns — только если в админке указаны внешние https:// URL (CDN, S3 и т.д.).
  */
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["sharp"],
   images: {
     remotePatterns: [
       {

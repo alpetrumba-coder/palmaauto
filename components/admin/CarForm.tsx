@@ -96,6 +96,7 @@ export function CarForm(props: CarFormProps) {
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
 
   function addImageRow() {
     setImages((prev) => [...prev, { url: "", alt: "" }]);
@@ -112,6 +113,34 @@ export function CarForm(props: CarFormProps) {
       next[index] = row;
       return next;
     });
+  }
+
+  async function uploadFileAtIndex(index: number, file: File) {
+    setError(null);
+    setUploadingIndex(index);
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/admin-panel/upload-car-photo", {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!res.ok) {
+        setError(data.error ?? "Ошибка загрузки");
+        return;
+      }
+      if (!data.url) {
+        setError("Сервер не вернул адрес файла");
+        return;
+      }
+      setImageRow(index, "url", data.url);
+    } catch {
+      setError("Не удалось загрузить файл. Проверьте сеть.");
+    } finally {
+      setUploadingIndex(null);
+    }
   }
 
   async function onSubmit(e: FormEvent) {
@@ -144,12 +173,12 @@ export function CarForm(props: CarFormProps) {
   return (
     <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "36rem" }}>
       <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-        Рекомендуемый способ: положите файлы в папку{" "}
-        <code style={{ fontSize: "0.85em" }}>public/cars/&lt;slug&gt;/</code> (slug совпадает с полем ниже), например{" "}
-        <code style={{ fontSize: "0.85em" }}>public/cars/toyota-camry/1.jpg</code>. В каждой строке фото укажите путь как
-        на сайте: <code style={{ fontSize: "0.85em" }}>/cars/toyota-camry/1.jpg</code>. Допустимы jpg, png, webp, svg.
-        Альтернатива — внешняя <code style={{ fontSize: "0.85em" }}>https://</code> ссылка; тогда домен добавьте в{" "}
-        <code style={{ fontSize: "0.85em" }}>next.config.ts</code> → <code style={{ fontSize: "0.85em" }}>images.remotePatterns</code>.
+        Фото: кнопка «Загрузить с диска» — файл сжимается и приводится к формату <strong>1600×1000</strong> (16∶10). Если
+        пропорции другие, лишнее обрезается <strong>по центру</strong>. Локально файлы попадают в{" "}
+        <code style={{ fontSize: "0.85em" }}>public/cars/uploads/</code>; на Vercel задайте{" "}
+        <code style={{ fontSize: "0.85em" }}>BLOB_READ_WRITE_TOKEN</code> (хранилище), иначе используется встроенный data
+        URL (только небольшие файлы). Вручную можно указать путь <code style={{ fontSize: "0.85em" }}>/cars/…</code> или
+        внешний <code style={{ fontSize: "0.85em" }}>https://</code> (домен — в <code style={{ fontSize: "0.85em" }}>next.config.ts</code>).
       </p>
 
       <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
@@ -214,8 +243,37 @@ export function CarForm(props: CarFormProps) {
               border: "1px solid var(--color-border)",
             }}
           >
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  fontSize: "var(--text-sm)",
+                  fontWeight: 600,
+                  cursor: uploadingIndex !== null ? "wait" : "pointer",
+                  padding: "0.45rem 0.85rem",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--color-border)",
+                  background: "var(--color-surface)",
+                }}
+              >
+                {uploadingIndex === index ? "Загрузка…" : "Загрузить с диска"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  disabled={uploadingIndex !== null}
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (f) void uploadFileAtIndex(index, f);
+                  }}
+                />
+              </label>
+            </div>
             <input
-              placeholder="/cars/slug/1.jpg или https://…"
+              placeholder="/cars/slug/1.jpg или https://… (или после загрузки подставится само)"
               value={row.url}
               onChange={(e) => setImageRow(index, "url", e.target.value)}
               style={fieldStyle}

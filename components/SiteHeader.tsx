@@ -46,9 +46,6 @@ export function SiteHeader() {
           <Link href="/cars" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
             Каталог
           </Link>
-          <Link href="/book" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
-            По датам
-          </Link>
           <PublicAuthNav />
         </nav>
       </div>

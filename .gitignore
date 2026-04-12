@@ -13,6 +13,10 @@ out/
 npm-debug.log*
 .DS_Store
 
+# Загруженные фото админки (локально)
+public/cars/uploads/*
+!public/cars/uploads/.gitkeep
+
 # TypeScript
 *.tsbuildinfo
 
