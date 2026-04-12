@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 
 import { createCarAction, updateCarAction, type CarFormPayload } from "@/app/actions/admin-cars";
@@ -30,6 +30,56 @@ export type CarFormInitial = {
 type CarFormProps =
   | { mode: "create"; carId?: undefined; initial?: undefined }
   | { mode: "edit"; carId: string; initial: CarFormInitial };
+
+/** Превью по адресу фото (локальный путь или https). */
+function ImageUrlPreview({ url }: { url: string }) {
+  const trimmed = url.trim();
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [trimmed]);
+
+  if (!trimmed) return null;
+
+  if (failed) {
+    return (
+      <div
+        role="status"
+        style={{
+          fontSize: "var(--text-sm)",
+          color: "var(--color-text-secondary)",
+          padding: "0.65rem",
+          background: "var(--color-border)",
+          borderRadius: "var(--radius-md)",
+          maxWidth: "280px",
+        }}
+      >
+        Не удалось загрузить превью — проверьте URL.
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- превью в админке без next/image
+    <img
+      src={trimmed}
+      alt=""
+      onError={() => setFailed(true)}
+      style={{
+        display: "block",
+        width: "100%",
+        maxWidth: "280px",
+        height: "auto",
+        maxHeight: "168px",
+        objectFit: "cover",
+        borderRadius: "var(--radius-md)",
+        border: "1px solid var(--color-border)",
+        background: "var(--color-border)",
+      }}
+    />
+  );
+}
 
 export function CarForm(props: CarFormProps) {
   const router = useRouter();
@@ -170,6 +220,7 @@ export function CarForm(props: CarFormProps) {
               onChange={(e) => setImageRow(index, "url", e.target.value)}
               style={fieldStyle}
             />
+            <ImageUrlPreview url={row.url} />
             <input
               placeholder="Подпись (alt)"
               value={row.alt}
