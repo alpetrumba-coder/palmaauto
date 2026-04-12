@@ -67,7 +67,9 @@ export default async function OplataPage({
         <h1 style={{ fontSize: "var(--text-2xl)", marginTop: 0 }}>Оплата</h1>
         <p style={{ color: "var(--color-text-secondary)" }}>Бронь недоступна для оплаты.</p>
         <p style={{ marginTop: "1rem" }}>
-          <Link href="/account">Личный кабинет</Link>
+          <Link href="/moi-broni" prefetch={false}>
+            Мои брони
+          </Link>
         </p>
       </div>
     );
@@ -79,6 +81,7 @@ export default async function OplataPage({
       data: { status: "CANCELLED" },
     });
     revalidatePath(`/oplata/${bookingId}`);
+    revalidatePath("/moi-broni");
     revalidatePath("/account");
     revalidatePath("/admin-panel/bookings");
     if (booking.car) {

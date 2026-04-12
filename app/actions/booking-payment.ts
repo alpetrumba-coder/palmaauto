@@ -37,6 +37,7 @@ export async function completeFakePaymentAction(bookingId: string): Promise<Fake
     data: { status: "PAID" },
   });
 
+  revalidatePath("/moi-broni");
   revalidatePath("/account");
   revalidatePath("/book");
   revalidatePath(`/oplata/${bookingId}`);

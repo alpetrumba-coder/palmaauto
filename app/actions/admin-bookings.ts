@@ -82,6 +82,7 @@ export async function createAdminBookingAction(input: {
     },
   });
 
+  revalidatePath("/moi-broni");
   revalidatePath("/account");
   revalidatePath("/book");
   revalidatePath(`/cars/${car.slug}`);

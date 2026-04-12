@@ -73,6 +73,7 @@ export async function createBookingAction(input: {
     },
   });
 
+  revalidatePath("/moi-broni");
   revalidatePath("/account");
   revalidatePath("/book");
   revalidatePath(`/cars/${car.slug}`);
@@ -106,6 +107,7 @@ export async function cancelBookingAction(bookingId: string): Promise<BookingAct
     data: { status: "CANCELLED" },
   });
 
+  revalidatePath("/moi-broni");
   revalidatePath("/account");
   revalidatePath("/book");
   revalidatePath("/admin-panel/bookings");

@@ -18,7 +18,7 @@ export function PublicAuthNav() {
   if (session?.user) {
     return (
       <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
-        <Link href="/account" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
+        <Link href="/moi-broni" prefetch={false} className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
           Мои брони
         </Link>
         <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }} title={session.user.email}>

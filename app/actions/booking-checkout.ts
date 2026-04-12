@@ -103,6 +103,7 @@ export async function submitBookingCheckoutAction(input: {
     });
   });
 
+  revalidatePath("/moi-broni");
   revalidatePath("/account");
   revalidatePath("/book");
   revalidatePath(`/cars/${car.slug}`);

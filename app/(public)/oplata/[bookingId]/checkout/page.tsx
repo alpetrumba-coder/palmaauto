@@ -75,7 +75,7 @@ export default async function OplataCheckoutSuccessPage({
       </section>
 
       <p style={{ margin: 0 }}>
-        <Link href="/account" className="nav-tap-target" style={{ fontWeight: 600, marginRight: "1rem" }}>
+        <Link href="/moi-broni" prefetch={false} className="nav-tap-target" style={{ fontWeight: 600, marginRight: "1rem" }}>
           Мои брони
         </Link>
         <Link href="/" style={{ color: "var(--color-text-secondary)" }}>

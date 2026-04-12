@@ -65,9 +65,8 @@ export function PaymentOplataClient({
       setError(res.error);
       return;
     }
-    router.push(`/oplata/${bookingId}/checkout`);
-    router.refresh();
-  }, [bookingId, router]);
+    window.location.assign(`/oplata/${bookingId}/checkout`);
+  }, [bookingId]);
 
   const onCancel = useCallback(async () => {
     setError(null);
