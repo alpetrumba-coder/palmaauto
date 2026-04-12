@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { UserRole } from "@prisma/client";
 
+import { hashPassword, validatePasswordPlain } from "@/lib/password";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
 import { prisma } from "@/lib/prisma";
 
@@ -28,6 +30,72 @@ function validatePayload(p: AdminUserProfilePayload): string | null {
     return "Укажите корректный email.";
   }
   return null;
+}
+
+export type AdminCreateUserPayload = {
+  email: string;
+  password: string;
+  passwordConfirm: string;
+  role: UserRole;
+} & Omit<AdminUserProfilePayload, "email">;
+
+function validateCreatePayload(p: AdminCreateUserPayload): string | null {
+  const profileErr = validatePayload({
+    email: p.email,
+    lastName: p.lastName,
+    firstName: p.firstName,
+    patronymic: p.patronymic,
+    phone: p.phone,
+    address: p.address,
+    passportData: p.passportData,
+  });
+  if (profileErr) return profileErr;
+
+  const pwdErr = validatePasswordPlain(p.password);
+  if (pwdErr) return pwdErr;
+  if (p.password !== p.passwordConfirm) {
+    return "Пароли не совпадают.";
+  }
+  if (p.role !== "CUSTOMER" && p.role !== "ADMIN") {
+    return "Некорректная роль.";
+  }
+  return null;
+}
+
+export async function createAdminUserAction(
+  payload: AdminCreateUserPayload,
+): Promise<{ ok: true; userId: string } | { ok: false; error: string }> {
+  await requireAdminPanelSession();
+
+  const err = validateCreatePayload(payload);
+  if (err) return { ok: false, error: err };
+
+  const email = payload.email.toLowerCase().trim();
+
+  const taken = await prisma.user.findUnique({ where: { email } });
+  if (taken) {
+    return { ok: false, error: "Пользователь с таким email уже есть." };
+  }
+
+  const passwordHash = await hashPassword(payload.password);
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      passwordHash,
+      role: payload.role,
+      lastName: emptyToNull(payload.lastName),
+      firstName: emptyToNull(payload.firstName),
+      patronymic: emptyToNull(payload.patronymic),
+      phone: emptyToNull(payload.phone),
+      address: emptyToNull(payload.address),
+      passportData: emptyToNull(payload.passportData),
+    },
+  });
+
+  revalidatePath("/admin-panel/users");
+
+  return { ok: true, userId: user.id };
 }
 
 export async function updateAdminUserAction(

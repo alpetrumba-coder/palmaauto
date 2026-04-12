@@ -34,11 +34,30 @@ export default async function AdminUsersListPage() {
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
         <h1 style={{ fontSize: "var(--text-2xl)", margin: 0 }}>Пользователи (клиенты)</h1>
+        <Link
+          href="/admin-panel/users/new"
+          className="nav-tap-target"
+          style={{
+            display: "inline-flex",
+            padding: "0.6rem 1.1rem",
+            borderRadius: "999px",
+            background: "var(--color-accent)",
+            color: "#fff",
+            fontWeight: 600,
+            textDecoration: "none",
+            fontSize: "var(--text-sm)",
+          }}
+        >
+          Добавить
+        </Link>
       </div>
 
       <p style={{ marginTop: "0.75rem", color: "var(--color-text-secondary)", fontSize: "var(--text-sm)", maxWidth: "40rem" }}>
-        Учётные записи сайта: ФИО, контакты и паспортные данные. Регистрация новых клиентов — через страницу «Регистрация» на
-        сайте; здесь можно уточнить и исправить карточку.
+        Учётные записи сайта: ФИО, контакты и паспортные данные. Новых пользователей можно{" "}
+        <Link href="/admin-panel/users/new" style={{ fontWeight: 600 }}>
+          добавить вручную
+        </Link>{" "}
+        или они регистрируются через «Регистрацию» на сайте; здесь же можно уточнить и исправить карточку.
       </p>
 
       {users.length === 0 ? (
