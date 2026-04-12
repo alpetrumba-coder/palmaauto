@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useMemo, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
@@ -38,11 +39,11 @@ export function CarBookingForm({
   initialStartDate,
   initialEndDate,
 }: CarBookingFormProps) {
+  const router = useRouter();
   const { data: session, status } = useSession();
   const [start, setStart] = useState(initialStartDate ?? "");
   const [end, setEnd] = useState(initialEndDate ?? "");
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [pending, setPending] = useState(false);
 
   const preview = useMemo(() => {
@@ -58,7 +59,6 @@ export function CarBookingForm({
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
     if (!session?.user) return;
     setPending(true);
     const res = await createBookingAction({ carId, startDate: start, endDate: end });
@@ -67,9 +67,12 @@ export function CarBookingForm({
       setError(res.error);
       return;
     }
-    setSuccess(true);
-    setStart("");
-    setEnd("");
+    if (!res.bookingId) {
+      setError("Не удалось получить номер брони.");
+      return;
+    }
+    router.push(`/oplata/${res.bookingId}`);
+    router.refresh();
   }
 
   if (status === "loading") {
@@ -136,21 +139,12 @@ export function CarBookingForm({
           <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
             {preview.days} сут. × {formatPriceRub(pricePerDayRub)} ={" "}
             <strong style={{ color: "var(--color-text)" }}>{formatPriceRub(preview.total)}</strong>
-            <span style={{ display: "block", marginTop: "0.25rem" }}>Оплата — на следующем этапе.</span>
+            <span style={{ display: "block", marginTop: "0.25rem" }}>Далее — оплата в течение 15 минут.</span>
           </p>
         ) : null}
         {error ? (
           <p role="alert" style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-danger, #c00)" }}>
             {error}
-          </p>
-        ) : null}
-        {success ? (
-          <p role="status" style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-            Бронь создана. Список — в{" "}
-            <Link href="/account" style={{ fontWeight: 600 }}>
-              личном кабинете
-            </Link>
-            .
           </p>
         ) : null}
         <button
@@ -168,7 +162,7 @@ export function CarBookingForm({
             cursor: pending ? "wait" : "pointer",
           }}
         >
-          {pending ? "Создание…" : "Забронировать"}
+          {pending ? "Создание…" : "Забронировать и оплатить"}
         </button>
       </form>
     </div>

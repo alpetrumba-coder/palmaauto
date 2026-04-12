@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { BLOCKING_BOOKING_STATUSES } from "@/lib/booking-overlap";
+import { carBookingOverlapWhere } from "@/lib/booking-overlap";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
 import { inclusiveRentalDays, parseDateInput, utcToday } from "@/lib/rental-dates";
@@ -60,11 +60,7 @@ export async function createAdminBookingAction(input: {
   }
 
   const overlap = await prisma.booking.findFirst({
-    where: {
-      carId: input.carId,
-      status: { in: BLOCKING_BOOKING_STATUSES },
-      AND: [{ startDate: { lte: end } }, { endDate: { gte: start } }],
-    },
+    where: carBookingOverlapWhere(input.carId, start, end),
   });
 
   if (overlap) {

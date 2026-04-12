@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { CancelBookingButton } from "@/components/CancelBookingButton";
+import { PENDING_PAYMENT_HOLD_MS } from "@/lib/booking-hold";
 import { formatPriceRub } from "@/lib/formatPrice";
 import { prisma } from "@/lib/prisma";
 
@@ -23,6 +24,16 @@ export default async function AccountPage() {
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/account");
   }
+
+  const expiredPendingBefore = new Date(Date.now() - PENDING_PAYMENT_HOLD_MS);
+  await prisma.booking.updateMany({
+    where: {
+      userId: session.user.id,
+      status: "PENDING_PAYMENT",
+      createdAt: { lt: expiredPendingBefore },
+    },
+    data: { status: "CANCELLED" },
+  });
 
   const bookings = await prisma.booking.findMany({
     where: { userId: session.user.id },

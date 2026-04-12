@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
-import { BLOCKING_BOOKING_STATUSES } from "@/lib/booking-overlap";
+import { carBookingOverlapWhere } from "@/lib/booking-overlap";
 import { prisma } from "@/lib/prisma";
 import { inclusiveRentalDays, parseDateInput, utcToday } from "@/lib/rental-dates";
 
-export type BookingActionResult = { ok: true } | { ok: false; error: string };
+export type BookingActionResult =
+  | { ok: true; bookingId?: string }
+  | { ok: false; error: string };
 
 export async function createBookingAction(input: {
   carId: string;
@@ -51,11 +53,7 @@ export async function createBookingAction(input: {
   }
 
   const overlap = await prisma.booking.findFirst({
-    where: {
-      carId: input.carId,
-      status: { in: BLOCKING_BOOKING_STATUSES },
-      AND: [{ startDate: { lte: end } }, { endDate: { gte: start } }],
-    },
+    where: carBookingOverlapWhere(input.carId, start, end),
   });
 
   if (overlap) {
@@ -64,7 +62,7 @@ export async function createBookingAction(input: {
 
   const totalPriceRub = days * car.pricePerDayRub;
 
-  await prisma.booking.create({
+  const created = await prisma.booking.create({
     data: {
       userId: session.user.id,
       carId: input.carId,
@@ -79,8 +77,9 @@ export async function createBookingAction(input: {
   revalidatePath("/book");
   revalidatePath(`/cars/${car.slug}`);
   revalidatePath("/admin-panel/bookings");
+  revalidatePath(`/oplata/${created.id}`);
 
-  return { ok: true };
+  return { ok: true, bookingId: created.id };
 }
 
 export async function cancelBookingAction(bookingId: string): Promise<BookingActionResult> {
@@ -110,6 +109,9 @@ export async function cancelBookingAction(bookingId: string): Promise<BookingAct
   revalidatePath("/account");
   revalidatePath("/book");
   revalidatePath("/admin-panel/bookings");
+  revalidatePath(`/oplata/${bookingId}`);
+  revalidatePath(`/oplata/${bookingId}/checkout`);
+  revalidatePath("/bronirovanie");
   if (booking.car) {
     revalidatePath(`/cars/${booking.car.slug}`);
   }

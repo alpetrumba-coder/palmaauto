@@ -1,15 +1,38 @@
-import type { BookingStatus, Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
-/** Брони в этих статусах занимают машину в календаре. */
-export const BLOCKING_BOOKING_STATUSES: BookingStatus[] = ["PENDING_PAYMENT", "PAID"];
+import { PENDING_PAYMENT_HOLD_MS } from "@/lib/booking-hold";
 
-/** Prisma-фильтр: бронь пересекается с интервалом [rangeStart, rangeEnd] (включительно, UTC-даты). */
-export function bookingsOverlappingRangeWhere(
-  rangeStart: Date,
-  rangeEnd: Date,
-): Prisma.BookingWhereInput {
+/**
+ * Бронь считается занимающей машину в календаре, если:
+ * - оплачена (PAID), или
+ * - ожидает оплату и создана не раньше чем (сейчас − 15 мин) — удержание слота.
+ */
+export function bookingHoldsCarWhere(referenceTime: Date = new Date()): Prisma.BookingWhereInput {
+  const holdSince = new Date(referenceTime.getTime() - PENDING_PAYMENT_HOLD_MS);
   return {
-    status: { in: BLOCKING_BOOKING_STATUSES },
-    AND: [{ startDate: { lte: rangeEnd } }, { endDate: { gte: rangeStart } }],
+    OR: [{ status: "PAID" }, { status: "PENDING_PAYMENT", createdAt: { gte: holdSince } }],
+  };
+}
+
+/** Пересечение с интервалом [rangeStart, rangeEnd] (включительно, UTC-даты). */
+export function bookingsOverlappingRangeWhere(rangeStart: Date, rangeEnd: Date): Prisma.BookingWhereInput {
+  return {
+    AND: [
+      bookingHoldsCarWhere(),
+      { startDate: { lte: rangeEnd } },
+      { endDate: { gte: rangeStart } },
+    ],
+  };
+}
+
+/** Пересечение для одной машины и диапазона дат. */
+export function carBookingOverlapWhere(carId: string, rangeStart: Date, rangeEnd: Date): Prisma.BookingWhereInput {
+  return {
+    carId,
+    AND: [
+      bookingHoldsCarWhere(),
+      { startDate: { lte: rangeEnd } },
+      { endDate: { gte: rangeStart } },
+    ],
   };
 }

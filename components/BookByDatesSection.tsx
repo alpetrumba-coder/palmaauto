@@ -4,6 +4,7 @@ import { CarCard } from "@/components/CarCard";
 import { CarPhotoImage } from "@/components/CarPhotoImage";
 import { bookByDatesMinDateStr, getBookByDatesState } from "@/lib/book-by-dates-state";
 import { formatPriceRub } from "@/lib/formatPrice";
+import { inclusiveRentalDays, parseDateInput } from "@/lib/rental-dates";
 
 const inputStyle = {
   padding: "0.5rem 0.65rem",
@@ -31,6 +32,15 @@ export async function BookByDatesSection({
   const state = await getBookByDatesState(fromStr, toStr);
   const minStr = bookByDatesMinDateStr();
   const { fromStr: f, toStr: t, searched, error, cars } = state;
+
+  const startD = f && t ? parseDateInput(f) : null;
+  const endD = f && t ? parseDateInput(t) : null;
+  const rentalDays =
+    startD && endD && !error && searched ? inclusiveRentalDays(startD, endD) : 0;
+
+  function bookingHref(carSlug: string) {
+    return `/bronirovanie?car=${encodeURIComponent(carSlug)}&from=${encodeURIComponent(f)}&to=${encodeURIComponent(t)}`;
+  }
 
   const formShellStyle =
     resultsLayout === "list"
@@ -95,10 +105,17 @@ export async function BookByDatesSection({
 
       {searched && !error ? (
         <>
-          <p style={{ margin: "0 0 1rem", fontSize: "var(--text-lg)", fontWeight: 600 }}>
-            Свободно на выбранные даты: {cars.length}{" "}
-            {cars.length === 1 ? "автомобиль" : cars.length > 1 && cars.length < 5 ? "автомобиля" : "автомобилей"}
-          </p>
+          <div style={{ margin: "0 0 1rem" }}>
+            <p style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: 600 }}>
+              Свободно на выбранные даты: {cars.length}{" "}
+              {cars.length === 1 ? "автомобиль" : cars.length > 1 && cars.length < 5 ? "автомобиля" : "автомобилей"}
+            </p>
+            {rentalDays > 0 ? (
+              <p style={{ margin: "0.35rem 0 0", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+                Срок аренды: {rentalDays} дн. (включительно). Цена «всего» = за сутки × {rentalDays} дн.
+              </p>
+            ) : null}
+          </div>
           {cars.length === 0 ? (
             <p style={{ color: "var(--color-text-secondary)" }}>
               Попробуйте другие даты или загляните в{" "}
@@ -121,7 +138,7 @@ export async function BookByDatesSection({
             >
               {cars.map((car) => {
                 const cover = car.images[0];
-                const q = `from=${encodeURIComponent(f)}&to=${encodeURIComponent(t)}`;
+                const totalRub = rentalDays > 0 ? rentalDays * car.pricePerDayRub : 0;
                 return (
                   <li key={car.id}>
                     <CarCard
@@ -132,9 +149,30 @@ export async function BookByDatesSection({
                       coverUrl={cover?.url ?? null}
                       coverAlt={cover?.alt ?? null}
                     />
-                    <div style={{ marginTop: "0.65rem", textAlign: "center" }}>
+                    <p
+                      style={{
+                        margin: "0.65rem 0 0.25rem",
+                        fontSize: "var(--text-sm)",
+                        color: "var(--color-text-secondary)",
+                        textAlign: "center",
+                      }}
+                    >
+                      {rentalDays > 0 ? `${rentalDays} дн. × ${formatPriceRub(car.pricePerDayRub)}` : null}
+                    </p>
+                    <p
+                      style={{
+                        margin: "0 0 0.35rem",
+                        fontSize: "var(--text-base)",
+                        fontWeight: 600,
+                        textAlign: "center",
+                        color: "var(--color-text)",
+                      }}
+                    >
+                      Итого: {formatPriceRub(totalRub)}
+                    </p>
+                    <div style={{ textAlign: "center" }}>
                       <Link
-                        href={`/cars/${encodeURIComponent(car.slug)}?${q}`}
+                        href={bookingHref(car.slug)}
                         className="nav-tap-target"
                         style={{
                           display: "inline-flex",
@@ -147,7 +185,7 @@ export async function BookByDatesSection({
                           color: "var(--color-text)",
                         }}
                       >
-                        Забронировать ({formatPriceRub(car.pricePerDayRub)}/сут.)
+                        Забронировать
                       </Link>
                     </div>
                   </li>
@@ -169,7 +207,7 @@ export async function BookByDatesSection({
               {cars.map((car) => {
                 const cover = car.images[0];
                 const title = `${car.make} ${car.model}`;
-                const q = `from=${encodeURIComponent(f)}&to=${encodeURIComponent(t)}`;
+                const totalRub = rentalDays > 0 ? rentalDays * car.pricePerDayRub : 0;
                 return (
                   <li
                     key={car.id}
@@ -182,7 +220,7 @@ export async function BookByDatesSection({
                     }}
                   >
                     <Link
-                      href={`/cars/${encodeURIComponent(car.slug)}?${q}`}
+                      href={bookingHref(car.slug)}
                       className="nav-tap-target"
                       style={{
                         position: "relative",
@@ -223,10 +261,7 @@ export async function BookByDatesSection({
                         justifyContent: "center",
                       }}
                     >
-                      <Link
-                        href={`/cars/${encodeURIComponent(car.slug)}?${q}`}
-                        style={{ textDecoration: "none", color: "inherit" }}
-                      >
+                      <Link href={bookingHref(car.slug)} style={{ textDecoration: "none", color: "inherit" }}>
                         <span style={{ fontSize: "var(--text-xl)", fontWeight: 600, letterSpacing: "-0.02em" }}>
                           {title}
                         </span>
@@ -234,9 +269,12 @@ export async function BookByDatesSection({
                       <p style={{ margin: 0, fontSize: "var(--text-base)", color: "var(--color-text-secondary)" }}>
                         {formatPriceRub(car.pricePerDayRub)} за сутки
                       </p>
+                      <p style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: 600, color: "var(--color-text)" }}>
+                        Итого за весь срок: {formatPriceRub(totalRub)}
+                      </p>
                       <div style={{ marginTop: "0.25rem" }}>
                         <Link
-                          href={`/cars/${encodeURIComponent(car.slug)}?${q}`}
+                          href={bookingHref(car.slug)}
                           className="nav-tap-target"
                           style={{
                             display: "inline-flex",
