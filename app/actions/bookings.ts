@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import { carBookingOverlapWhere } from "@/lib/booking-overlap";
+import { sendAdminBookingCreatedEmail } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
 import { inclusiveRentalDays, parseDateInput, utcToday } from "@/lib/rental-dates";
 
@@ -72,6 +73,28 @@ export async function createBookingAction(input: {
       totalPriceRub,
     },
   });
+
+  // Уведомление администратору: не блокируем бронирование, если почта недоступна.
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { email: true, firstName: true, lastName: true, patronymic: true, phone: true },
+    });
+    if (user) {
+      await sendAdminBookingCreatedEmail({
+        bookingId: created.id,
+        status: created.status,
+        startDate: created.startDate,
+        endDate: created.endDate,
+        days,
+        totalPriceRub: created.totalPriceRub,
+        car: { make: car.make, model: car.model, slug: car.slug },
+        user,
+      });
+    }
+  } catch (e) {
+    console.warn("[booking] admin email failed:", e);
+  }
 
   revalidatePath("/moi-broni");
   revalidatePath("/account");

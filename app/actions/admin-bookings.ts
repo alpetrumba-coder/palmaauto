@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { carBookingOverlapWhere } from "@/lib/booking-overlap";
+import { sendAdminBookingCreatedEmail } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
 import { inclusiveRentalDays, parseDateInput, utcToday } from "@/lib/rental-dates";
@@ -71,7 +72,7 @@ export async function createAdminBookingAction(input: {
 
   const status: BookingStatus = input.status === "PAID" ? "PAID" : "PENDING_PAYMENT";
 
-  await prisma.booking.create({
+  const created = await prisma.booking.create({
     data: {
       userId: input.userId,
       carId: input.carId,
@@ -81,6 +82,27 @@ export async function createAdminBookingAction(input: {
       totalPriceRub,
     },
   });
+
+  try {
+    await sendAdminBookingCreatedEmail({
+      bookingId: created.id,
+      status: created.status,
+      startDate: created.startDate,
+      endDate: created.endDate,
+      days,
+      totalPriceRub: created.totalPriceRub,
+      car: { make: car.make, model: car.model, slug: car.slug },
+      user: {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        patronymic: user.patronymic,
+        phone: user.phone,
+      },
+    });
+  } catch (e) {
+    console.warn("[admin-booking] admin email failed:", e);
+  }
 
   revalidatePath("/moi-broni");
   revalidatePath("/account");
