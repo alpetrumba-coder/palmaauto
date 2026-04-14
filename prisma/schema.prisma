@@ -74,6 +74,8 @@ model Car {
   description     String     @db.Text
   /// Цена за сутки в целых рублях (без копеек).
   pricePerDayRub  Int        @map("price_per_day_rub")
+  /// Минимальный срок аренды в сутках (включительно).
+  minRentalDays   Int        @default(1) @map("min_rental_days")
   /// Данные для договора аренды (PDF).
   modelYear                 Int?    @map("model_year")
   color                     String?

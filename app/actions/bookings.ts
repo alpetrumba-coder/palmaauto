@@ -84,6 +84,11 @@ export async function createBookingAction(input: {
     return { ok: false, error: "Выбранные даты пересекаются с другой бронью. Выберите другой период." };
   }
 
+  const minDays = Math.max(1, Math.min(90, car.minRentalDays ?? 1));
+  if (days < minDays) {
+    return { ok: false, error: `Минимальный срок аренды для этого автомобиля — ${minDays} сут.` };
+  }
+
   const totalPriceRub = days * car.pricePerDayRub;
 
   const metaJson = contractMeta as unknown as Prisma.InputJsonValue;

@@ -27,6 +27,7 @@ export type CarFormInitial = {
   color: string;
   plateNumber: string;
   registrationCertificate: string;
+  minRentalDays: number;
   active: boolean;
   images: { url: string; alt: string }[];
 };
@@ -98,6 +99,7 @@ export function CarForm(props: CarFormProps) {
   const [color, setColor] = useState(initial?.color ?? "");
   const [plateNumber, setPlateNumber] = useState(initial?.plateNumber ?? "");
   const [registrationCertificate, setRegistrationCertificate] = useState(initial?.registrationCertificate ?? "");
+  const [minRentalDays, setMinRentalDays] = useState(String(initial?.minRentalDays ?? "1"));
   const [active, setActive] = useState(initial?.active ?? true);
   const [images, setImages] = useState<{ url: string; alt: string }[]>(
     initial?.images?.length ? initial.images : [{ url: "", alt: "" }],
@@ -156,6 +158,7 @@ export function CarForm(props: CarFormProps) {
     setError(null);
     const price = Number(pricePerDayRub);
     const year = Number(modelYear);
+    const minDays = Number(minRentalDays);
     const payload: CarFormPayload = {
       slug,
       make,
@@ -166,6 +169,7 @@ export function CarForm(props: CarFormProps) {
       color,
       plateNumber,
       registrationCertificate,
+      minRentalDays: minDays,
       active,
       images: images.map((i) => ({ url: i.url.trim(), alt: i.alt.trim() })),
     };
@@ -284,6 +288,21 @@ export function CarForm(props: CarFormProps) {
           step={1}
           value={pricePerDayRub}
           onChange={(e) => setPricePerDayRub(e.target.value)}
+          style={fieldStyle}
+        />
+      </label>
+
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        Минимальный срок аренды (дней)
+        <input
+          name="minRentalDays"
+          type="number"
+          required
+          min={1}
+          max={90}
+          step={1}
+          value={minRentalDays}
+          onChange={(e) => setMinRentalDays(e.target.value)}
           style={fieldStyle}
         />
       </label>

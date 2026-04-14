@@ -19,6 +19,7 @@ export type CarFormPayload = {
   color: string;
   plateNumber: string;
   registrationCertificate: string;
+  minRentalDays: number;
   active: boolean;
   images: CarImageInput[];
 };
@@ -59,6 +60,9 @@ function validatePayload(p: CarFormPayload): string | null {
   if (!p.registrationCertificate.trim()) {
     return "Укажите сведения о свидетельстве о регистрации (СТС).";
   }
+  if (!Number.isFinite(p.minRentalDays) || p.minRentalDays < 1 || p.minRentalDays > 90) {
+    return "Минимальный срок аренды — число от 1 до 90 суток.";
+  }
   const imgs = p.images.filter((i) => i.url.trim().length > 0);
   if (imgs.length === 0) {
     return "Добавьте хотя бы одно фото: путь /cars/..., https или загрузка с диска.";
@@ -95,6 +99,7 @@ export async function createCarAction(payload: CarFormPayload): Promise<{ ok: tr
       color: payload.color.trim(),
       plateNumber: payload.plateNumber.trim(),
       registrationCertificate: payload.registrationCertificate.trim(),
+      minRentalDays: Math.round(payload.minRentalDays),
       active: payload.active,
       images: {
         create: images.map((img, index) => ({
@@ -149,6 +154,7 @@ export async function updateCarAction(
         color: payload.color.trim(),
         plateNumber: payload.plateNumber.trim(),
         registrationCertificate: payload.registrationCertificate.trim(),
+        minRentalDays: Math.round(payload.minRentalDays),
         active: payload.active,
       },
     });

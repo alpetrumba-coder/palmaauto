@@ -36,6 +36,7 @@ export default async function AdminNewBookingPage({
         slug: true,
         active: true,
         pricePerDayRub: true,
+        minRentalDays: true,
       },
     }),
   ]);

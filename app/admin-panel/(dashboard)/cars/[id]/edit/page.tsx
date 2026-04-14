@@ -37,6 +37,7 @@ export default async function AdminEditCarPage({ params }: PageProps) {
     color: car.color ?? "",
     plateNumber: car.plateNumber ?? "",
     registrationCertificate: car.registrationCertificate ?? "",
+    minRentalDays: car.minRentalDays,
     active: car.active,
     images:
       car.images.length > 0

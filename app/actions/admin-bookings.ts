@@ -60,6 +60,11 @@ export async function createAdminBookingAction(input: {
     return { ok: false, error: "Автомобиль не найден." };
   }
 
+  const minDays = Math.max(1, Math.min(90, car.minRentalDays ?? 1));
+  if (days < minDays) {
+    return { ok: false, error: `Минимальный срок аренды для этой машины — ${minDays} сут.` };
+  }
+
   const overlap = await prisma.booking.findFirst({
     where: carBookingOverlapWhere(input.carId, start, end),
   });

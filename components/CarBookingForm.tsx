@@ -21,6 +21,8 @@ type CarBookingFormProps = {
   initialEndDate?: string;
   /** Все поля ТС для договора заполнены в админке. */
   carLeaseComplete: boolean;
+  /** Минимальный срок аренды для авто (в сутках). */
+  minRentalDays: number;
   /** Предзаполнение из профиля (ФИО, паспорт). */
   contractDefaults?: Partial<ContractFormInput>;
 };
@@ -62,6 +64,7 @@ export function CarBookingForm({
   initialStartDate,
   initialEndDate,
   carLeaseComplete,
+  minRentalDays,
   contractDefaults,
 }: CarBookingFormProps) {
   const router = useRouter();
@@ -85,6 +88,8 @@ export function CarBookingForm({
     return { days, total: days * pricePerDayRub };
   }, [start, end, pricePerDayRub]);
 
+  const minDaysOk = preview ? preview.days >= Math.max(1, minRentalDays) : true;
+
   function setContractField<K extends keyof ContractFormInput>(key: K, value: ContractFormInput[K]) {
     setContract((prev) => ({ ...prev, [key]: value }));
   }
@@ -95,6 +100,10 @@ export function CarBookingForm({
     if (!session?.user) return;
     if (!carLeaseComplete) {
       setError("По этому автомобилю не заполнены данные для договора. Выберите другой автомобиль или свяжитесь с нами.");
+      return;
+    }
+    if (preview && !minDaysOk) {
+      setError(`Минимальный срок аренды для этого автомобиля — ${Math.max(1, minRentalDays)} сут.`);
       return;
     }
     setPending(true);
@@ -197,6 +206,11 @@ export function CarBookingForm({
             {preview.days} сут. × {formatPriceRub(pricePerDayRub)} ={" "}
             <strong style={{ color: "var(--color-text)" }}>{formatPriceRub(preview.total)}</strong>
             <span style={{ display: "block", marginTop: "0.25rem" }}>Далее — оплата в течение 15 минут.</span>
+          </p>
+        ) : null}
+        {preview && !minDaysOk ? (
+          <p role="alert" style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-danger, #c00)" }}>
+            Минимальный срок аренды для этого автомобиля — {Math.max(1, minRentalDays)} сут.
           </p>
         ) : null}
 
@@ -308,7 +322,7 @@ export function CarBookingForm({
         ) : null}
         <button
           type="submit"
-          disabled={pending || !carLeaseComplete}
+          disabled={pending || !carLeaseComplete || (preview ? !minDaysOk : false)}
           className="nav-tap-target"
           style={{
             alignSelf: "flex-start",

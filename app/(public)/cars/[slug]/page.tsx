@@ -137,6 +137,7 @@ export default async function CarDetailPage({ params, searchParams }: PageProps)
             initialStartDate={initialFrom}
             initialEndDate={initialEnd}
             carLeaseComplete={carLeaseComplete}
+            minRentalDays={car.minRentalDays}
             contractDefaults={contractDefaults}
           />
         </div>

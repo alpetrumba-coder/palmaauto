@@ -35,6 +35,7 @@ export type AdminBookingCarOption = {
   slug: string;
   active: boolean;
   pricePerDayRub: number;
+  minRentalDays: number;
 };
 
 type AdminBookingFormProps = {
