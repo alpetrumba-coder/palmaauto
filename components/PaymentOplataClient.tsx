@@ -15,6 +15,8 @@ type PaymentOplataClientProps = {
   carTitle: string;
   totalPriceRub: number;
   dateRangeLabel: string;
+  /** Ссылка на скачивание PDF договора (если бронь создана с данными договора). */
+  contractPdfHref?: string;
 };
 
 function formatCountdown(totalSeconds: number): string {
@@ -30,6 +32,7 @@ export function PaymentOplataClient({
   carTitle,
   totalPriceRub,
   dateRangeLabel,
+  contractPdfHref,
 }: PaymentOplataClientProps) {
   const router = useRouter();
   const [secondsLeft, setSecondsLeft] = useState(() =>
@@ -112,6 +115,19 @@ export function PaymentOplataClient({
         <p style={{ margin: 0, color: "var(--color-text-secondary)", fontSize: "var(--text-sm)" }}>{dateRangeLabel}</p>
         <p style={{ margin: "0.5rem 0 0", fontSize: "var(--text-lg)", fontWeight: 600 }}>{formatPriceRub(totalPriceRub)}</p>
       </div>
+
+      {contractPdfHref ? (
+        <p style={{ margin: 0, fontSize: "var(--text-sm)" }}>
+          <a
+            href={contractPdfHref}
+            download
+            className="nav-tap-target"
+            style={{ fontWeight: 600, textDecoration: "underline" }}
+          >
+            Скачать договор аренды (PDF)
+          </a>
+        </p>
+      ) : null}
 
       {error ? (
         <p role="alert" style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-danger, #c00)" }}>

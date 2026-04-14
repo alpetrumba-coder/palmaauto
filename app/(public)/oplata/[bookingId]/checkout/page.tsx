@@ -74,6 +74,19 @@ export default async function OplataCheckoutSuccessPage({
         <p style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: 600 }}>{formatPriceRub(booking.totalPriceRub)}</p>
       </section>
 
+      {booking.contractMeta ? (
+        <p style={{ margin: "0 0 1rem" }}>
+          <a
+            href={`/api/bookings/${bookingId}/contract`}
+            download
+            className="nav-tap-target"
+            style={{ fontWeight: 600, textDecoration: "underline" }}
+          >
+            Скачать договор аренды (PDF)
+          </a>
+        </p>
+      ) : null}
+
       <p style={{ margin: 0 }}>
         <Link href="/moi-broni" prefetch={false} className="nav-tap-target" style={{ fontWeight: 600, marginRight: "1rem" }}>
           Мои брони

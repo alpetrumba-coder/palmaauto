@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { auth } from "@/auth";
 import { CarBookingForm } from "@/components/CarBookingForm";
 import { CarPhotoImage } from "@/components/CarPhotoImage";
 import { getActiveCarBySlug } from "@/lib/cars";
 import { formatPriceRub } from "@/lib/formatPrice";
+import { prisma } from "@/lib/prisma";
+import type { ContractFormInput } from "@/lib/booking-contract";
 import { formatDateInputUTC, parseDateInput, utcToday } from "@/lib/rental-dates";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +52,43 @@ export default async function CarDetailPage({ params, searchParams }: PageProps)
     initialFrom = pf;
     initialEnd = pt;
   }
+
+  const session = await auth();
+  let contractDefaults: Partial<ContractFormInput> | undefined;
+  if (session?.user?.id) {
+    const u = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        lastName: true,
+        firstName: true,
+        patronymic: true,
+        birthYear: true,
+        passportSeries: true,
+        passportNumber: true,
+        passportIssuedBy: true,
+      },
+    });
+    if (u) {
+      const parts = [u.lastName, u.firstName, u.patronymic].filter(Boolean);
+      const fullName = parts.join(" ").trim();
+      const y = new Date().getUTCFullYear();
+      contractDefaults = {
+        fullName,
+        birthYear: u.birthYear != null ? String(u.birthYear) : "",
+        ageYears: u.birthYear != null ? String(y - u.birthYear) : "",
+        passportSeries: u.passportSeries ?? "",
+        passportNumber: u.passportNumber ?? "",
+        passportIssuedBy: u.passportIssuedBy ?? "",
+      };
+    }
+  }
+
+  const carLeaseComplete = Boolean(
+    car.modelYear &&
+      car.color?.trim() &&
+      car.plateNumber?.trim() &&
+      car.registrationCertificate?.trim(),
+  );
 
   return (
     <div className="page-shell" style={{ paddingBlock: "clamp(2rem, 8vw, 3.5rem)" }}>
@@ -96,6 +136,8 @@ export default async function CarDetailPage({ params, searchParams }: PageProps)
             minDateStr={minDateStr}
             initialStartDate={initialFrom}
             initialEndDate={initialEnd}
+            carLeaseComplete={carLeaseComplete}
+            contractDefaults={contractDefaults}
           />
         </div>
 

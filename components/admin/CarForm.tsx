@@ -23,6 +23,10 @@ export type CarFormInitial = {
   model: string;
   description: string;
   pricePerDayRub: number;
+  modelYear: number;
+  color: string;
+  plateNumber: string;
+  registrationCertificate: string;
   active: boolean;
   images: { url: string; alt: string }[];
 };
@@ -90,6 +94,10 @@ export function CarForm(props: CarFormProps) {
   const [model, setModel] = useState(initial?.model ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [pricePerDayRub, setPricePerDayRub] = useState(String(initial?.pricePerDayRub ?? ""));
+  const [modelYear, setModelYear] = useState(String(initial?.modelYear ?? ""));
+  const [color, setColor] = useState(initial?.color ?? "");
+  const [plateNumber, setPlateNumber] = useState(initial?.plateNumber ?? "");
+  const [registrationCertificate, setRegistrationCertificate] = useState(initial?.registrationCertificate ?? "");
   const [active, setActive] = useState(initial?.active ?? true);
   const [images, setImages] = useState<{ url: string; alt: string }[]>(
     initial?.images?.length ? initial.images : [{ url: "", alt: "" }],
@@ -147,12 +155,17 @@ export function CarForm(props: CarFormProps) {
     e.preventDefault();
     setError(null);
     const price = Number(pricePerDayRub);
+    const year = Number(modelYear);
     const payload: CarFormPayload = {
       slug,
       make,
       model,
       description,
       pricePerDayRub: price,
+      modelYear: year,
+      color,
+      plateNumber,
+      registrationCertificate,
       active,
       images: images.map((i) => ({ url: i.url.trim(), alt: i.alt.trim() })),
     };
@@ -211,6 +224,56 @@ export function CarForm(props: CarFormProps) {
           style={{ ...fieldStyle, resize: "vertical", minHeight: "6rem" }}
         />
       </label>
+
+      <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600 }}>Данные для договора аренды (PDF)</p>
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        Год выпуска
+        <input
+          name="modelYear"
+          type="number"
+          required
+          min={1980}
+          max={2035}
+          step={1}
+          value={modelYear}
+          onChange={(e) => setModelYear(e.target.value)}
+          style={fieldStyle}
+        />
+      </label>
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        Цвет (как в договоре)
+        <input
+          name="color"
+          required
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          placeholder="например, серебристый"
+          style={fieldStyle}
+        />
+      </label>
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        Гос. номер
+        <input
+          name="plateNumber"
+          required
+          value={plateNumber}
+          onChange={(e) => setPlateNumber(e.target.value)}
+          style={fieldStyle}
+        />
+      </label>
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        Свидетельство о регистрации (СТС)
+        <textarea
+          name="registrationCertificate"
+          required
+          rows={2}
+          value={registrationCertificate}
+          onChange={(e) => setRegistrationCertificate(e.target.value)}
+          placeholder="Серия, номер, кем выдано"
+          style={{ ...fieldStyle, resize: "vertical", minHeight: "3rem" }}
+        />
+      </label>
+
       <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
         Цена за сутки (₽, целое)
         <input

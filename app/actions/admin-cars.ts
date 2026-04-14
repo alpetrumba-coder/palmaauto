@@ -14,6 +14,11 @@ export type CarFormPayload = {
   model: string;
   description: string;
   pricePerDayRub: number;
+  /** Для договора аренды (PDF). */
+  modelYear: number;
+  color: string;
+  plateNumber: string;
+  registrationCertificate: string;
   active: boolean;
   images: CarImageInput[];
 };
@@ -41,6 +46,18 @@ function validatePayload(p: CarFormPayload): string | null {
   }
   if (!Number.isFinite(p.pricePerDayRub) || p.pricePerDayRub < 1 || p.pricePerDayRub > 1_000_000_000) {
     return "Цена за сутки — положительное целое число (руб.).";
+  }
+  if (!Number.isFinite(p.modelYear) || p.modelYear < 1980 || p.modelYear > 2035) {
+    return "Год выпуска — число от 1980 до 2035.";
+  }
+  if (!p.color.trim()) {
+    return "Укажите цвет автомобиля (для договора).";
+  }
+  if (!p.plateNumber.trim()) {
+    return "Укажите государственный регистрационный знак.";
+  }
+  if (!p.registrationCertificate.trim()) {
+    return "Укажите сведения о свидетельстве о регистрации (СТС).";
   }
   const imgs = p.images.filter((i) => i.url.trim().length > 0);
   if (imgs.length === 0) {
@@ -74,6 +91,10 @@ export async function createCarAction(payload: CarFormPayload): Promise<{ ok: tr
       model: payload.model.trim(),
       description: payload.description.trim(),
       pricePerDayRub: Math.round(payload.pricePerDayRub),
+      modelYear: Math.round(payload.modelYear),
+      color: payload.color.trim(),
+      plateNumber: payload.plateNumber.trim(),
+      registrationCertificate: payload.registrationCertificate.trim(),
       active: payload.active,
       images: {
         create: images.map((img, index) => ({
@@ -124,6 +145,10 @@ export async function updateCarAction(
         model: payload.model.trim(),
         description: payload.description.trim(),
         pricePerDayRub: Math.round(payload.pricePerDayRub),
+        modelYear: Math.round(payload.modelYear),
+        color: payload.color.trim(),
+        plateNumber: payload.plateNumber.trim(),
+        registrationCertificate: payload.registrationCertificate.trim(),
         active: payload.active,
       },
     });

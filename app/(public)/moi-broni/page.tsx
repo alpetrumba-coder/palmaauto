@@ -102,6 +102,13 @@ export default async function MoiBroniPage() {
                 <p style={{ margin: "0.35rem 0 0", fontSize: "var(--text-sm)" }}>
                   {statusLabel[b.status] ?? b.status}
                 </p>
+                {b.contractMeta ? (
+                  <p style={{ margin: "0.35rem 0 0", fontSize: "var(--text-sm)" }}>
+                    <a href={`/api/bookings/${b.id}/contract`} download style={{ fontWeight: 600 }}>
+                      Договор аренды (PDF)
+                    </a>
+                  </p>
+                ) : null}
               </div>
               {b.status === "PENDING_PAYMENT" ? <CancelBookingButton bookingId={b.id} /> : null}
             </li>

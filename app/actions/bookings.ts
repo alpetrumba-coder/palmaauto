@@ -1,8 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@prisma/client";
 
 import { auth } from "@/auth";
+import type { ContractFormInput } from "@/lib/booking-contract";
+import { validateContractForm } from "@/lib/booking-contract";
 import { carBookingOverlapWhere } from "@/lib/booking-overlap";
 import { sendAdminBookingCreatedEmail } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
@@ -16,11 +19,18 @@ export async function createBookingAction(input: {
   carId: string;
   startDate: string;
   endDate: string;
+  contract: ContractFormInput;
 }): Promise<BookingActionResult> {
   const session = await auth();
   if (!session?.user?.id) {
     return { ok: false, error: "Войдите в аккаунт, чтобы забронировать." };
   }
+
+  const contractRes = validateContractForm(input.contract);
+  if (!contractRes.ok) {
+    return { ok: false, error: contractRes.error };
+  }
+  const contractMeta = contractRes.meta;
 
   const start = parseDateInput(input.startDate);
   const end = parseDateInput(input.endDate);
@@ -53,6 +63,19 @@ export async function createBookingAction(input: {
     return { ok: false, error: "Автомобиль недоступен." };
   }
 
+  if (
+    !car.modelYear ||
+    !car.color?.trim() ||
+    !car.plateNumber?.trim() ||
+    !car.registrationCertificate?.trim()
+  ) {
+    return {
+      ok: false,
+      error:
+        "По этому автомобилю не заполнены данные для договора (год, цвет, гос. номер, СТС). Обратитесь в офис или выберите другой автомобиль.",
+    };
+  }
+
   const overlap = await prisma.booking.findFirst({
     where: carBookingOverlapWhere(input.carId, start, end),
   });
@@ -63,15 +86,30 @@ export async function createBookingAction(input: {
 
   const totalPriceRub = days * car.pricePerDayRub;
 
-  const created = await prisma.booking.create({
-    data: {
-      userId: session.user.id,
-      carId: input.carId,
-      startDate: start,
-      endDate: end,
-      status: "PENDING_PAYMENT",
-      totalPriceRub,
-    },
+  const metaJson = contractMeta as unknown as Prisma.InputJsonValue;
+
+  const created = await prisma.$transaction(async (tx) => {
+    const booking = await tx.booking.create({
+      data: {
+        userId: session.user.id,
+        carId: input.carId,
+        startDate: start,
+        endDate: end,
+        status: "PENDING_PAYMENT",
+        totalPriceRub,
+        contractMeta: metaJson,
+      },
+    });
+    await tx.user.update({
+      where: { id: session.user.id },
+      data: {
+        birthYear: contractMeta.birthYear,
+        passportSeries: contractMeta.passportSeries,
+        passportNumber: contractMeta.passportNumber,
+        passportIssuedBy: contractMeta.passportIssuedBy,
+      },
+    });
+    return booking;
   });
 
   // Уведомление администратору: не блокируем бронирование, если почта недоступна.

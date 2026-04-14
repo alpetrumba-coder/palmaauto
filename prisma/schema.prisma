@@ -40,6 +40,12 @@ model User {
   address      String?              @db.Text
   /// Паспортные данные (серия, номер, кем выдан); хранить и показывать только доверенным ролям.
   passportData String?              @map("passport_data") @db.Text
+  /// Год рождения (для договора аренды).
+  birthYear    Int?                 @map("birth_year")
+  /// Серия паспорта (структурировано для PDF договора).
+  passportSeries   String?          @map("passport_series")
+  passportNumber   String?          @map("passport_number")
+  passportIssuedBy String?          @map("passport_issued_by") @db.Text
   resetTokens  PasswordResetToken[]
   bookings     Booking[]
 
@@ -68,6 +74,11 @@ model Car {
   description     String     @db.Text
   /// Цена за сутки в целых рублях (без копеек).
   pricePerDayRub  Int        @map("price_per_day_rub")
+  /// Данные для договора аренды (PDF).
+  modelYear                 Int?    @map("model_year")
+  color                     String?
+  plateNumber               String? @map("plate_number")
+  registrationCertificate   String? @map("registration_certificate") @db.Text
   active          Boolean    @default(true)
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
@@ -94,6 +105,8 @@ model Booking {
   endDate       DateTime      @map("end_date") @db.Date
   status        BookingStatus @default(PENDING_PAYMENT)
   totalPriceRub Int           @map("total_price_rub")
+  /// Снимок данных арендатора для генерации договора (PDF).
+  contractMeta  Json?       @map("contract_meta")
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)

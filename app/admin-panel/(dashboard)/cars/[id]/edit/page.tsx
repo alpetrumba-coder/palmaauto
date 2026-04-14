@@ -33,6 +33,10 @@ export default async function AdminEditCarPage({ params }: PageProps) {
     model: car.model,
     description: car.description,
     pricePerDayRub: car.pricePerDayRub,
+    modelYear: car.modelYear ?? new Date().getFullYear(),
+    color: car.color ?? "",
+    plateNumber: car.plateNumber ?? "",
+    registrationCertificate: car.registrationCertificate ?? "",
     active: car.active,
     images:
       car.images.length > 0

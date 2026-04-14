@@ -13,6 +13,10 @@ async function main() {
       description:
         "Седан бизнес-класса: тихий салон, климат-контроль, подходит для поездок по городу и трассе.",
       pricePerDayRub: 4500,
+      modelYear: 2021,
+      color: "серебристый",
+      plateNumber: "A001AA77",
+      registrationCertificate: "77 УН 111111, выдан ГИБДД",
       images: [
         {
           url: "https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=1400&q=85&auto=format&fit=crop",
@@ -33,6 +37,10 @@ async function main() {
       description:
         "Кроссовер с высоким клиренсом и вместительным багажником — удобно для семьи и загорода.",
       pricePerDayRub: 5200,
+      modelYear: 2022,
+      color: "белый",
+      plateNumber: "B234CD77",
+      registrationCertificate: "77 УН 222222, выдан ГИБДД",
       images: [
         {
           url: "https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=1400&q=85&auto=format&fit=crop",
@@ -49,6 +57,10 @@ async function main() {
         "Представительский седан: комфорт задних пассажиров, идеален для деловых встреч.",
       pricePerDayRub: 8900,
       active: true,
+      modelYear: 2020,
+      color: "чёрный",
+      plateNumber: "C345EF77",
+      registrationCertificate: "77 УН 333333, выдан ГИБДД",
       images: [
         {
           url: "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=1400&q=85&auto=format&fit=crop",
@@ -64,6 +76,10 @@ async function main() {
       description: "Тестовая запись: неактивна и не должна попадать на витрину.",
       pricePerDayRub: 3200,
       active: false,
+      modelYear: 2019,
+      color: "серый",
+      plateNumber: "D456GH77",
+      registrationCertificate: "77 УН 444444, выдан ГИБДД",
       images: [
         {
           url: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=1400&q=85&auto=format&fit=crop",
@@ -86,6 +102,10 @@ async function main() {
         model: carData.model,
         description: carData.description,
         pricePerDayRub: carData.pricePerDayRub,
+        modelYear: carData.modelYear,
+        color: carData.color,
+        plateNumber: carData.plateNumber,
+        registrationCertificate: carData.registrationCertificate,
         active: carData.active ?? true,
         images: {
           deleteMany: {},
