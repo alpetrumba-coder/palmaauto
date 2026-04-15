@@ -118,6 +118,14 @@ model Booking {
   dropoffMode   BookingPlaceMode @default(OFFICE) @map("dropoff_mode")
   dropoffAddress String?         @map("dropoff_address") @db.Text
   dropoffFeeRub Int              @default(0) @map("dropoff_fee_rub")
+  secondDriverEnabled Boolean @default(false) @map("second_driver_enabled")
+  secondDriverFirstName String? @map("second_driver_first_name")
+  secondDriverLastName String? @map("second_driver_last_name")
+  secondDriverAgeYears Int? @map("second_driver_age_years")
+  secondDriverPassportData String? @map("second_driver_passport_data") @db.Text
+  secondDriverFeeRub Int @default(0) @map("second_driver_fee_rub")
+  childSeatEnabled Boolean @default(false) @map("child_seat_enabled")
+  childSeatFeeRub Int @default(0) @map("child_seat_fee_rub")
   /// Снимок данных арендатора для генерации договора (PDF).
   contractMeta  Json?       @map("contract_meta")
   createdAt     DateTime      @default(now()) @map("created_at")

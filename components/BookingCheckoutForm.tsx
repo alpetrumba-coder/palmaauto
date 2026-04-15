@@ -39,8 +39,11 @@ type BookingCheckoutFormProps = {
   carId: string;
   startDate: string;
   endDate: string;
+  days: number;
   baseTotalPriceRub: number;
   deliveryFeeRub: number;
+  additionalDriverPerDayRub: number;
+  childSeatPerDayRub: number;
   initialPhone: string;
   initialContract: Partial<ContractFormInput>;
 };
@@ -49,8 +52,11 @@ export function BookingCheckoutForm({
   carId,
   startDate,
   endDate,
+  days,
   baseTotalPriceRub,
   deliveryFeeRub,
+  additionalDriverPerDayRub,
+  childSeatPerDayRub,
   initialPhone,
   initialContract,
 }: BookingCheckoutFormProps) {
@@ -64,12 +70,21 @@ export function BookingCheckoutForm({
   const [pickupAddress, setPickupAddress] = useState("");
   const [dropoffMode, setDropoffMode] = useState<"OFFICE" | "ADDRESS">("OFFICE");
   const [dropoffAddress, setDropoffAddress] = useState("");
+  const [secondDriverEnabled, setSecondDriverEnabled] = useState(false);
+  const [secondDriverFirstName, setSecondDriverFirstName] = useState("");
+  const [secondDriverLastName, setSecondDriverLastName] = useState("");
+  const [secondDriverAgeYears, setSecondDriverAgeYears] = useState("");
+  const [secondDriverPassportData, setSecondDriverPassportData] = useState("");
+  const [childSeatEnabled, setChildSeatEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   const pickupFee = pickupMode === "ADDRESS" ? deliveryFeeRub : 0;
   const dropoffFee = dropoffMode === "ADDRESS" ? deliveryFeeRub : 0;
-  const totalWithFees = baseTotalPriceRub + pickupFee + dropoffFee;
+  const secondDriverFee = secondDriverEnabled ? additionalDriverPerDayRub * Math.max(1, days) : 0;
+  const childSeatFee = childSeatEnabled ? childSeatPerDayRub * Math.max(1, days) : 0;
+  const totalWithFees = baseTotalPriceRub + pickupFee + dropoffFee + secondDriverFee + childSeatFee;
+  const extrasTotal = pickupFee + dropoffFee + secondDriverFee + childSeatFee;
 
   function setContractField<K extends keyof ContractFormInput>(key: K, value: ContractFormInput[K]) {
     setContract((prev) => ({ ...prev, [key]: value }));
@@ -89,6 +104,12 @@ export function BookingCheckoutForm({
       pickupAddress,
       dropoffMode,
       dropoffAddress,
+      secondDriverEnabled,
+      secondDriverFirstName,
+      secondDriverLastName,
+      secondDriverAgeYears,
+      secondDriverPassportData,
+      childSeatEnabled,
     });
     setPending(false);
     if (!res.ok) {
@@ -107,6 +128,92 @@ export function BookingCheckoutForm({
       <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
         Данные для договора аренды и PDF: укажите как в паспорте.
       </p>
+
+      <div
+        style={{
+          padding: "1rem",
+          borderRadius: "var(--radius-lg)",
+          border: "1px solid var(--color-border)",
+          background: "var(--color-surface)",
+        }}
+      >
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={secondDriverEnabled}
+            onChange={(e) => setSecondDriverEnabled(e.target.checked)}
+          />
+          Нужен второй водитель:{" "}
+          <strong>
+            {additionalDriverPerDayRub} ₽/сут × {days} = {secondDriverFee} ₽
+          </strong>
+        </label>
+
+        {secondDriverEnabled ? (
+          <div style={{ marginTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 10rem" }}>
+                Имя
+                <input
+                  required
+                  value={secondDriverFirstName}
+                  onChange={(e) => setSecondDriverFirstName(e.target.value)}
+                  style={fieldStyle}
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 10rem" }}>
+                Фамилия
+                <input
+                  required
+                  value={secondDriverLastName}
+                  onChange={(e) => setSecondDriverLastName(e.target.value)}
+                  style={fieldStyle}
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", maxWidth: "14rem" }}>
+                Возраст (полных лет)
+                <input
+                  required
+                  type="number"
+                  min={18}
+                  max={100}
+                  value={secondDriverAgeYears}
+                  onChange={(e) => setSecondDriverAgeYears(e.target.value)}
+                  style={fieldStyle}
+                />
+              </label>
+            </div>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+              Паспортные данные второго водителя
+              <textarea
+                required
+                rows={3}
+                placeholder="Серия, номер, кем и когда выдан"
+                value={secondDriverPassportData}
+                onChange={(e) => setSecondDriverPassportData(e.target.value)}
+                style={{ ...wideFieldStyle, minHeight: "4rem", resize: "vertical" }}
+              />
+            </label>
+          </div>
+        ) : null}
+      </div>
+
+      <div
+        style={{
+          padding: "1rem",
+          borderRadius: "var(--radius-lg)",
+          border: "1px solid var(--color-border)",
+          background: "var(--color-surface)",
+        }}
+      >
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)", cursor: "pointer" }}>
+          <input type="checkbox" checked={childSeatEnabled} onChange={(e) => setChildSeatEnabled(e.target.checked)} />
+          Нужен бустер / детское кресло:{" "}
+          <strong>
+            {childSeatPerDayRub} ₽/сут × {days} = {childSeatFee} ₽
+          </strong>
+        </label>
+      </div>
 
       <div
         style={{
@@ -227,9 +334,9 @@ export function BookingCheckoutForm({
         <strong style={{ color: "var(--color-text)" }}>
           {totalWithFees.toLocaleString("ru-RU")} ₽
         </strong>
-        {pickupFee + dropoffFee > 0 ? (
+        {extrasTotal > 0 ? (
           <span style={{ display: "block", marginTop: "0.25rem" }}>
-            Включая доп. услуги: {pickupFee + dropoffFee} ₽
+            Включая доп. услуги: {extrasTotal.toLocaleString("ru-RU")} ₽
           </span>
         ) : null}
       </p>

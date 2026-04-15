@@ -17,6 +17,7 @@ export type RentalContractPdfInput = {
   dropoffLabel: string;
   pickupFeeRub: number;
   dropoffFeeRub: number;
+  bookingInfoExtraLines: string[];
   car: {
     make: string;
     model: string;
@@ -79,6 +80,7 @@ function buildDocDefinition(input: RentalContractPdfInput) {
     `Даты: ${formatDateInputUTC(input.startDate)} — ${formatDateInputUTC(input.endDate)}`,
     `Получение: ${input.pickupLabel}${input.pickupFeeRub > 0 ? ` (+${input.pickupFeeRub} ₽)` : ""}`,
     `Сдача: ${input.dropoffLabel}${input.dropoffFeeRub > 0 ? ` (+${input.dropoffFeeRub} ₽)` : ""}`,
+    ...input.bookingInfoExtraLines,
     `Итого к оплате: ${input.totalPriceRub} ₽`,
     `Ссылка для администратора (шахматка броней): ${input.adminBookingsUrl}`,
   ];

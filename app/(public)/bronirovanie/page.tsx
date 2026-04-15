@@ -6,7 +6,13 @@ import { BookingCheckoutForm } from "@/components/BookingCheckoutForm";
 import { CarPhotoImage } from "@/components/CarPhotoImage";
 import { getBookingCheckoutPreview } from "@/lib/booking-checkout-preview";
 import { formatPriceRub } from "@/lib/formatPrice";
-import { DELIVERY_SERVICE_NAME, parseDeliveryFeeRub } from "@/lib/pickup-dropoff";
+import {
+  ADDITIONAL_DRIVER_SERVICE_NAME,
+  CHILD_SEAT_SERVICE_NAME,
+  DELIVERY_SERVICE_NAME,
+  parseDeliveryFeeRub,
+  parsePerDayFeeRub,
+} from "@/lib/pickup-dropoff";
 import { prisma } from "@/lib/prisma";
 import type { ContractFormInput } from "@/lib/booking-contract";
 import { parseDateInput } from "@/lib/rental-dates";
@@ -97,6 +103,19 @@ export default async function BronirovaniePage({
     select: { pricePerDayRub: true, nonDailyPriceText: true },
   });
   const deliveryFeeRub = parseDeliveryFeeRub(deliveryService) ?? 500;
+
+  const [additionalDriverSvc, childSeatSvc] = await Promise.all([
+    prisma.extraService.findFirst({
+      where: { name: ADDITIONAL_DRIVER_SERVICE_NAME },
+      select: { pricePerDayRub: true, nonDailyPriceText: true },
+    }),
+    prisma.extraService.findFirst({
+      where: { name: CHILD_SEAT_SERVICE_NAME },
+      select: { pricePerDayRub: true, nonDailyPriceText: true },
+    }),
+  ]);
+  const additionalDriverPerDayRub = parsePerDayFeeRub(additionalDriverSvc) ?? 500;
+  const childSeatPerDayRub = parsePerDayFeeRub(childSeatSvc) ?? 300;
 
   return (
     <div className="page-shell" style={{ paddingBlock: "clamp(2rem, 8vw, 3.5rem)" }}>
@@ -195,8 +214,11 @@ export default async function BronirovaniePage({
             carId={car.id}
             startDate={fromStr}
             endDate={toStr}
+            days={days}
             baseTotalPriceRub={totalPriceRub}
             deliveryFeeRub={deliveryFeeRub}
+            additionalDriverPerDayRub={additionalDriverPerDayRub}
+            childSeatPerDayRub={childSeatPerDayRub}
             initialPhone={profile?.phone ?? ""}
             initialContract={initialContract}
           />

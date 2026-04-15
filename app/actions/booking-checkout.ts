@@ -7,7 +7,14 @@ import { auth } from "@/auth";
 import type { ContractFormInput } from "@/lib/booking-contract";
 import { validateContractForm } from "@/lib/booking-contract";
 import { carBookingOverlapWhere } from "@/lib/booking-overlap";
-import { DELIVERY_SERVICE_NAME, OFFICE_ADDRESS, parseDeliveryFeeRub } from "@/lib/pickup-dropoff";
+import {
+  ADDITIONAL_DRIVER_SERVICE_NAME,
+  CHILD_SEAT_SERVICE_NAME,
+  DELIVERY_SERVICE_NAME,
+  OFFICE_ADDRESS,
+  parseDeliveryFeeRub,
+  parsePerDayFeeRub,
+} from "@/lib/pickup-dropoff";
 import { prisma } from "@/lib/prisma";
 import { splitRuFullName } from "@/lib/ru-full-name";
 import { inclusiveRentalDays, parseDateInput, utcToday } from "@/lib/rental-dates";
@@ -32,6 +39,12 @@ export async function submitBookingCheckoutAction(input: {
   pickupAddress: string;
   dropoffMode: "OFFICE" | "ADDRESS";
   dropoffAddress: string;
+  secondDriverEnabled: boolean;
+  secondDriverFirstName: string;
+  secondDriverLastName: string;
+  secondDriverAgeYears: string;
+  secondDriverPassportData: string;
+  childSeatEnabled: boolean;
 }): Promise<BookingCheckoutActionResult> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -59,6 +72,24 @@ export async function submitBookingCheckoutAction(input: {
   }
   if (dropoffMode === "ADDRESS" && dropoffAddress.trim().length < 5) {
     return { ok: false, error: "Укажите адрес сдачи автомобиля (не короче 5 символов)." };
+  }
+
+  const secondDriverEnabled = Boolean(input.secondDriverEnabled);
+  const childSeatEnabled = Boolean(input.childSeatEnabled);
+  const secondDriverFirstName = trimStr(input.secondDriverFirstName ?? "", 120);
+  const secondDriverLastName = trimStr(input.secondDriverLastName ?? "", 120);
+  const secondDriverAgeYears = Number.parseInt(String(input.secondDriverAgeYears ?? "").trim(), 10);
+  const secondDriverPassportData = trimStr(input.secondDriverPassportData ?? "", 4000);
+  if (secondDriverEnabled) {
+    if (!secondDriverFirstName || !secondDriverLastName) {
+      return { ok: false, error: "Укажите имя и фамилию второго водителя." };
+    }
+    if (!Number.isFinite(secondDriverAgeYears) || secondDriverAgeYears < 18 || secondDriverAgeYears > 100) {
+      return { ok: false, error: "Укажите возраст второго водителя (полных лет) от 18 до 100." };
+    }
+    if (secondDriverPassportData.trim().length < 5) {
+      return { ok: false, error: "Укажите паспортные данные второго водителя (не короче 5 символов)." };
+    }
   }
 
   const start = parseDateInput(input.startDate);
@@ -118,9 +149,25 @@ export async function submitBookingCheckoutAction(input: {
   });
   const deliveryFeeRub = parseDeliveryFeeRub(deliveryService) ?? 500;
 
+  const [addDriverSvc, childSeatSvc] = await Promise.all([
+    prisma.extraService.findFirst({
+      where: { name: ADDITIONAL_DRIVER_SERVICE_NAME },
+      select: { pricePerDayRub: true, nonDailyPriceText: true },
+    }),
+    prisma.extraService.findFirst({
+      where: { name: CHILD_SEAT_SERVICE_NAME },
+      select: { pricePerDayRub: true, nonDailyPriceText: true },
+    }),
+  ]);
+  const additionalDriverPerDayRub = parsePerDayFeeRub(addDriverSvc) ?? 500;
+  const childSeatPerDayRub = parsePerDayFeeRub(childSeatSvc) ?? 300;
+
   const pickupFeeRub = pickupMode === "ADDRESS" ? deliveryFeeRub : 0;
   const dropoffFeeRub = dropoffMode === "ADDRESS" ? deliveryFeeRub : 0;
-  const totalPriceRub = days * car.pricePerDayRub + pickupFeeRub + dropoffFeeRub;
+  const secondDriverFeeRub = secondDriverEnabled ? additionalDriverPerDayRub * days : 0;
+  const childSeatFeeRub = childSeatEnabled ? childSeatPerDayRub * days : 0;
+
+  const totalPriceRub = days * car.pricePerDayRub + pickupFeeRub + dropoffFeeRub + secondDriverFeeRub + childSeatFeeRub;
 
   const passportData = trimStr(`${meta.passportSeries} ${meta.passportNumber}, ${meta.passportIssuedBy}`, 4000);
   const { lastName, firstName, patronymic } = splitRuFullName(meta.fullName);
@@ -154,6 +201,14 @@ export async function submitBookingCheckoutAction(input: {
         dropoffMode,
         dropoffAddress: dropoffMode === "ADDRESS" ? dropoffAddress : OFFICE_ADDRESS,
         dropoffFeeRub,
+        secondDriverEnabled,
+        secondDriverFirstName: secondDriverEnabled ? secondDriverFirstName : null,
+        secondDriverLastName: secondDriverEnabled ? secondDriverLastName : null,
+        secondDriverAgeYears: secondDriverEnabled ? secondDriverAgeYears : null,
+        secondDriverPassportData: secondDriverEnabled ? secondDriverPassportData : null,
+        secondDriverFeeRub,
+        childSeatEnabled,
+        childSeatFeeRub,
         contractMeta: metaJson,
       },
     });

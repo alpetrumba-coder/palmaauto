@@ -64,6 +64,22 @@ export async function GET(_req: Request, { params }: { params: Promise<{ booking
         }))
       : [...EXTRA_SERVICE_PDF_FALLBACK];
 
+  const bookingInfoExtraLines: string[] = [];
+  if (booking.secondDriverEnabled) {
+    const fio = `${(booking.secondDriverLastName ?? "").trim()} ${(booking.secondDriverFirstName ?? "").trim()}`.trim();
+    const age = booking.secondDriverAgeYears != null ? `, возраст ${booking.secondDriverAgeYears} полных лет` : "";
+    const pass = (booking.secondDriverPassportData ?? "").trim();
+    bookingInfoExtraLines.push(`Второй водитель: ${fio || "(не указано)"}${age}${pass ? `, паспорт: ${pass}` : ""}`);
+    const fee = booking.secondDriverFeeRub ?? 0;
+    const perDay = days > 0 ? Math.round(fee / days) : fee;
+    bookingInfoExtraLines.push(`Доп. услуга «Второй водитель»: +${fee} ₽ (${perDay} ₽/сут × ${days})`);
+  }
+  if (booking.childSeatEnabled) {
+    const fee = booking.childSeatFeeRub ?? 0;
+    const perDay = days > 0 ? Math.round(fee / days) : fee;
+    bookingInfoExtraLines.push(`Доп. услуга «Детское кресло/бустер»: +${fee} ₽ (${perDay} ₽/сут × ${days})`);
+  }
+
   const buf = await buildRentalContractPdfBuffer({
     issuedAt: new Date(),
     bookingId: booking.id,
@@ -83,6 +99,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ booking
         : `офис: ${OFFICE_ADDRESS}`,
     pickupFeeRub: booking.pickupFeeRub ?? 0,
     dropoffFeeRub: booking.dropoffFeeRub ?? 0,
+    bookingInfoExtraLines,
     car: {
       make: car.make,
       model: car.model,
