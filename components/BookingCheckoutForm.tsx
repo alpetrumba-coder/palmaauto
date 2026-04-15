@@ -307,26 +307,6 @@ export function BookingCheckoutForm({
         />
       </label>
 
-      <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-        Дополнительный водитель (п. 1.3 договора), необязательно:
-      </p>
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        ФИО доп. водителя
-        <input
-          value={contract.additionalDriverName}
-          onChange={(e) => setContractField("additionalDriverName", e.target.value)}
-          style={wideFieldStyle}
-        />
-      </label>
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Паспорт доп. водителя (серия и номер)
-        <input
-          value={contract.additionalDriverPassport}
-          onChange={(e) => setContractField("additionalDriverPassport", e.target.value)}
-          style={wideFieldStyle}
-        />
-      </label>
-
       <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
         Телефон
         <input
