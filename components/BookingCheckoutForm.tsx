@@ -61,6 +61,8 @@ export function BookingCheckoutForm({
   initialContract,
 }: BookingCheckoutFormProps) {
   const router = useRouter();
+  const [step, setStep] = useState<"edit" | "review">("edit");
+  const [confirmOk, setConfirmOk] = useState(false);
   const [contract, setContract] = useState<ContractFormInput>(() => ({
     ...emptyContract(),
     ...initialContract,
@@ -81,18 +83,48 @@ export function BookingCheckoutForm({
 
   const pickupFee = pickupMode === "ADDRESS" ? deliveryFeeRub : 0;
   const dropoffFee = dropoffMode === "ADDRESS" ? deliveryFeeRub : 0;
-  const secondDriverFee = secondDriverEnabled ? additionalDriverPerDayRub * Math.max(1, days) : 0;
-  const childSeatFee = childSeatEnabled ? childSeatPerDayRub * Math.max(1, days) : 0;
-  const totalWithFees = baseTotalPriceRub + pickupFee + dropoffFee + secondDriverFee + childSeatFee;
-  const extrasTotal = pickupFee + dropoffFee + secondDriverFee + childSeatFee;
+  const secondDriverTotal = additionalDriverPerDayRub * Math.max(1, days);
+  const childSeatTotal = childSeatPerDayRub * Math.max(1, days);
+  const secondDriverFeeIncluded = secondDriverEnabled ? secondDriverTotal : 0;
+  const childSeatFeeIncluded = childSeatEnabled ? childSeatTotal : 0;
+  const totalWithFees = baseTotalPriceRub + pickupFee + dropoffFee + secondDriverFeeIncluded + childSeatFeeIncluded;
+  const extrasTotal = pickupFee + dropoffFee + secondDriverFeeIncluded + childSeatFeeIncluded;
 
   function setContractField<K extends keyof ContractFormInput>(key: K, value: ContractFormInput[K]) {
     setContract((prev) => ({ ...prev, [key]: value }));
   }
 
+  function goToReview() {
+    // Browser required-validation for conditional fields does not run on type="button",
+    // so we perform a lightweight check and let server-side validation be the source of truth.
+    setError(null);
+    if (!contract.fullName.trim()) return setError("Укажите ФИО полностью.");
+    if (!contract.ageYears.trim()) return setError("Укажите возраст (полных лет).");
+    if (!contract.passportSeries.trim() || !contract.passportNumber.trim()) return setError("Укажите серию и номер паспорта.");
+    if (!contract.passportIssuedBy.trim()) return setError("Укажите, кем и когда выдан паспорт.");
+    if (!phone.trim()) return setError("Укажите телефон.");
+    if (pickupMode === "ADDRESS" && pickupAddress.trim().length < 5) return setError("Укажите адрес получения (не короче 5 символов).");
+    if (dropoffMode === "ADDRESS" && dropoffAddress.trim().length < 5) return setError("Укажите адрес сдачи (не короче 5 символов).");
+    if (secondDriverEnabled) {
+      if (!secondDriverFirstName.trim() || !secondDriverLastName.trim()) return setError("Укажите имя и фамилию второго водителя.");
+      if (!secondDriverAgeYears.trim()) return setError("Укажите возраст второго водителя.");
+      if (secondDriverPassportData.trim().length < 5) return setError("Укажите паспортные данные второго водителя (не короче 5 символов).");
+    }
+    setConfirmOk(false);
+    setStep("review");
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (step !== "review") {
+      goToReview();
+      return;
+    }
+    if (!confirmOk) {
+      setError("Подтвердите корректность данных, чтобы перейти к оплате.");
+      return;
+    }
     setPending(true);
     const res = await submitBookingCheckoutAction({
       carId,
@@ -114,106 +146,200 @@ export function BookingCheckoutForm({
     setPending(false);
     if (!res.ok) {
       setError(res.error);
+      setStep("edit");
       return;
     }
     router.push(`/oplata/${res.bookingId}`);
     router.refresh();
   }
 
+  const pickupLabel = pickupMode === "OFFICE" ? `офис: ${OFFICE_ADDRESS}` : `по адресу: ${pickupAddress.trim()}`;
+  const dropoffLabel = dropoffMode === "OFFICE" ? `офис: ${OFFICE_ADDRESS}` : `по адресу: ${dropoffAddress.trim()}`;
+
   return (
     <form
       onSubmit={onSubmit}
       style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "32rem" }}
     >
-      <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-        Данные для договора аренды и PDF: укажите как в паспорте.
-      </p>
-
-      <div
-        style={{
-          padding: "1rem",
-          borderRadius: "var(--radius-lg)",
-          border: "1px solid var(--color-border)",
-          background: "var(--color-surface)",
-        }}
-      >
-        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)", cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            checked={secondDriverEnabled}
-            onChange={(e) => setSecondDriverEnabled(e.target.checked)}
-          />
-          Нужен второй водитель:{" "}
-          <strong>
-            {additionalDriverPerDayRub} ₽/сут × {days} = {secondDriverFee} ₽
-          </strong>
-        </label>
-
-        {secondDriverEnabled ? (
-          <div style={{ marginTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-              <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 10rem" }}>
-                Имя
-                <input
-                  required
-                  value={secondDriverFirstName}
-                  onChange={(e) => setSecondDriverFirstName(e.target.value)}
-                  style={fieldStyle}
-                />
-              </label>
-              <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 10rem" }}>
-                Фамилия
-                <input
-                  required
-                  value={secondDriverLastName}
-                  onChange={(e) => setSecondDriverLastName(e.target.value)}
-                  style={fieldStyle}
-                />
-              </label>
-              <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", maxWidth: "14rem" }}>
-                Возраст (полных лет)
-                <input
-                  required
-                  type="number"
-                  min={18}
-                  max={100}
-                  value={secondDriverAgeYears}
-                  onChange={(e) => setSecondDriverAgeYears(e.target.value)}
-                  style={fieldStyle}
-                />
-              </label>
+      {step === "review" ? (
+        <div
+          style={{
+            padding: "1rem",
+            borderRadius: "var(--radius-lg)",
+            border: "1px solid var(--color-border)",
+            background: "var(--color-surface)",
+          }}
+        >
+          <p style={{ margin: "0 0 0.5rem", fontSize: "var(--text-sm)", fontWeight: 600 }}>Проверка данных</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+            <div>
+              <strong>1‑й водитель</strong>: {contract.fullName.trim()}, возраст {contract.ageYears.trim()} полных лет
             </div>
-            <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-              Паспортные данные второго водителя
-              <textarea
-                required
-                rows={3}
-                placeholder="Серия, номер, кем и когда выдан"
-                value={secondDriverPassportData}
-                onChange={(e) => setSecondDriverPassportData(e.target.value)}
-                style={{ ...wideFieldStyle, minHeight: "4rem", resize: "vertical" }}
-              />
-            </label>
+            <div>
+              <strong>Паспорт</strong>: {contract.passportSeries.trim()} {contract.passportNumber.trim()}, {contract.passportIssuedBy.trim()}
+            </div>
+            <div>
+              <strong>Телефон</strong>: {phone.trim()}
+            </div>
+            <div>
+              <strong>Получение</strong>: {pickupLabel} {pickupFee > 0 ? `(+${pickupFee} ₽)` : "(бесплатно)"}
+            </div>
+            <div>
+              <strong>Сдача</strong>: {dropoffLabel} {dropoffFee > 0 ? `(+${dropoffFee} ₽)` : "(бесплатно)"}
+            </div>
+            <div>
+              <strong>Бустер / детское кресло</strong>: {childSeatEnabled ? `да (+${childSeatFeeIncluded} ₽)` : "нет"}
+            </div>
+            <div>
+              <strong>2‑й водитель</strong>:{" "}
+              {secondDriverEnabled
+                ? `${secondDriverLastName.trim()} ${secondDriverFirstName.trim()}, возраст ${secondDriverAgeYears.trim()} полных лет (+${secondDriverFeeIncluded} ₽)`
+                : "нет"}
+            </div>
+            <div>
+              <strong>Итого к оплате</strong>: {totalWithFees.toLocaleString("ru-RU")} ₽
+              {extrasTotal > 0 ? <span style={{ display: "block" }}>Включая доп. услуги: {extrasTotal.toLocaleString("ru-RU")} ₽</span> : null}
+            </div>
           </div>
-        ) : null}
-      </div>
 
-      <div
-        style={{
-          padding: "1rem",
-          borderRadius: "var(--radius-lg)",
-          border: "1px solid var(--color-border)",
-          background: "var(--color-surface)",
-        }}
-      >
-        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)", cursor: "pointer" }}>
-          <input type="checkbox" checked={childSeatEnabled} onChange={(e) => setChildSeatEnabled(e.target.checked)} />
-          Нужен бустер / детское кресло:{" "}
-          <strong>
-            {childSeatPerDayRub} ₽/сут × {days} = {childSeatFee} ₽
-          </strong>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)", cursor: "pointer", marginTop: "0.85rem" }}>
+            <input type="checkbox" checked={confirmOk} onChange={(e) => setConfirmOk(e.target.checked)} />
+            Подтверждаю корректность введённой информации
+          </label>
+
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center", marginTop: "0.85rem" }}>
+            <button
+              type="button"
+              className="nav-tap-target"
+              onClick={() => {
+                setStep("edit");
+                setConfirmOk(false);
+              }}
+              style={{
+                padding: "0.65rem 1.25rem",
+                borderRadius: "999px",
+                border: "1px solid var(--color-border)",
+                background: "transparent",
+                color: "var(--color-text)",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Назад
+            </button>
+            <button
+              type="submit"
+              disabled={pending || !confirmOk}
+              className="nav-tap-target"
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "999px",
+                border: "none",
+                background: "var(--color-accent)",
+                color: "#fff",
+                fontWeight: 600,
+                cursor: pending ? "wait" : "pointer",
+              }}
+            >
+              {pending ? "Отправка…" : "Перейти к оплате"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+            Данные для договора аренды и PDF: укажите как в паспорте.
+          </p>
+
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        ФИО полностью
+        <input
+          required
+          autoComplete="name"
+          value={contract.fullName}
+          onChange={(e) => setContractField("fullName", e.target.value)}
+          style={wideFieldStyle}
+        />
+      </label>
+
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", maxWidth: "14rem" }}>
+        Возраст (полных лет)
+        <input
+          type="number"
+          required
+          min={18}
+          max={100}
+          value={contract.ageYears}
+          onChange={(e) => setContractField("ageYears", e.target.value)}
+          style={fieldStyle}
+        />
+      </label>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 8rem" }}>
+          Серия паспорта
+          <input
+            required
+            value={contract.passportSeries}
+            onChange={(e) => setContractField("passportSeries", e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 8rem" }}>
+          Номер паспорта
+          <input
+            required
+            value={contract.passportNumber}
+            onChange={(e) => setContractField("passportNumber", e.target.value)}
+            style={fieldStyle}
+          />
         </label>
       </div>
+
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        Кем и когда выдан паспорт
+        <textarea
+          required
+          rows={3}
+          value={contract.passportIssuedBy}
+          onChange={(e) => setContractField("passportIssuedBy", e.target.value)}
+          style={{ ...wideFieldStyle, minHeight: "4rem", resize: "vertical" }}
+        />
+      </label>
+
+      <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+        Дополнительный водитель (п. 1.3 договора), необязательно:
+      </p>
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        ФИО доп. водителя
+        <input
+          value={contract.additionalDriverName}
+          onChange={(e) => setContractField("additionalDriverName", e.target.value)}
+          style={wideFieldStyle}
+        />
+      </label>
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        Паспорт доп. водителя (серия и номер)
+        <input
+          value={contract.additionalDriverPassport}
+          onChange={(e) => setContractField("additionalDriverPassport", e.target.value)}
+          style={wideFieldStyle}
+        />
+      </label>
+
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        Телефон
+        <input
+          required
+          type="tel"
+          autoComplete="tel"
+          inputMode="tel"
+          placeholder="+7 …"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          style={fieldStyle}
+        />
+      </label>
 
       <div
         style={{
@@ -329,6 +455,104 @@ export function BookingCheckoutForm({
         ) : null}
       </div>
 
+      <div
+        style={{
+          padding: "1rem",
+          borderRadius: "var(--radius-lg)",
+          border: "1px solid var(--color-border)",
+          background: "var(--color-surface)",
+        }}
+      >
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)", cursor: "pointer" }}>
+          <input type="checkbox" checked={childSeatEnabled} onChange={(e) => setChildSeatEnabled(e.target.checked)} />
+          Нужен бустер / детское кресло:{" "}
+          <strong>
+            {childSeatPerDayRub} ₽/сут × {days} = {childSeatTotal.toLocaleString("ru-RU")} ₽
+          </strong>
+        </label>
+      </div>
+
+      <div
+        style={{
+          padding: "1rem",
+          borderRadius: "var(--radius-lg)",
+          border: "1px solid var(--color-border)",
+          background: "var(--color-surface)",
+        }}
+      >
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={secondDriverEnabled}
+            onChange={(e) => setSecondDriverEnabled(e.target.checked)}
+          />
+          Нужен второй водитель:{" "}
+          <strong>
+            {additionalDriverPerDayRub} ₽/сут × {days} = {secondDriverTotal.toLocaleString("ru-RU")} ₽
+          </strong>
+        </label>
+
+        <div
+          aria-disabled={!secondDriverEnabled}
+          style={{
+            marginTop: "0.75rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.75rem",
+            opacity: secondDriverEnabled ? 1 : 0.55,
+            pointerEvents: secondDriverEnabled ? "auto" : "none",
+          }}
+        >
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 10rem" }}>
+              Имя
+              <input
+                required={secondDriverEnabled}
+                value={secondDriverFirstName}
+                onChange={(e) => setSecondDriverFirstName(e.target.value)}
+                style={fieldStyle}
+                disabled={!secondDriverEnabled}
+              />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 10rem" }}>
+              Фамилия
+              <input
+                required={secondDriverEnabled}
+                value={secondDriverLastName}
+                onChange={(e) => setSecondDriverLastName(e.target.value)}
+                style={fieldStyle}
+                disabled={!secondDriverEnabled}
+              />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", maxWidth: "14rem" }}>
+              Возраст (полных лет)
+              <input
+                required={secondDriverEnabled}
+                type="number"
+                min={18}
+                max={100}
+                value={secondDriverAgeYears}
+                onChange={(e) => setSecondDriverAgeYears(e.target.value)}
+                style={fieldStyle}
+                disabled={!secondDriverEnabled}
+              />
+            </label>
+          </div>
+          <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+            Паспортные данные второго водителя
+            <textarea
+              required={secondDriverEnabled}
+              rows={3}
+              placeholder="Серия, номер, кем и когда выдан"
+              value={secondDriverPassportData}
+              onChange={(e) => setSecondDriverPassportData(e.target.value)}
+              style={{ ...wideFieldStyle, minHeight: "4rem", resize: "vertical" }}
+              disabled={!secondDriverEnabled}
+            />
+          </label>
+        </div>
+      </div>
+
       <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
         Итого к оплате:{" "}
         <strong style={{ color: "var(--color-text)" }}>
@@ -341,96 +565,6 @@ export function BookingCheckoutForm({
         ) : null}
       </p>
 
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        ФИО полностью
-        <input
-          required
-          autoComplete="name"
-          value={contract.fullName}
-          onChange={(e) => setContractField("fullName", e.target.value)}
-          style={wideFieldStyle}
-        />
-      </label>
-
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", maxWidth: "14rem" }}>
-        Возраст (полных лет)
-        <input
-          type="number"
-          required
-          min={18}
-          max={100}
-          value={contract.ageYears}
-          onChange={(e) => setContractField("ageYears", e.target.value)}
-          style={fieldStyle}
-        />
-      </label>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 8rem" }}>
-          Серия паспорта
-          <input
-            required
-            value={contract.passportSeries}
-            onChange={(e) => setContractField("passportSeries", e.target.value)}
-            style={fieldStyle}
-          />
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 8rem" }}>
-          Номер паспорта
-          <input
-            required
-            value={contract.passportNumber}
-            onChange={(e) => setContractField("passportNumber", e.target.value)}
-            style={fieldStyle}
-          />
-        </label>
-      </div>
-
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Кем и когда выдан паспорт
-        <textarea
-          required
-          rows={3}
-          value={contract.passportIssuedBy}
-          onChange={(e) => setContractField("passportIssuedBy", e.target.value)}
-          style={{ ...wideFieldStyle, minHeight: "4rem", resize: "vertical" }}
-        />
-      </label>
-
-      <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-        Дополнительный водитель (п. 1.3 договора), необязательно:
-      </p>
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        ФИО доп. водителя
-        <input
-          value={contract.additionalDriverName}
-          onChange={(e) => setContractField("additionalDriverName", e.target.value)}
-          style={wideFieldStyle}
-        />
-      </label>
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Паспорт доп. водителя (серия и номер)
-        <input
-          value={contract.additionalDriverPassport}
-          onChange={(e) => setContractField("additionalDriverPassport", e.target.value)}
-          style={wideFieldStyle}
-        />
-      </label>
-
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Телефон
-        <input
-          required
-          type="tel"
-          autoComplete="tel"
-          inputMode="tel"
-          placeholder="+7 …"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          style={fieldStyle}
-        />
-      </label>
-
       {error ? (
         <p role="alert" style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-danger, #c00)" }}>
           {error}
@@ -438,9 +572,10 @@ export function BookingCheckoutForm({
       ) : null}
 
       <button
-        type="submit"
+        type="button"
         disabled={pending}
         className="nav-tap-target"
+        onClick={goToReview}
         style={{
           alignSelf: "flex-start",
           padding: "0.75rem 1.5rem",
@@ -453,11 +588,13 @@ export function BookingCheckoutForm({
           marginTop: "0.25rem",
         }}
       >
-        {pending ? "Отправка…" : "Перейти к оплате"}
+        Проверить данные
       </button>
       <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-        Далее откроется страница оплаты: у вас будет 15 минут, чтобы завершить бронь.
+        Далее откроется страница проверки: подтвердите данные и перейдите к оплате (15 минут на завершение брони).
       </p>
+        </>
+      )}
     </form>
   );
 }
