@@ -10,6 +10,7 @@ export type RentalContractPdfInput = {
   pricePerDayRub: number;
   totalPriceRub: number;
   extrasTotalRub: number;
+  extrasLines: string[];
   car: {
     make: string;
     model: string;
@@ -124,6 +125,7 @@ function buildDocDefinition(input: RentalContractPdfInput) {
         " руб.\n" +
         "3.2. Стоимость дополнительных услуг составляет " +
         input.extrasTotalRub +
+        (input.extrasLines.length > 0 ? "\n" + input.extrasLines.map((l) => `- ${l}`).join("\n") : "") +
         "\n" +
         "3.3. Оплата производится авансом, в рублях РФ, наличным расчётом.\n" +
         "3.4. Срок аренды исчисляется с момента подписания акта приёма-передачи.\n" +

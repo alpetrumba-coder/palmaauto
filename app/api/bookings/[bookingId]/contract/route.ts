@@ -43,6 +43,28 @@ export async function GET(_req: Request, { params }: { params: Promise<{ booking
   const baseRental = days * car.pricePerDayRub;
   const extrasTotalRub = Math.max(0, (booking.totalPriceRub ?? 0) - baseRental);
 
+  const extrasLines: string[] = [];
+  if (booking.pickupMode === "ADDRESS") {
+    const addr = (booking.pickupAddress ?? "").trim();
+    const fee = booking.pickupFeeRub ?? 0;
+    extrasLines.push(`доставка ТС по адресу: ${addr || OFFICE_ADDRESS} = ${fee} руб.`);
+  }
+  if (booking.dropoffMode === "ADDRESS") {
+    const addr = (booking.dropoffAddress ?? "").trim();
+    const fee = booking.dropoffFeeRub ?? 0;
+    extrasLines.push(`приемка ТС по адресу: ${addr || OFFICE_ADDRESS} = ${fee} руб.`);
+  }
+  if (booking.childSeatEnabled) {
+    const fee = booking.childSeatFeeRub ?? 0;
+    const perDay = days > 0 ? Math.round(fee / days) : fee;
+    extrasLines.push(`бустер / детское кресло: ${perDay} руб./сут × ${days} = ${fee} руб.`);
+  }
+  if (booking.secondDriverEnabled) {
+    const fee = booking.secondDriverFeeRub ?? 0;
+    const perDay = days > 0 ? Math.round(fee / days) : fee;
+    extrasLines.push(`второй водитель: ${perDay} руб./сут × ${days} = ${fee} руб.`);
+  }
+
   const buf = await buildRentalContractPdfBuffer({
     issuedAt: new Date(),
     bookingId: booking.id,
@@ -52,6 +74,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ booking
     pricePerDayRub: car.pricePerDayRub,
     totalPriceRub: booking.totalPriceRub,
     extrasTotalRub,
+    extrasLines,
     car: {
       make: car.make,
       model: car.model,
