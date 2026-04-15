@@ -115,7 +115,6 @@ export async function createBookingAction(input: {
         lastName,
         patronymic,
         passportData,
-        birthYear: contractMeta.birthYear,
         ageYears: contractMeta.ageYears,
         passportSeries: contractMeta.passportSeries,
         passportNumber: contractMeta.passportNumber,

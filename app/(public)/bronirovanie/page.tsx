@@ -70,7 +70,6 @@ export default async function BronirovaniePage({
             lastName: true,
             patronymic: true,
             phone: true,
-            birthYear: true,
             ageYears: true,
             passportSeries: true,
             passportNumber: true,
@@ -79,17 +78,10 @@ export default async function BronirovaniePage({
         })
       : null;
 
-  const yNow = new Date().getUTCFullYear();
   const nameParts = [profile?.lastName, profile?.firstName, profile?.patronymic].filter(Boolean);
   const initialContract: Partial<ContractFormInput> = {
     fullName: nameParts.join(" ").trim(),
-    birthYear: profile?.birthYear != null ? String(profile.birthYear) : "",
-    ageYears:
-      profile?.ageYears != null
-        ? String(profile.ageYears)
-        : profile?.birthYear != null
-          ? String(yNow - profile.birthYear)
-          : "",
+    ageYears: profile?.ageYears != null ? String(profile.ageYears) : "",
     passportSeries: profile?.passportSeries ?? "",
     passportNumber: profile?.passportNumber ?? "",
     passportIssuedBy: profile?.passportIssuedBy ?? "",

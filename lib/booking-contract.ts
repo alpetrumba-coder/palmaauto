@@ -3,7 +3,6 @@ import type { Prisma } from "@prisma/client";
 /** Данные арендатора, сохраняемые в `Booking.contractMeta` и используемые в PDF. */
 export type BookingContractMeta = {
   fullName: string;
-  birthYear: number;
   ageYears: number;
   passportSeries: string;
   passportNumber: string;
@@ -14,7 +13,6 @@ export type BookingContractMeta = {
 
 export type ContractFormInput = {
   fullName: string;
-  birthYear: string;
   ageYears: string;
   passportSeries: string;
   passportNumber: string;
@@ -34,18 +32,9 @@ export function validateContractForm(input: ContractFormInput): { ok: true; meta
     return { ok: false, error: "ФИО содержит недопустимые символы." };
   }
 
-  const birthYear = Number.parseInt(input.birthYear.trim(), 10);
   const ageYears = Number.parseInt(input.ageYears.trim(), 10);
-  const y = new Date().getUTCFullYear();
-  if (!Number.isFinite(birthYear) || birthYear < 1940 || birthYear > y - 18) {
-    return { ok: false, error: "Укажите корректный год рождения." };
-  }
   if (!Number.isFinite(ageYears) || ageYears < 18 || ageYears > 100) {
     return { ok: false, error: "Укажите возраст (полных лет) от 18 до 100." };
-  }
-  const expectedAge = y - birthYear;
-  if (Math.abs(expectedAge - ageYears) > 1) {
-    return { ok: false, error: "Год рождения и возраст не совпадают. Проверьте данные." };
   }
 
   const passportSeries = input.passportSeries.trim();
@@ -71,7 +60,6 @@ export function validateContractForm(input: ContractFormInput): { ok: true; meta
 
   const meta: BookingContractMeta = {
     fullName,
-    birthYear,
     ageYears,
     passportSeries,
     passportNumber,
@@ -82,23 +70,33 @@ export function validateContractForm(input: ContractFormInput): { ok: true; meta
   return { ok: true, meta };
 }
 
+/** Разбор сохранённого JSON; поддерживает старые записи с полем `birthYear`. */
 export function parseBookingContractMeta(raw: Prisma.JsonValue | null | undefined): BookingContractMeta | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const o = raw as Record<string, unknown>;
   if (
     typeof o.fullName !== "string" ||
-    typeof o.birthYear !== "number" ||
-    typeof o.ageYears !== "number" ||
     typeof o.passportSeries !== "string" ||
     typeof o.passportNumber !== "string" ||
     typeof o.passportIssuedBy !== "string"
   ) {
     return null;
   }
+
+  let ageYears: number | null = null;
+  if (typeof o.ageYears === "number" && Number.isFinite(o.ageYears)) {
+    ageYears = o.ageYears;
+  } else if (typeof o.birthYear === "number" && Number.isFinite(o.birthYear)) {
+    const y = new Date().getUTCFullYear();
+    ageYears = y - o.birthYear;
+  }
+  if (ageYears == null || ageYears < 1 || ageYears > 150) {
+    return null;
+  }
+
   const meta: BookingContractMeta = {
     fullName: o.fullName,
-    birthYear: o.birthYear,
-    ageYears: o.ageYears,
+    ageYears,
     passportSeries: o.passportSeries,
     passportNumber: o.passportNumber,
     passportIssuedBy: o.passportIssuedBy,

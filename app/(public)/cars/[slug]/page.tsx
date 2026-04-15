@@ -62,7 +62,6 @@ export default async function CarDetailPage({ params, searchParams }: PageProps)
         lastName: true,
         firstName: true,
         patronymic: true,
-        birthYear: true,
         ageYears: true,
         passportSeries: true,
         passportNumber: true,
@@ -72,12 +71,9 @@ export default async function CarDetailPage({ params, searchParams }: PageProps)
     if (u) {
       const parts = [u.lastName, u.firstName, u.patronymic].filter(Boolean);
       const fullName = parts.join(" ").trim();
-      const y = new Date().getUTCFullYear();
       contractDefaults = {
         fullName,
-        birthYear: u.birthYear != null ? String(u.birthYear) : "",
-        ageYears:
-          u.ageYears != null ? String(u.ageYears) : u.birthYear != null ? String(y - u.birthYear) : "",
+        ageYears: u.ageYears != null ? String(u.ageYears) : "",
         passportSeries: u.passportSeries ?? "",
         passportNumber: u.passportNumber ?? "",
         passportIssuedBy: u.passportIssuedBy ?? "",

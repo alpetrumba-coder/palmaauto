@@ -46,7 +46,6 @@ const wideInputStyle: CSSProperties = {
 function emptyContract(): ContractFormInput {
   return {
     fullName: "",
-    birthYear: "",
     ageYears: "",
     passportSeries: "",
     passportNumber: "",
@@ -238,32 +237,18 @@ export function CarBookingForm({
               autoComplete="name"
             />
           </label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-            <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 8rem" }}>
-              Год рождения
-              <input
-                type="number"
-                required
-                min={1940}
-                max={new Date().getFullYear() - 18}
-                value={contract.birthYear}
-                onChange={(e) => setContractField("birthYear", e.target.value)}
-                style={inputStyle}
-              />
-            </label>
-            <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 8rem" }}>
-              Возраст (полных лет)
-              <input
-                type="number"
-                required
-                min={18}
-                max={100}
-                value={contract.ageYears}
-                onChange={(e) => setContractField("ageYears", e.target.value)}
-                style={inputStyle}
-              />
-            </label>
-          </div>
+          <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", maxWidth: "14rem" }}>
+            Возраст (полных лет)
+            <input
+              type="number"
+              required
+              min={18}
+              max={100}
+              value={contract.ageYears}
+              onChange={(e) => setContractField("ageYears", e.target.value)}
+              style={inputStyle}
+            />
+          </label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
             <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 8rem" }}>
               Серия паспорта

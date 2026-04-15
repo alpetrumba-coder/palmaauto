@@ -110,7 +110,6 @@ export async function submitBookingCheckoutAction(input: {
         patronymic,
         passportData,
         phone,
-        birthYear: meta.birthYear,
         ageYears: meta.ageYears,
         passportSeries: meta.passportSeries,
         passportNumber: meta.passportNumber,
