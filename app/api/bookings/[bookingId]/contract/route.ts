@@ -3,6 +3,7 @@ import { parseBookingContractMeta } from "@/lib/booking-contract";
 import { extraServicePriceColumn } from "@/lib/extra-service-price-column";
 import { buildRentalContractPdfBuffer } from "@/lib/rental-contract-pdf";
 import { getAppBaseUrl } from "@/lib/app-url";
+import { OFFICE_ADDRESS } from "@/lib/pickup-dropoff";
 import { prisma } from "@/lib/prisma";
 import { formatDateInputUTC, inclusiveRentalDays } from "@/lib/rental-dates";
 
@@ -72,6 +73,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ booking
     pricePerDayRub: car.pricePerDayRub,
     totalPriceRub: booking.totalPriceRub,
     adminBookingsUrl,
+    pickupLabel:
+      booking.pickupMode === "ADDRESS"
+        ? `по адресу: ${(booking.pickupAddress ?? "").trim() || OFFICE_ADDRESS}`
+        : `офис: ${OFFICE_ADDRESS}`,
+    dropoffLabel:
+      booking.dropoffMode === "ADDRESS"
+        ? `по адресу: ${(booking.dropoffAddress ?? "").trim() || OFFICE_ADDRESS}`
+        : `офис: ${OFFICE_ADDRESS}`,
+    pickupFeeRub: booking.pickupFeeRub ?? 0,
+    dropoffFeeRub: booking.dropoffFeeRub ?? 0,
     car: {
       make: car.make,
       model: car.model,

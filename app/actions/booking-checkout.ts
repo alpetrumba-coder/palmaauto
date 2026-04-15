@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import type { ContractFormInput } from "@/lib/booking-contract";
 import { validateContractForm } from "@/lib/booking-contract";
 import { carBookingOverlapWhere } from "@/lib/booking-overlap";
+import { DELIVERY_SERVICE_NAME, OFFICE_ADDRESS, parseDeliveryFeeRub } from "@/lib/pickup-dropoff";
 import { prisma } from "@/lib/prisma";
 import { splitRuFullName } from "@/lib/ru-full-name";
 import { inclusiveRentalDays, parseDateInput, utcToday } from "@/lib/rental-dates";
@@ -27,6 +28,10 @@ export async function submitBookingCheckoutAction(input: {
   endDate: string;
   phone: string;
   contract: ContractFormInput;
+  pickupMode: "OFFICE" | "ADDRESS";
+  pickupAddress: string;
+  dropoffMode: "OFFICE" | "ADDRESS";
+  dropoffAddress: string;
 }): Promise<BookingCheckoutActionResult> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -44,6 +49,17 @@ export async function submitBookingCheckoutAction(input: {
   }
   const meta = contractRes.meta;
   const metaJson = meta as unknown as Prisma.InputJsonValue;
+
+  const pickupMode = input.pickupMode === "ADDRESS" ? "ADDRESS" : "OFFICE";
+  const dropoffMode = input.dropoffMode === "ADDRESS" ? "ADDRESS" : "OFFICE";
+  const pickupAddress = trimStr(input.pickupAddress ?? "", 2000);
+  const dropoffAddress = trimStr(input.dropoffAddress ?? "", 2000);
+  if (pickupMode === "ADDRESS" && pickupAddress.trim().length < 5) {
+    return { ok: false, error: "Укажите адрес получения автомобиля (не короче 5 символов)." };
+  }
+  if (dropoffMode === "ADDRESS" && dropoffAddress.trim().length < 5) {
+    return { ok: false, error: "Укажите адрес сдачи автомобиля (не короче 5 символов)." };
+  }
 
   const start = parseDateInput(input.startDate);
   const end = parseDateInput(input.endDate);
@@ -96,7 +112,15 @@ export async function submitBookingCheckoutAction(input: {
     return { ok: false, error: "Эти даты уже заняты. Обновите страницу и выберите другой период." };
   }
 
-  const totalPriceRub = days * car.pricePerDayRub;
+  const deliveryService = await prisma.extraService.findFirst({
+    where: { name: DELIVERY_SERVICE_NAME },
+    select: { pricePerDayRub: true, nonDailyPriceText: true },
+  });
+  const deliveryFeeRub = parseDeliveryFeeRub(deliveryService) ?? 500;
+
+  const pickupFeeRub = pickupMode === "ADDRESS" ? deliveryFeeRub : 0;
+  const dropoffFeeRub = dropoffMode === "ADDRESS" ? deliveryFeeRub : 0;
+  const totalPriceRub = days * car.pricePerDayRub + pickupFeeRub + dropoffFeeRub;
 
   const passportData = trimStr(`${meta.passportSeries} ${meta.passportNumber}, ${meta.passportIssuedBy}`, 4000);
   const { lastName, firstName, patronymic } = splitRuFullName(meta.fullName);
@@ -124,6 +148,12 @@ export async function submitBookingCheckoutAction(input: {
         endDate: end,
         status: "PENDING_PAYMENT",
         totalPriceRub,
+        pickupMode,
+        pickupAddress: pickupMode === "ADDRESS" ? pickupAddress : OFFICE_ADDRESS,
+        pickupFeeRub,
+        dropoffMode,
+        dropoffAddress: dropoffMode === "ADDRESS" ? dropoffAddress : OFFICE_ADDRESS,
+        dropoffFeeRub,
         contractMeta: metaJson,
       },
     });

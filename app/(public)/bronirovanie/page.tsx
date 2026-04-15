@@ -6,6 +6,7 @@ import { BookingCheckoutForm } from "@/components/BookingCheckoutForm";
 import { CarPhotoImage } from "@/components/CarPhotoImage";
 import { getBookingCheckoutPreview } from "@/lib/booking-checkout-preview";
 import { formatPriceRub } from "@/lib/formatPrice";
+import { DELIVERY_SERVICE_NAME, parseDeliveryFeeRub } from "@/lib/pickup-dropoff";
 import { prisma } from "@/lib/prisma";
 import type { ContractFormInput } from "@/lib/booking-contract";
 import { parseDateInput } from "@/lib/rental-dates";
@@ -90,6 +91,12 @@ export default async function BronirovaniePage({
   };
 
   const callbackUrl = `/bronirovanie?car=${encodeURIComponent(car.slug)}&from=${encodeURIComponent(fromStr)}&to=${encodeURIComponent(toStr)}`;
+
+  const deliveryService = await prisma.extraService.findFirst({
+    where: { name: DELIVERY_SERVICE_NAME },
+    select: { pricePerDayRub: true, nonDailyPriceText: true },
+  });
+  const deliveryFeeRub = parseDeliveryFeeRub(deliveryService) ?? 500;
 
   return (
     <div className="page-shell" style={{ paddingBlock: "clamp(2rem, 8vw, 3.5rem)" }}>
@@ -188,6 +195,8 @@ export default async function BronirovaniePage({
             carId={car.id}
             startDate={fromStr}
             endDate={toStr}
+            baseTotalPriceRub={totalPriceRub}
+            deliveryFeeRub={deliveryFeeRub}
             initialPhone={profile?.phone ?? ""}
             initialContract={initialContract}
           />

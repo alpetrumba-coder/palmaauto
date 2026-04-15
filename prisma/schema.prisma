@@ -98,6 +98,11 @@ enum BookingStatus {
   CANCELLED
 }
 
+enum BookingPlaceMode {
+  OFFICE
+  ADDRESS
+}
+
 /// Бронь: даты включительно (startDate … endDate), цена за весь период.
 model Booking {
   id            String        @id @default(cuid())
@@ -107,6 +112,12 @@ model Booking {
   endDate       DateTime      @map("end_date") @db.Date
   status        BookingStatus @default(PENDING_PAYMENT)
   totalPriceRub Int           @map("total_price_rub")
+  pickupMode    BookingPlaceMode @default(OFFICE) @map("pickup_mode")
+  pickupAddress String?          @map("pickup_address") @db.Text
+  pickupFeeRub  Int              @default(0) @map("pickup_fee_rub")
+  dropoffMode   BookingPlaceMode @default(OFFICE) @map("dropoff_mode")
+  dropoffAddress String?         @map("dropoff_address") @db.Text
+  dropoffFeeRub Int              @default(0) @map("dropoff_fee_rub")
   /// Снимок данных арендатора для генерации договора (PDF).
   contractMeta  Json?       @map("contract_meta")
   createdAt     DateTime      @default(now()) @map("created_at")

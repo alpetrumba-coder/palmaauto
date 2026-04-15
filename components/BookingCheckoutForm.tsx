@@ -6,6 +6,7 @@ import type { CSSProperties, FormEvent } from "react";
 
 import { submitBookingCheckoutAction } from "@/app/actions/booking-checkout";
 import type { ContractFormInput } from "@/lib/booking-contract";
+import { OFFICE_ADDRESS } from "@/lib/pickup-dropoff";
 
 const fieldStyle: CSSProperties = {
   width: "100%",
@@ -38,6 +39,8 @@ type BookingCheckoutFormProps = {
   carId: string;
   startDate: string;
   endDate: string;
+  baseTotalPriceRub: number;
+  deliveryFeeRub: number;
   initialPhone: string;
   initialContract: Partial<ContractFormInput>;
 };
@@ -46,6 +49,8 @@ export function BookingCheckoutForm({
   carId,
   startDate,
   endDate,
+  baseTotalPriceRub,
+  deliveryFeeRub,
   initialPhone,
   initialContract,
 }: BookingCheckoutFormProps) {
@@ -55,8 +60,16 @@ export function BookingCheckoutForm({
     ...initialContract,
   }));
   const [phone, setPhone] = useState(initialPhone);
+  const [pickupMode, setPickupMode] = useState<"OFFICE" | "ADDRESS">("OFFICE");
+  const [pickupAddress, setPickupAddress] = useState("");
+  const [dropoffMode, setDropoffMode] = useState<"OFFICE" | "ADDRESS">("OFFICE");
+  const [dropoffAddress, setDropoffAddress] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  const pickupFee = pickupMode === "ADDRESS" ? deliveryFeeRub : 0;
+  const dropoffFee = dropoffMode === "ADDRESS" ? deliveryFeeRub : 0;
+  const totalWithFees = baseTotalPriceRub + pickupFee + dropoffFee;
 
   function setContractField<K extends keyof ContractFormInput>(key: K, value: ContractFormInput[K]) {
     setContract((prev) => ({ ...prev, [key]: value }));
@@ -72,6 +85,10 @@ export function BookingCheckoutForm({
       endDate,
       phone,
       contract,
+      pickupMode,
+      pickupAddress,
+      dropoffMode,
+      dropoffAddress,
     });
     setPending(false);
     if (!res.ok) {
@@ -89,6 +106,132 @@ export function BookingCheckoutForm({
     >
       <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
         Данные для договора аренды и PDF: укажите как в паспорте.
+      </p>
+
+      <div
+        style={{
+          padding: "1rem",
+          borderRadius: "var(--radius-lg)",
+          border: "1px solid var(--color-border)",
+          background: "var(--color-surface)",
+        }}
+      >
+        <p style={{ margin: "0 0 0.5rem", fontSize: "var(--text-sm)", fontWeight: 600 }}>Получение автомобиля</p>
+        <label style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start", fontSize: "var(--text-sm)", cursor: "pointer" }}>
+          <input
+            type="radio"
+            name="pickup"
+            value="OFFICE"
+            checked={pickupMode === "OFFICE"}
+            onChange={() => setPickupMode("OFFICE")}
+          />
+          <span>
+            Бесплатно: <strong>{OFFICE_ADDRESS}</strong>
+          </span>
+        </label>
+        <label
+          style={{
+            display: "flex",
+            gap: "0.5rem",
+            alignItems: "flex-start",
+            fontSize: "var(--text-sm)",
+            cursor: "pointer",
+            marginTop: "0.35rem",
+          }}
+        >
+          <input
+            type="radio"
+            name="pickup"
+            value="ADDRESS"
+            checked={pickupMode === "ADDRESS"}
+            onChange={() => setPickupMode("ADDRESS")}
+          />
+          <span>
+            Доставка по адресу (Абхазия): <strong>{deliveryFeeRub} ₽</strong>
+          </span>
+        </label>
+        {pickupMode === "ADDRESS" ? (
+          <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", marginTop: "0.65rem" }}>
+            Адрес получения
+            <textarea
+              required
+              rows={2}
+              value={pickupAddress}
+              onChange={(e) => setPickupAddress(e.target.value)}
+              placeholder="Например: Гагра, ул. …, дом …"
+              style={{ ...wideFieldStyle, minHeight: "3.5rem", resize: "vertical" }}
+            />
+          </label>
+        ) : null}
+      </div>
+
+      <div
+        style={{
+          padding: "1rem",
+          borderRadius: "var(--radius-lg)",
+          border: "1px solid var(--color-border)",
+          background: "var(--color-surface)",
+        }}
+      >
+        <p style={{ margin: "0 0 0.5rem", fontSize: "var(--text-sm)", fontWeight: 600 }}>Сдача автомобиля</p>
+        <label style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start", fontSize: "var(--text-sm)", cursor: "pointer" }}>
+          <input
+            type="radio"
+            name="dropoff"
+            value="OFFICE"
+            checked={dropoffMode === "OFFICE"}
+            onChange={() => setDropoffMode("OFFICE")}
+          />
+          <span>
+            Бесплатно: <strong>{OFFICE_ADDRESS}</strong>
+          </span>
+        </label>
+        <label
+          style={{
+            display: "flex",
+            gap: "0.5rem",
+            alignItems: "flex-start",
+            fontSize: "var(--text-sm)",
+            cursor: "pointer",
+            marginTop: "0.35rem",
+          }}
+        >
+          <input
+            type="radio"
+            name="dropoff"
+            value="ADDRESS"
+            checked={dropoffMode === "ADDRESS"}
+            onChange={() => setDropoffMode("ADDRESS")}
+          />
+          <span>
+            Приёмка по адресу (Абхазия): <strong>{deliveryFeeRub} ₽</strong>
+          </span>
+        </label>
+        {dropoffMode === "ADDRESS" ? (
+          <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", marginTop: "0.65rem" }}>
+            Адрес сдачи
+            <textarea
+              required
+              rows={2}
+              value={dropoffAddress}
+              onChange={(e) => setDropoffAddress(e.target.value)}
+              placeholder="Например: Сухум, ул. …, дом …"
+              style={{ ...wideFieldStyle, minHeight: "3.5rem", resize: "vertical" }}
+            />
+          </label>
+        ) : null}
+      </div>
+
+      <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+        Итого к оплате:{" "}
+        <strong style={{ color: "var(--color-text)" }}>
+          {totalWithFees.toLocaleString("ru-RU")} ₽
+        </strong>
+        {pickupFee + dropoffFee > 0 ? (
+          <span style={{ display: "block", marginTop: "0.25rem" }}>
+            Включая доп. услуги: {pickupFee + dropoffFee} ₽
+          </span>
+        ) : null}
       </p>
 
       <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>

@@ -13,6 +13,10 @@ export type RentalContractPdfInput = {
   pricePerDayRub: number;
   totalPriceRub: number;
   adminBookingsUrl: string;
+  pickupLabel: string;
+  dropoffLabel: string;
+  pickupFeeRub: number;
+  dropoffFeeRub: number;
   car: {
     make: string;
     model: string;
@@ -69,6 +73,15 @@ function buildDocDefinition(input: RentalContractPdfInput) {
     input.extraServiceRows.length > 0
       ? input.extraServiceRows.map((r) => [r.name, r.priceLabel] as [string, string])
       : [["(прейскурант не настроен)", "—"]] as [string, string][];
+
+  const bookingInfoLines = [
+    `Номер брони: ${input.bookingId}`,
+    `Даты: ${formatDateInputUTC(input.startDate)} — ${formatDateInputUTC(input.endDate)}`,
+    `Получение: ${input.pickupLabel}${input.pickupFeeRub > 0 ? ` (+${input.pickupFeeRub} ₽)` : ""}`,
+    `Сдача: ${input.dropoffLabel}${input.dropoffFeeRub > 0 ? ` (+${input.dropoffFeeRub} ₽)` : ""}`,
+    `Итого к оплате: ${input.totalPriceRub} ₽`,
+    `Ссылка для администратора (шахматка броней): ${input.adminBookingsUrl}`,
+  ];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const content: any[] = [
@@ -160,15 +173,7 @@ function buildDocDefinition(input: RentalContractPdfInput) {
     },
     { text: "Сведения о бронировании на сайте", style: "h2" },
     {
-      text:
-        "Номер брони: " +
-        input.bookingId +
-        ". Даты: " +
-        formatDateInputUTC(input.startDate) +
-        " — " +
-        formatDateInputUTC(input.endDate) +
-        ". Ссылка для администратора (шахматка броней): " +
-        input.adminBookingsUrl,
+      text: bookingInfoLines.join("\n"),
       style: "small",
       margin: [0, 0, 0, 12],
     },
