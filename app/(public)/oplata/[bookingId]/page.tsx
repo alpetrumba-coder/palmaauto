@@ -127,7 +127,6 @@ export default async function OplataPage({
         carTitle={carTitle}
         totalPriceRub={booking.totalPriceRub}
         dateRangeLabel={dateRangeLabelRu(booking.startDate, booking.endDate)}
-        contractPdfHref={booking.contractMeta ? `/api/bookings/${bookingId}/contract` : undefined}
       />
     </div>
   );
