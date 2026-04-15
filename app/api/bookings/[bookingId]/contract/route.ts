@@ -1,23 +1,10 @@
 import { auth } from "@/auth";
 import { parseBookingContractMeta } from "@/lib/booking-contract";
-import { extraServicePriceColumn } from "@/lib/extra-service-price-column";
 import { buildRentalContractPdfBuffer } from "@/lib/rental-contract-pdf";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { OFFICE_ADDRESS } from "@/lib/pickup-dropoff";
 import { prisma } from "@/lib/prisma";
 import { formatDateInputUTC, inclusiveRentalDays } from "@/lib/rental-dates";
-
-/** Если в БД ещё нет строк прейскуранта (до миграции). */
-const EXTRA_SERVICE_PDF_FALLBACK = [
-  {
-    name: "Подача или приемка ТС в указанном месте в черте городов Сухум, Гагра, Пицунда, Гудаута, Новый Афон",
-    priceLabel: "500",
-  },
-  { name: "Детское кресло / люлька / бустер", priceLabel: "300 / сутки" },
-  { name: "Дополнительный водитель", priceLabel: "500 / сутки" },
-  { name: "Возврат ТС в позднее время (с 20 до 8)", priceLabel: "500" },
-  { name: "Возврат ТС с неполным баком", priceLabel: "по стоимости топлива + 10%" },
-] as const;
 
 export const runtime = "nodejs";
 
@@ -52,33 +39,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ booking
   const base = getAppBaseUrl();
   const adminBookingsUrl = `${base}/admin-panel/bookings?from=${encodeURIComponent(formatDateInputUTC(booking.startDate))}`;
 
-  const extraDb = await prisma.extraService.findMany({
-    where: { active: true },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-  });
-  const extraServiceRows =
-    extraDb.length > 0
-      ? extraDb.map((s) => ({
-          name: s.name,
-          priceLabel: extraServicePriceColumn(s),
-        }))
-      : [...EXTRA_SERVICE_PDF_FALLBACK];
-
-  const bookingInfoExtraLines: string[] = [];
-  if (booking.secondDriverEnabled) {
-    const fio = `${(booking.secondDriverLastName ?? "").trim()} ${(booking.secondDriverFirstName ?? "").trim()}`.trim();
-    const age = booking.secondDriverAgeYears != null ? `, возраст ${booking.secondDriverAgeYears} полных лет` : "";
-    const pass = (booking.secondDriverPassportData ?? "").trim();
-    bookingInfoExtraLines.push(`Второй водитель: ${fio || "(не указано)"}${age}${pass ? `, паспорт: ${pass}` : ""}`);
-    const fee = booking.secondDriverFeeRub ?? 0;
-    const perDay = days > 0 ? Math.round(fee / days) : fee;
-    bookingInfoExtraLines.push(`Доп. услуга «Второй водитель»: +${fee} ₽ (${perDay} ₽/сут × ${days})`);
-  }
-  if (booking.childSeatEnabled) {
-    const fee = booking.childSeatFeeRub ?? 0;
-    const perDay = days > 0 ? Math.round(fee / days) : fee;
-    bookingInfoExtraLines.push(`Доп. услуга «Детское кресло/бустер»: +${fee} ₽ (${perDay} ₽/сут × ${days})`);
-  }
+  void adminBookingsUrl;
+  const baseRental = days * car.pricePerDayRub;
+  const extrasTotalRub = Math.max(0, (booking.totalPriceRub ?? 0) - baseRental);
 
   const buf = await buildRentalContractPdfBuffer({
     issuedAt: new Date(),
@@ -88,18 +51,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ booking
     days,
     pricePerDayRub: car.pricePerDayRub,
     totalPriceRub: booking.totalPriceRub,
-    adminBookingsUrl,
-    pickupLabel:
-      booking.pickupMode === "ADDRESS"
-        ? `по адресу: ${(booking.pickupAddress ?? "").trim() || OFFICE_ADDRESS}`
-        : `офис: ${OFFICE_ADDRESS}`,
-    dropoffLabel:
-      booking.dropoffMode === "ADDRESS"
-        ? `по адресу: ${(booking.dropoffAddress ?? "").trim() || OFFICE_ADDRESS}`
-        : `офис: ${OFFICE_ADDRESS}`,
-    pickupFeeRub: booking.pickupFeeRub ?? 0,
-    dropoffFeeRub: booking.dropoffFeeRub ?? 0,
-    bookingInfoExtraLines,
+    extrasTotalRub,
     car: {
       make: car.make,
       model: car.model,
@@ -109,7 +61,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ booking
       registrationCertificate: car.registrationCertificate.trim(),
     },
     meta,
-    extraServiceRows,
   });
 
   const filename = `dogovor-arendy-${booking.id.slice(0, 8)}.pdf`;
