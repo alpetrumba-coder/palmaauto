@@ -132,3 +132,17 @@ model CarImage {
   @@index([carId])
   @@map("car_images")
 }
+
+/// Дополнительные услуги (Приложение №3 к договору): цена за сутки и/или текст фиксированной цены.
+model ExtraService {
+  id                 String   @id @default(cuid())
+  name               String
+  pricePerDayRub     Int      @default(0) @map("price_per_day_rub")
+  nonDailyPriceText  String?  @map("non_daily_price_text") @db.VarChar(200)
+  sortOrder          Int      @default(0) @map("sort_order")
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("extra_services")
+}

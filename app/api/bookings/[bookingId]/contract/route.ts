@@ -1,9 +1,22 @@
 import { auth } from "@/auth";
 import { parseBookingContractMeta } from "@/lib/booking-contract";
+import { extraServicePriceColumn } from "@/lib/extra-service-price-column";
 import { buildRentalContractPdfBuffer } from "@/lib/rental-contract-pdf";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { prisma } from "@/lib/prisma";
 import { formatDateInputUTC, inclusiveRentalDays } from "@/lib/rental-dates";
+
+/** Если в БД ещё нет строк прейскуранта (до миграции). */
+const EXTRA_SERVICE_PDF_FALLBACK = [
+  {
+    name: "Подача или приемка ТС в указанном месте в черте городов Сухум, Гагра, Пицунда, Гудаута, Новый Афон",
+    priceLabel: "500",
+  },
+  { name: "Детское кресло / люлька / бустер", priceLabel: "300 / сутки" },
+  { name: "Дополнительный водитель", priceLabel: "500 / сутки" },
+  { name: "Возврат ТС в позднее время (с 20 до 8)", priceLabel: "500" },
+  { name: "Возврат ТС с неполным баком", priceLabel: "по стоимости топлива + 10%" },
+] as const;
 
 export const runtime = "nodejs";
 
@@ -38,6 +51,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ booking
   const base = getAppBaseUrl();
   const adminBookingsUrl = `${base}/admin-panel/bookings?from=${encodeURIComponent(formatDateInputUTC(booking.startDate))}`;
 
+  const extraDb = await prisma.extraService.findMany({
+    where: { active: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
+  const extraServiceRows =
+    extraDb.length > 0
+      ? extraDb.map((s) => ({
+          name: s.name,
+          priceLabel: extraServicePriceColumn(s),
+        }))
+      : [...EXTRA_SERVICE_PDF_FALLBACK];
+
   const buf = await buildRentalContractPdfBuffer({
     issuedAt: new Date(),
     bookingId: booking.id,
@@ -56,6 +81,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ booking
       registrationCertificate: car.registrationCertificate.trim(),
     },
     meta,
+    extraServiceRows,
   });
 
   const filename = `dogovor-arendy-${booking.id.slice(0, 8)}.pdf`;

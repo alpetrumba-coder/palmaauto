@@ -19,6 +19,13 @@ export function AdminPanelNav() {
       <Link href="/admin-panel/bookings" className="nav-tap-target" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
         Бронирование
       </Link>
+      <Link
+        href="/admin-panel/extra-services"
+        className="nav-tap-target"
+        style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}
+      >
+        Доп. услуги
+      </Link>
       <Link href="/" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
         Сайт
       </Link>

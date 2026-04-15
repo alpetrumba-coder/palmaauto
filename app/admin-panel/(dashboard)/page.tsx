@@ -87,6 +87,29 @@ export default function AdminPanelHomePage() {
             Клиенты: ФИО, email, телефон, адрес, паспортные данные.
           </p>
         </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <Link
+            href="/admin-panel/extra-services"
+            className="nav-tap-target"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0.85rem 1.25rem",
+              borderRadius: "999px",
+              background: "var(--color-accent)",
+              color: "#fff",
+              fontWeight: 600,
+              textDecoration: "none",
+              maxWidth: "22rem",
+            }}
+          >
+            Дополнительные услуги
+          </Link>
+          <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+            Прейскурант для Приложения №3 к договору: название, цена за сутки или фиксированная подпись.
+          </p>
+        </div>
       </div>
     </>
   );

@@ -1,6 +1,9 @@
 import type { BookingContractMeta } from "@/lib/booking-contract";
 import { formatDateInputUTC } from "@/lib/rental-dates";
 
+/** Строка прейскуранта (Приложение №3). */
+export type ExtraServicePdfRow = { name: string; priceLabel: string };
+
 export type RentalContractPdfInput = {
   issuedAt: Date;
   bookingId: string;
@@ -19,6 +22,8 @@ export type RentalContractPdfInput = {
     registrationCertificate: string;
   };
   meta: BookingContractMeta;
+  /** Активные услуги из админки; если пусто — в PDF подставляется одна строка-заглушка. */
+  extraServiceRows: ExtraServicePdfRow[];
 };
 
 let pdfFontsReady = false;
@@ -59,6 +64,11 @@ function buildDocDefinition(input: RentalContractPdfInput) {
     m.additionalDriverName && m.additionalDriverPassport
       ? `${m.additionalDriverName}, паспорт: ${m.additionalDriverPassport}`
       : "не указаны (управление третьим лицам не передаётся).";
+
+  const extraRows =
+    input.extraServiceRows.length > 0
+      ? input.extraServiceRows.map((r) => [r.name, r.priceLabel] as [string, string])
+      : [["(прейскурант не настроен)", "—"]] as [string, string][];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const content: any[] = [
@@ -166,20 +176,7 @@ function buildDocDefinition(input: RentalContractPdfInput) {
     {
       table: {
         widths: ["*", 120],
-        body: [
-          [
-            { text: "Услуга", style: "th" },
-            { text: "Стоимость, руб.", style: "th" },
-          ],
-          [
-            "Подача или приемка ТС в указанном месте в черте городов Сухум, Гагра, Пицунда, Гудаута, Новый Афон",
-            "500",
-          ],
-          ["Детское кресло / люлька / бустер", "300 / сутки"],
-          ["Дополнительный водитель", "500 / сутки"],
-          ["Возврат ТС в позднее время (с 20 до 8)", "500"],
-          ["Возврат ТС с неполным баком", "по стоимости топлива + 10%"],
-        ],
+        body: [[{ text: "Услуга", style: "th" }, { text: "Стоимость, руб.", style: "th" }], ...extraRows],
       },
       layout: "lightHorizontalLines",
       margin: [0, 0, 0, 12],
