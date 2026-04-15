@@ -37,8 +37,10 @@ export async function submitBookingCheckoutAction(input: {
   contract: ContractFormInput;
   pickupMode: "OFFICE" | "ADDRESS";
   pickupAddress: string;
+  pickupTimeSlot: string;
   dropoffMode: "OFFICE" | "ADDRESS";
   dropoffAddress: string;
+  dropoffTimeSlot: string;
   secondDriverEnabled: boolean;
   secondDriverFirstName: string;
   secondDriverLastName: string;
@@ -67,6 +69,8 @@ export async function submitBookingCheckoutAction(input: {
   const dropoffMode = input.dropoffMode === "ADDRESS" ? "ADDRESS" : "OFFICE";
   const pickupAddress = trimStr(input.pickupAddress ?? "", 2000);
   const dropoffAddress = trimStr(input.dropoffAddress ?? "", 2000);
+  const pickupTimeSlot = trimStr(input.pickupTimeSlot ?? "", 40);
+  const dropoffTimeSlot = trimStr(input.dropoffTimeSlot ?? "", 40);
   if (pickupMode === "ADDRESS" && pickupAddress.trim().length < 5) {
     return { ok: false, error: "Укажите адрес получения автомобиля (не короче 5 символов)." };
   }
@@ -198,9 +202,11 @@ export async function submitBookingCheckoutAction(input: {
         pickupMode,
         pickupAddress: pickupMode === "ADDRESS" ? pickupAddress : OFFICE_ADDRESS,
         pickupFeeRub,
+        pickupTimeSlot: pickupTimeSlot.length > 0 ? pickupTimeSlot : null,
         dropoffMode,
         dropoffAddress: dropoffMode === "ADDRESS" ? dropoffAddress : OFFICE_ADDRESS,
         dropoffFeeRub,
+        dropoffTimeSlot: dropoffTimeSlot.length > 0 ? dropoffTimeSlot : null,
         secondDriverEnabled,
         secondDriverFirstName: secondDriverEnabled ? secondDriverFirstName : null,
         secondDriverLastName: secondDriverEnabled ? secondDriverLastName : null,

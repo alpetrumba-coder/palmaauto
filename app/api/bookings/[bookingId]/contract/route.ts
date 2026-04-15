@@ -54,6 +54,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ booking
     const fee = booking.dropoffFeeRub ?? 0;
     extrasLines.push(`приемка ТС по адресу: ${addr || OFFICE_ADDRESS} = ${fee} руб.`);
   }
+  if ((booking.pickupTimeSlot ?? "").trim()) {
+    extrasLines.push(
+      `желаемое время получения ТС: ${(booking.pickupTimeSlot ?? "").trim()} (информационное поле; после оплаты согласуется с менеджером)`,
+    );
+  }
+  if ((booking.dropoffTimeSlot ?? "").trim()) {
+    extrasLines.push(
+      `желаемое время сдачи ТС: ${(booking.dropoffTimeSlot ?? "").trim()} (информационное поле; после оплаты согласуется с менеджером)`,
+    );
+  }
   if (booking.childSeatEnabled) {
     const fee = booking.childSeatFeeRub ?? 0;
     const perDay = days > 0 ? Math.round(fee / days) : fee;

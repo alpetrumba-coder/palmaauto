@@ -115,9 +115,11 @@ model Booking {
   pickupMode    BookingPlaceMode @default(OFFICE) @map("pickup_mode")
   pickupAddress String?          @map("pickup_address") @db.Text
   pickupFeeRub  Int              @default(0) @map("pickup_fee_rub")
+  pickupTimeSlot String?         @map("pickup_time_slot") @db.VarChar(20)
   dropoffMode   BookingPlaceMode @default(OFFICE) @map("dropoff_mode")
   dropoffAddress String?         @map("dropoff_address") @db.Text
   dropoffFeeRub Int              @default(0) @map("dropoff_fee_rub")
+  dropoffTimeSlot String?        @map("dropoff_time_slot") @db.VarChar(20)
   secondDriverEnabled Boolean @default(false) @map("second_driver_enabled")
   secondDriverFirstName String? @map("second_driver_first_name")
   secondDriverLastName String? @map("second_driver_last_name")

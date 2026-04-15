@@ -23,6 +23,16 @@ const wideFieldStyle: CSSProperties = {
   maxWidth: "100%",
 };
 
+function buildHourSlots(): { id: string; label: string }[] {
+  const out: { id: string; label: string }[] = [];
+  for (let h = 0; h < 24; h++) {
+    const a = String(h).padStart(2, "0");
+    const b = String((h + 1) % 24).padStart(2, "0");
+    out.push({ id: `${a}:00`, label: `${a}:00–${b}:00` });
+  }
+  return out;
+}
+
 function emptyContract(): ContractFormInput {
   return {
     fullName: "",
@@ -70,8 +80,10 @@ export function BookingCheckoutForm({
   const [phone, setPhone] = useState(initialPhone);
   const [pickupMode, setPickupMode] = useState<"OFFICE" | "ADDRESS">("OFFICE");
   const [pickupAddress, setPickupAddress] = useState("");
+  const [pickupTimeSlot, setPickupTimeSlot] = useState("");
   const [dropoffMode, setDropoffMode] = useState<"OFFICE" | "ADDRESS">("OFFICE");
   const [dropoffAddress, setDropoffAddress] = useState("");
+  const [dropoffTimeSlot, setDropoffTimeSlot] = useState("");
   const [secondDriverEnabled, setSecondDriverEnabled] = useState(false);
   const [secondDriverFirstName, setSecondDriverFirstName] = useState("");
   const [secondDriverLastName, setSecondDriverLastName] = useState("");
@@ -80,6 +92,7 @@ export function BookingCheckoutForm({
   const [childSeatEnabled, setChildSeatEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const hourSlots = buildHourSlots();
 
   const pickupFee = pickupMode === "ADDRESS" ? deliveryFeeRub : 0;
   const dropoffFee = dropoffMode === "ADDRESS" ? deliveryFeeRub : 0;
@@ -134,8 +147,10 @@ export function BookingCheckoutForm({
       contract,
       pickupMode,
       pickupAddress,
+      pickupTimeSlot,
       dropoffMode,
       dropoffAddress,
+      dropoffTimeSlot,
       secondDriverEnabled,
       secondDriverFirstName,
       secondDriverLastName,
@@ -173,7 +188,7 @@ export function BookingCheckoutForm({
           <p style={{ margin: "0 0 0.5rem", fontSize: "var(--text-sm)", fontWeight: 600 }}>Проверка данных</p>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
             <div>
-              <strong>1‑й водитель</strong>: {contract.fullName.trim()}, возраст {contract.ageYears.trim()} полных лет
+              <strong>1‑й водитель</strong>: {contract.fullName.trim()}
             </div>
             <div>
               <strong>Паспорт</strong>: {contract.passportSeries.trim()} {contract.passportNumber.trim()}, {contract.passportIssuedBy.trim()}
@@ -188,14 +203,25 @@ export function BookingCheckoutForm({
               <strong>Сдача</strong>: {dropoffLabel} {dropoffFee > 0 ? `(+${dropoffFee} ₽)` : "(бесплатно)"}
             </div>
             <div>
+              <strong>Желаемое время получения</strong>: {pickupTimeSlot ? pickupTimeSlot : "не указано"}
+            </div>
+            <div>
+              <strong>Желаемое время сдачи</strong>: {dropoffTimeSlot ? dropoffTimeSlot : "не указано"}
+            </div>
+            <div>
               <strong>Бустер / детское кресло</strong>: {childSeatEnabled ? `да (+${childSeatFeeIncluded} ₽)` : "нет"}
             </div>
             <div>
               <strong>2‑й водитель</strong>:{" "}
               {secondDriverEnabled
-                ? `${secondDriverLastName.trim()} ${secondDriverFirstName.trim()}, возраст ${secondDriverAgeYears.trim()} полных лет (+${secondDriverFeeIncluded} ₽)`
+                ? `${secondDriverLastName.trim()} ${secondDriverFirstName.trim()} (+${secondDriverFeeIncluded} ₽)`
                 : "нет"}
             </div>
+            {secondDriverEnabled ? (
+              <div>
+                <strong>Паспорт 2‑го водителя</strong>: {secondDriverPassportData.trim()}
+              </div>
+            ) : null}
             <div>
               <strong>Итого к оплате</strong>: {totalWithFees.toLocaleString("ru-RU")} ₽
               {extrasTotal > 0 ? <span style={{ display: "block" }}>Включая доп. услуги: {extrasTotal.toLocaleString("ru-RU")} ₽</span> : null}
@@ -330,6 +356,20 @@ export function BookingCheckoutForm({
         }}
       >
         <p style={{ margin: "0 0 0.5rem", fontSize: "var(--text-sm)", fontWeight: 600 }}>Получение автомобиля</p>
+        <p style={{ margin: "0 0 0.5rem", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+          Желаемое время — информационное поле. После оплаты время получения/сдачи согласуется с менеджером.
+        </p>
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", maxWidth: "14rem" }}>
+          Желаемое время получения
+          <select value={pickupTimeSlot} onChange={(e) => setPickupTimeSlot(e.target.value)} style={fieldStyle}>
+            <option value="">Не выбрано</option>
+            {hourSlots.map((s) => (
+              <option key={s.id} value={s.label}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <label style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start", fontSize: "var(--text-sm)", cursor: "pointer" }}>
           <input
             type="radio"
@@ -387,6 +427,17 @@ export function BookingCheckoutForm({
         }}
       >
         <p style={{ margin: "0 0 0.5rem", fontSize: "var(--text-sm)", fontWeight: 600 }}>Сдача автомобиля</p>
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", maxWidth: "14rem" }}>
+          Желаемое время сдачи
+          <select value={dropoffTimeSlot} onChange={(e) => setDropoffTimeSlot(e.target.value)} style={fieldStyle}>
+            <option value="">Не выбрано</option>
+            {hourSlots.map((s) => (
+              <option key={s.id} value={s.label}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <label style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start", fontSize: "var(--text-sm)", cursor: "pointer" }}>
           <input
             type="radio"
