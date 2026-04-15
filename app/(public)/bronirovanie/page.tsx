@@ -7,6 +7,7 @@ import { CarPhotoImage } from "@/components/CarPhotoImage";
 import { getBookingCheckoutPreview } from "@/lib/booking-checkout-preview";
 import { formatPriceRub } from "@/lib/formatPrice";
 import { prisma } from "@/lib/prisma";
+import type { ContractFormInput } from "@/lib/booking-contract";
 import { parseDateInput } from "@/lib/rental-dates";
 
 export const dynamic = "force-dynamic";
@@ -64,9 +65,37 @@ export default async function BronirovaniePage({
     session?.user?.id != null
       ? await prisma.user.findUnique({
           where: { id: session.user.id },
-          select: { firstName: true, lastName: true, passportData: true, phone: true },
+          select: {
+            firstName: true,
+            lastName: true,
+            patronymic: true,
+            phone: true,
+            birthYear: true,
+            ageYears: true,
+            passportSeries: true,
+            passportNumber: true,
+            passportIssuedBy: true,
+          },
         })
       : null;
+
+  const yNow = new Date().getUTCFullYear();
+  const nameParts = [profile?.lastName, profile?.firstName, profile?.patronymic].filter(Boolean);
+  const initialContract: Partial<ContractFormInput> = {
+    fullName: nameParts.join(" ").trim(),
+    birthYear: profile?.birthYear != null ? String(profile.birthYear) : "",
+    ageYears:
+      profile?.ageYears != null
+        ? String(profile.ageYears)
+        : profile?.birthYear != null
+          ? String(yNow - profile.birthYear)
+          : "",
+    passportSeries: profile?.passportSeries ?? "",
+    passportNumber: profile?.passportNumber ?? "",
+    passportIssuedBy: profile?.passportIssuedBy ?? "",
+    additionalDriverName: "",
+    additionalDriverPassport: "",
+  };
 
   const callbackUrl = `/bronirovanie?car=${encodeURIComponent(car.slug)}&from=${encodeURIComponent(fromStr)}&to=${encodeURIComponent(toStr)}`;
 
@@ -167,10 +196,8 @@ export default async function BronirovaniePage({
             carId={car.id}
             startDate={fromStr}
             endDate={toStr}
-            initialFirstName={profile?.firstName ?? ""}
-            initialLastName={profile?.lastName ?? ""}
-            initialPassportData={profile?.passportData ?? ""}
             initialPhone={profile?.phone ?? ""}
+            initialContract={initialContract}
           />
         </>
       )}

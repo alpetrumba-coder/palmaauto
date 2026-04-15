@@ -42,6 +42,8 @@ model User {
   passportData String?              @map("passport_data") @db.Text
   /// Год рождения (для договора аренды).
   birthYear    Int?                 @map("birth_year")
+  /// Возраст полных лет (как в договоре; сверяется с годом рождения).
+  ageYears     Int?                 @map("age_years")
   /// Серия паспорта (структурировано для PDF договора).
   passportSeries   String?          @map("passport_series")
   passportNumber   String?          @map("passport_number")

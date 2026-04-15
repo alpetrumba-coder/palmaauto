@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import type { ContractFormInput } from "@/lib/booking-contract";
 import { validateContractForm } from "@/lib/booking-contract";
 import { carBookingOverlapWhere } from "@/lib/booking-overlap";
+import { splitRuFullName } from "@/lib/ru-full-name";
 import { sendAdminBookingCreatedEmail } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
 import { inclusiveRentalDays, parseDateInput, utcToday } from "@/lib/rental-dates";
@@ -105,10 +106,17 @@ export async function createBookingAction(input: {
         contractMeta: metaJson,
       },
     });
+    const passportData = `${contractMeta.passportSeries} ${contractMeta.passportNumber}, ${contractMeta.passportIssuedBy}`.slice(0, 4000);
+    const { lastName, firstName, patronymic } = splitRuFullName(contractMeta.fullName);
     await tx.user.update({
       where: { id: session.user.id },
       data: {
+        firstName,
+        lastName,
+        patronymic,
+        passportData,
         birthYear: contractMeta.birthYear,
+        ageYears: contractMeta.ageYears,
         passportSeries: contractMeta.passportSeries,
         passportNumber: contractMeta.passportNumber,
         passportIssuedBy: contractMeta.passportIssuedBy,

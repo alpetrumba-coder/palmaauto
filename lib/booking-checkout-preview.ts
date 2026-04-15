@@ -18,6 +18,9 @@ export type BookingCheckoutPreview =
       totalPriceRub: number;
       fromStr: string;
       toStr: string;
+      /** Данные ТС для PDF договора заполнены в админке. */
+      carLeaseComplete: boolean;
+      minRentalDays: number;
     }
   | { ok: false; error: string };
 
@@ -75,6 +78,28 @@ export async function getBookingCheckoutPreview(
     };
   }
 
+  const carLeaseComplete = Boolean(
+    carRow.modelYear &&
+      carRow.color?.trim() &&
+      carRow.plateNumber?.trim() &&
+      carRow.registrationCertificate?.trim(),
+  );
+  if (!carLeaseComplete) {
+    return {
+      ok: false,
+      error:
+        "По этому автомобилю не хватает данных для договора (год выпуска, цвет, гос. номер, СТС). Выберите другой автомобиль или свяжитесь с офисом.",
+    };
+  }
+
+  const minRentalDays = Math.max(1, Math.min(90, carRow.minRentalDays ?? 1));
+  if (days < minRentalDays) {
+    return {
+      ok: false,
+      error: `Минимальный срок аренды для этого автомобиля — ${minRentalDays} сут.`,
+    };
+  }
+
   const cover = carRow.images[0];
   const totalPriceRub = days * carRow.pricePerDayRub;
 
@@ -93,5 +118,7 @@ export async function getBookingCheckoutPreview(
     totalPriceRub,
     fromStr: from,
     toStr: to,
+    carLeaseComplete,
+    minRentalDays,
   };
 }

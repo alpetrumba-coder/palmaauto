@@ -63,6 +63,7 @@ export default async function CarDetailPage({ params, searchParams }: PageProps)
         firstName: true,
         patronymic: true,
         birthYear: true,
+        ageYears: true,
         passportSeries: true,
         passportNumber: true,
         passportIssuedBy: true,
@@ -75,7 +76,8 @@ export default async function CarDetailPage({ params, searchParams }: PageProps)
       contractDefaults = {
         fullName,
         birthYear: u.birthYear != null ? String(u.birthYear) : "",
-        ageYears: u.birthYear != null ? String(y - u.birthYear) : "",
+        ageYears:
+          u.ageYears != null ? String(u.ageYears) : u.birthYear != null ? String(y - u.birthYear) : "",
         passportSeries: u.passportSeries ?? "",
         passportNumber: u.passportNumber ?? "",
         passportIssuedBy: u.passportIssuedBy ?? "",

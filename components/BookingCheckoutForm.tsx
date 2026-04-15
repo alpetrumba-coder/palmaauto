@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 
 import { submitBookingCheckoutAction } from "@/app/actions/booking-checkout";
+import type { ContractFormInput } from "@/lib/booking-contract";
 
 const fieldStyle: CSSProperties = {
   width: "100%",
@@ -16,32 +17,53 @@ const fieldStyle: CSSProperties = {
   color: "var(--color-text)",
 };
 
+const wideFieldStyle: CSSProperties = {
+  ...fieldStyle,
+  maxWidth: "100%",
+};
+
+function emptyContract(): ContractFormInput {
+  return {
+    fullName: "",
+    birthYear: "",
+    ageYears: "",
+    passportSeries: "",
+    passportNumber: "",
+    passportIssuedBy: "",
+    additionalDriverName: "",
+    additionalDriverPassport: "",
+  };
+}
+
 type BookingCheckoutFormProps = {
   carId: string;
   startDate: string;
   endDate: string;
-  initialFirstName: string;
-  initialLastName: string;
-  initialPassportData: string;
   initialPhone: string;
+  initialContract: Partial<ContractFormInput>;
 };
 
 export function BookingCheckoutForm({
   carId,
   startDate,
   endDate,
-  initialFirstName,
-  initialLastName,
-  initialPassportData,
   initialPhone,
+  initialContract,
 }: BookingCheckoutFormProps) {
   const router = useRouter();
-  const [firstName, setFirstName] = useState(initialFirstName);
-  const [lastName, setLastName] = useState(initialLastName);
-  const [passportData, setPassportData] = useState(initialPassportData);
+  const [contract, setContract] = useState<ContractFormInput>(() => ({
+    ...emptyContract(),
+    ...initialContract,
+  }));
   const [phone, setPhone] = useState(initialPhone);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  const maxBirthYear = new Date().getUTCFullYear() - 18;
+
+  function setContractField<K extends keyof ContractFormInput>(key: K, value: ContractFormInput[K]) {
+    setContract((prev) => ({ ...prev, [key]: value }));
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -51,10 +73,8 @@ export function BookingCheckoutForm({
       carId,
       startDate,
       endDate,
-      firstName,
-      lastName,
-      passportData,
       phone,
+      contract,
     });
     setPending(false);
     if (!res.ok) {
@@ -66,38 +86,104 @@ export function BookingCheckoutForm({
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "28rem" }}>
+    <form
+      onSubmit={onSubmit}
+      style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "32rem" }}
+    >
+      <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+        Данные для договора аренды и PDF: укажите как в паспорте.
+      </p>
+
       <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Имя
+        ФИО полностью
         <input
           required
-          autoComplete="given-name"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          style={fieldStyle}
+          autoComplete="name"
+          value={contract.fullName}
+          onChange={(e) => setContractField("fullName", e.target.value)}
+          style={wideFieldStyle}
         />
       </label>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 8rem" }}>
+          Год рождения
+          <input
+            type="number"
+            required
+            min={1940}
+            max={maxBirthYear}
+            value={contract.birthYear}
+            onChange={(e) => setContractField("birthYear", e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 8rem" }}>
+          Возраст (полных лет)
+          <input
+            type="number"
+            required
+            min={18}
+            max={100}
+            value={contract.ageYears}
+            onChange={(e) => setContractField("ageYears", e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 8rem" }}>
+          Серия паспорта
+          <input
+            required
+            value={contract.passportSeries}
+            onChange={(e) => setContractField("passportSeries", e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)", flex: "1 1 8rem" }}>
+          Номер паспорта
+          <input
+            required
+            value={contract.passportNumber}
+            onChange={(e) => setContractField("passportNumber", e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+      </div>
+
       <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Фамилия
-        <input
-          required
-          autoComplete="family-name"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          style={fieldStyle}
-        />
-      </label>
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Паспортные данные
+        Кем и когда выдан паспорт
         <textarea
           required
-          rows={4}
-          placeholder="Серия, номер, кем и когда выдан"
-          value={passportData}
-          onChange={(e) => setPassportData(e.target.value)}
-          style={{ ...fieldStyle, minHeight: "6rem", resize: "vertical" }}
+          rows={3}
+          value={contract.passportIssuedBy}
+          onChange={(e) => setContractField("passportIssuedBy", e.target.value)}
+          style={{ ...wideFieldStyle, minHeight: "4rem", resize: "vertical" }}
         />
       </label>
+
+      <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+        Дополнительный водитель (п. 1.3 договора), необязательно:
+      </p>
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        ФИО доп. водителя
+        <input
+          value={contract.additionalDriverName}
+          onChange={(e) => setContractField("additionalDriverName", e.target.value)}
+          style={wideFieldStyle}
+        />
+      </label>
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        Паспорт доп. водителя (серия и номер)
+        <input
+          value={contract.additionalDriverPassport}
+          onChange={(e) => setContractField("additionalDriverPassport", e.target.value)}
+          style={wideFieldStyle}
+        />
+      </label>
+
       <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
         Телефон
         <input
