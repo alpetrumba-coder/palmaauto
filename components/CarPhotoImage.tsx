@@ -9,11 +9,14 @@ type CarPhotoImageProps = {
   priority?: boolean;
 };
 
+const FALLBACK_PLACEHOLDER_SRC = "/cars/placeholder.svg";
+
 /**
  * Нативный img вместо next/image: стабильная отдача файлов из `public/` (в т.ч. SVG) и внешних URL на Vercel;
  * при 404 или ошибке — заглушка «Фото скоро».
  */
 export function CarPhotoImage({ src, alt, priority }: CarPhotoImageProps) {
+  const [currentSrc, setCurrentSrc] = useState(src);
   const [broken, setBroken] = useState(false);
 
   if (broken) {
@@ -38,11 +41,17 @@ export function CarPhotoImage({ src, alt, priority }: CarPhotoImageProps) {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- намеренно: надёжный показ /cars/* и SVG без image optimizer
     <img
-      src={src}
+      src={currentSrc}
       alt={alt}
       loading={priority ? "eager" : "lazy"}
       decoding="async"
-      onError={() => setBroken(true)}
+      onError={() => {
+        if (currentSrc !== FALLBACK_PLACEHOLDER_SRC) {
+          setCurrentSrc(FALLBACK_PLACEHOLDER_SRC);
+          return;
+        }
+        setBroken(true);
+      }}
       style={{
         position: "absolute",
         inset: 0,
