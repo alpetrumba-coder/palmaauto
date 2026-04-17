@@ -1,6 +1,8 @@
 import { AdminPanelLogoutButton } from "@/components/AdminPanelLogoutButton";
 import { AdminPanelNav } from "@/components/admin/AdminPanelNav";
+import { PalmaAutoLogo } from "@/components/PalmaAutoLogo";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
+import Link from "next/link";
 
 export default async function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
   await requireAdminPanelSession();
@@ -22,7 +24,12 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
           borderBottom: "1px solid var(--color-border)",
         }}
       >
-        <AdminPanelNav />
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <Link href="/" className="nav-tap-target" style={{ textDecoration: "none", color: "var(--color-text)" }}>
+            <PalmaAutoLogo size="var(--text-xl)" />
+          </Link>
+          <AdminPanelNav />
+        </div>
         <AdminPanelLogoutButton />
       </header>
       {children}

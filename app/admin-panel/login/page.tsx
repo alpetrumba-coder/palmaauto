@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AdminPanelLoginForm } from "@/components/AdminPanelLoginForm";
+import { PalmaAutoLogo } from "@/components/PalmaAutoLogo";
 import { adminPanelCookieName, verifyAdminPanelSessionToken } from "@/lib/admin-panel-session";
 
 export const metadata: Metadata = {
@@ -30,6 +31,11 @@ export default async function AdminPanelLoginPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: "22rem" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "1rem" }}>
+          <Link href="/" className="nav-tap-target" style={{ textDecoration: "none", color: "var(--color-text)" }}>
+            <PalmaAutoLogo size="var(--text-2xl)" />
+          </Link>
+        </div>
         <h1 style={{ fontSize: "var(--text-2xl)", marginTop: 0, textAlign: "center" }}>Админ-панель</h1>
         <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", textAlign: "center" }}>
           Вход тем же email и паролем, что заданы как <code style={{ fontSize: "0.9em" }}>INITIAL_ADMIN_EMAIL</code> и{" "}

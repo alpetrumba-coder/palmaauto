@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PublicAuthNav } from "@/components/PublicAuthNav";
+import { PalmaAutoLogo } from "@/components/PalmaAutoLogo";
 
 /**
  * Верхняя панель сайта: логотип/название и основные ссылки.
@@ -40,7 +41,7 @@ export function SiteHeader() {
             textDecoration: "none",
           }}
         >
-          ПальмаАвто
+          <PalmaAutoLogo />
         </Link>
         <nav aria-label="Основная навигация" style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap", alignItems: "center" }}>
           <Link href="/cars" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
