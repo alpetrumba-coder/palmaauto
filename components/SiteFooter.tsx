@@ -19,7 +19,21 @@ export function SiteFooter() {
         textAlign: "center",
       }}
     >
-      <p style={{ margin: "0 0 0.75rem" }}>
+      <nav aria-label="Ссылки в подвале" style={{ display: "flex", gap: "0.75rem 1.25rem", justifyContent: "center", flexWrap: "wrap" }}>
+        <Link
+          href="/o-kompanii"
+          className="nav-tap-target"
+          style={{ fontWeight: 600, color: "var(--color-text-secondary)", textDecoration: "none" }}
+        >
+          О компании
+        </Link>
+        <Link
+          href="/poryadok-zakaza"
+          className="nav-tap-target"
+          style={{ fontWeight: 600, color: "var(--color-text-secondary)", textDecoration: "none" }}
+        >
+          Порядок оформления и оплаты
+        </Link>
         <Link
           href="/admin-panel/login"
           className="nav-tap-target"
@@ -27,7 +41,7 @@ export function SiteFooter() {
         >
           Админпанель
         </Link>
-      </p>
+      </nav>
       <p style={{ margin: 0 }}>© {year} ПальмаАвто. Каталог и бронь на сайте.</p>
     </footer>
   );
