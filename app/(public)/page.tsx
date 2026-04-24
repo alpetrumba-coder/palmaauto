@@ -70,18 +70,6 @@ export default async function HomePage({
         >
           Подбор по датам
         </h2>
-        <p
-          style={{
-            margin: "0 0 1.25rem",
-            fontSize: "var(--text-base)",
-            color: "var(--color-text-secondary)",
-            maxWidth: "42rem",
-            lineHeight: "var(--leading-relaxed)",
-          }}
-        >
-          Укажите даты проката и нажмите «Показать доступные» — ниже списком: фото, название и цена за сутки; можно сразу
-          перейти к бронированию.
-        </p>
         <BookByDatesSection action="/" fromStr={sp.from ?? ""} toStr={sp.to ?? ""} resultsLayout="list" />
       </section>
 
