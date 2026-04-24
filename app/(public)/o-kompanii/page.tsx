@@ -35,14 +35,16 @@ export default function CompanyPage() {
 
           <dt style={{ color: "var(--color-text-secondary)" }}>Телефон</dt>
           <dd style={{ margin: 0 }}>
-            <a href="tel:+79407776909" className="nav-tap-target" style={{ paddingInline: 0 }}>
-              +7 940 777 69 09
+            <a href="tel:+79407146273" className="nav-tap-target" style={{ paddingInline: 0 }}>
+              +7 940 714-62-73
             </a>
           </dd>
 
           <dt style={{ color: "var(--color-text-secondary)" }}>Электронная почта</dt>
           <dd style={{ margin: 0 }}>
-            <span style={{ color: "var(--color-text-secondary)" }}>Укажите email компании (если нужен — добавлю сразу).</span>
+            <a href="mailto:palm@tdrubin.com" className="nav-tap-target" style={{ paddingInline: 0 }}>
+              palm@tdrubin.com
+            </a>
           </dd>
 
           <dt style={{ color: "var(--color-text-secondary)" }}>ИНН/КПП</dt>
@@ -103,12 +105,6 @@ export default function CompanyPage() {
           <dd style={{ margin: 0 }}>Алхазова Ольга Константиновна</dd>
           <dt style={{ color: "var(--color-text-secondary)" }}>Генеральный директор</dt>
           <dd style={{ margin: 0 }}>Библая Вячеслав Арвелодович</dd>
-          <dt style={{ color: "var(--color-text-secondary)" }}>Сайт</dt>
-          <dd style={{ margin: 0 }}>
-            <a href="http://www.tdrubin.com/" target="_blank" rel="noreferrer">
-              tdrubin.com
-            </a>
-          </dd>
         </dl>
       </section>
     </div>
