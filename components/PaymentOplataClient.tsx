@@ -14,6 +14,7 @@ type PaymentOplataClientProps = {
   deadlineMs: number;
   carTitle: string;
   totalPriceRub: number;
+  firstDayAmountRub: number;
   dateRangeLabel: string;
 };
 
@@ -29,6 +30,7 @@ export function PaymentOplataClient({
   deadlineMs,
   carTitle,
   totalPriceRub,
+  firstDayAmountRub,
   dateRangeLabel,
 }: PaymentOplataClientProps) {
   const router = useRouter();
@@ -38,6 +40,7 @@ export function PaymentOplataClient({
   const [payPending, setPayPending] = useState(false);
   const [cancelPending, setCancelPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [plan, setPlan] = useState<"FULL" | "FIRST_DAY">("FULL");
   const refreshedAfterExpiry = useRef(false);
 
   useEffect(() => {
@@ -59,14 +62,14 @@ export function PaymentOplataClient({
   const onPay = useCallback(async () => {
     setError(null);
     setPayPending(true);
-    const res = await completeFakePaymentAction(bookingId);
+    const res = await completeFakePaymentAction(bookingId, plan);
     setPayPending(false);
     if (!res.ok) {
       setError(res.error);
       return;
     }
     window.location.assign(`/oplata/${bookingId}/checkout`);
-  }, [bookingId]);
+  }, [bookingId, plan]);
 
   const onCancel = useCallback(async () => {
     setError(null);
@@ -128,7 +131,40 @@ export function PaymentOplataClient({
           и выбрать даты снова.
         </p>
       ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+          <fieldset style={{ border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", padding: "0.9rem 1rem" }}>
+            <legend style={{ paddingInline: "0.35rem", fontWeight: 600, fontSize: "var(--text-sm)" }}>Сумма к оплате</legend>
+            <label style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start", cursor: "pointer" }}>
+              <input
+                type="radio"
+                name="plan"
+                value="FULL"
+                checked={plan === "FULL"}
+                onChange={() => setPlan("FULL")}
+                disabled={payPending}
+                style={{ marginTop: "0.15rem" }}
+              />
+              <span style={{ fontSize: "var(--text-sm)" }}>
+                <strong>Оплатить полностью</strong> — {formatPriceRub(totalPriceRub)}
+              </span>
+            </label>
+            <label style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start", cursor: "pointer", marginTop: "0.6rem" }}>
+              <input
+                type="radio"
+                name="plan"
+                value="FIRST_DAY"
+                checked={plan === "FIRST_DAY"}
+                onChange={() => setPlan("FIRST_DAY")}
+                disabled={payPending}
+                style={{ marginTop: "0.15rem" }}
+              />
+              <span style={{ fontSize: "var(--text-sm)" }}>
+                <strong>Оплатить первые сутки</strong> — {formatPriceRub(firstDayAmountRub)}
+              </span>
+            </label>
+          </fieldset>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
           <button
             type="button"
             disabled={payPending}
@@ -163,6 +199,7 @@ export function PaymentOplataClient({
           >
             {cancelPending ? "…" : "Отмена"}
           </button>
+        </div>
         </div>
       )}
 

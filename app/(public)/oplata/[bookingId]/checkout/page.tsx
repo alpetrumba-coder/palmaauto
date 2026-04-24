@@ -33,7 +33,11 @@ export default async function OplataCheckoutSuccessPage({
   }
 
   const booking = await prisma.booking.findFirst({
-    where: { id: bookingId, userId: session.user.id, status: "PAID" },
+    where: {
+      id: bookingId,
+      userId: session.user.id,
+      status: { in: ["PAID", "PARTIALLY_PAID"] },
+    },
     include: { car: true },
   });
 
@@ -42,6 +46,8 @@ export default async function OplataCheckoutSuccessPage({
   }
 
   const title = `${booking.car.make} ${booking.car.model}`;
+  const paid = booking.paidAmountRub ?? 0;
+  const remaining = Math.max(0, booking.totalPriceRub - paid);
 
   return (
     <div className="page-shell" style={{ paddingBlock: "clamp(2rem, 8vw, 3.5rem)", maxWidth: "40rem" }}>
@@ -72,6 +78,12 @@ export default async function OplataCheckoutSuccessPage({
           {dateRangeLabelRu(booking.startDate, booking.endDate)}
         </p>
         <p style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: 600 }}>{formatPriceRub(booking.totalPriceRub)}</p>
+        {booking.status === "PARTIALLY_PAID" ? (
+          <p style={{ margin: "0.6rem 0 0", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+            Оплачено: <strong style={{ color: "var(--color-text)" }}>{formatPriceRub(paid)}</strong>. Остаток:{" "}
+            <strong style={{ color: "var(--color-text)" }}>{formatPriceRub(remaining)}</strong>.
+          </p>
+        ) : null}
       </section>
 
       {booking.contractMeta ? (

@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { PaymentOplataClient } from "@/components/PaymentOplataClient";
 import { isPendingPaymentHoldActive, pendingPaymentHoldExpiresAt } from "@/lib/booking-hold";
 import { prisma } from "@/lib/prisma";
+import { inclusiveRentalDays } from "@/lib/rental-dates";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -43,7 +44,7 @@ export default async function OplataPage({
     notFound();
   }
 
-  if (booking.status === "PAID") {
+  if (booking.status === "PAID" || booking.status === "PARTIALLY_PAID") {
     redirect(`/oplata/${bookingId}/checkout`);
   }
 
@@ -108,6 +109,15 @@ export default async function OplataPage({
 
   const carTitle = `${booking.car.make} ${booking.car.model}`;
   const deadlineMs = pendingPaymentHoldExpiresAt(booking.createdAt).getTime();
+  const days = Math.max(1, inclusiveRentalDays(booking.startDate, booking.endDate));
+  const secondDriverPerDayRub = booking.secondDriverEnabled ? Math.round(booking.secondDriverFeeRub / days) : 0;
+  const childSeatPerDayRub = booking.childSeatEnabled ? Math.round(booking.childSeatFeeRub / days) : 0;
+  const firstDayAmountRub =
+    booking.car.pricePerDayRub +
+    booking.pickupFeeRub +
+    booking.dropoffFeeRub +
+    secondDriverPerDayRub +
+    childSeatPerDayRub;
 
   return (
     <div className="page-shell" style={{ paddingBlock: "clamp(2rem, 8vw, 3.5rem)" }}>
@@ -126,6 +136,7 @@ export default async function OplataPage({
         deadlineMs={deadlineMs}
         carTitle={carTitle}
         totalPriceRub={booking.totalPriceRub}
+        firstDayAmountRub={firstDayAmountRub}
         dateRangeLabel={dateRangeLabelRu(booking.startDate, booking.endDate)}
       />
     </div>

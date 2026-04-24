@@ -84,6 +84,8 @@ export async function createAdminBookingAction(input: {
       startDate: start,
       endDate: end,
       status,
+      paymentPlan: "FULL",
+      paidAmountRub: input.status === "PAID" ? totalPriceRub : 0,
       totalPriceRub,
     },
   });
