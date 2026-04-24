@@ -1,5 +1,6 @@
 import { BookByDatesSection } from "@/components/BookByDatesSection";
 import { CarCatalogGrid } from "@/components/CarCatalogGrid";
+import { CancellationPolicyModal } from "@/components/CancellationPolicyModal";
 import { getActiveCars } from "@/lib/cars";
 
 export const dynamic = "force-dynamic";
@@ -25,28 +26,31 @@ export default async function HomePage({
           marginBottom: "var(--space-unit)",
         }}
       >
-        Прокат автомобилей
+        Прокат автомобилей в Абхазии
       </p>
-      <h1 style={{ fontSize: "var(--text-hero)", margin: "0 0 calc(var(--space-unit) * 2)" }}>
-        ПальмаАвто
+      <h1 style={{ fontSize: "var(--text-hero)", margin: "0 0 calc(var(--space-unit) * 2)", letterSpacing: "0.02em" }}>
+        ПАЛЬМААВТО
       </h1>
-      <p
+      <ul
         style={{
           fontSize: "var(--text-xl)",
           color: "var(--color-text-secondary)",
-          maxWidth: "40rem",
+          maxWidth: "44rem",
           lineHeight: "var(--leading-relaxed)",
           margin: 0,
+          paddingLeft: "1.25rem",
         }}
       >
-        Стоимость зависит от срока аренды, длительная — цена договорная.
-        <br />
-        Договор в 2‑х экземплярах. Залог 15 000 ₽ возвращается при сдаче авто.
-        <br />
-        Для оформления нужны паспорт РФ и права РФ.
-        <br />
-        Получение на стоянке арендодателя; доставка (Сухум, аэропорт, ж/д вокзал) — по договорённости.
-      </p>
+        <li style={{ marginBottom: "0.55rem" }}>От 7 суток — скидки</li>
+        <li style={{ marginBottom: "0.55rem" }}>Доставка машины на границу / вокзал / аэропорт</li>
+        <li style={{ marginBottom: "0.55rem" }}>
+          Бесплатная отмена (
+          <span style={{ whiteSpace: "nowrap" }}>
+            прочитать <CancellationPolicyModal />
+          </span>
+          )
+        </li>
+      </ul>
 
       <section
         style={{ marginTop: "calc(var(--space-unit) * 2)" }}
