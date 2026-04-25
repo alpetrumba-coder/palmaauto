@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { UserRole } from "@prisma/client";
+import { Prisma, type UserRole } from "@prisma/client";
 
 import { hashPassword, validatePasswordPlain } from "@/lib/password";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
@@ -132,6 +132,60 @@ export async function updateAdminUserAction(
       address: emptyToNull(payload.address),
       passportData: emptyToNull(payload.passportData),
     },
+  });
+
+  revalidatePath("/admin-panel/users");
+  revalidatePath(`/admin-panel/users/${userId}/edit`);
+
+  return { ok: true };
+}
+
+export async function eraseUserPersonalDataAction(
+  userId: string,
+  input?: { note?: string },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdminPanelSession();
+
+  const existing = await prisma.user.findUnique({ where: { id: userId } });
+  if (!existing) return { ok: false, error: "Пользователь не найден." };
+
+  const note = input?.note?.trim().slice(0, 2000) || null;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.personalDataErasure.create({
+      data: {
+        userId,
+        performedById: null,
+        reason: "USER_REQUEST",
+        note,
+      },
+    });
+
+    await tx.booking.updateMany({
+      where: { userId },
+      data: {
+        contractMeta: Prisma.DbNull,
+        secondDriverPassportData: null,
+        pickupAddress: null,
+        pickupTimeSlot: null,
+        dropoffAddress: null,
+        dropoffTimeSlot: null,
+      },
+    });
+
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        personalDataErasedAt: new Date(),
+        phone: null,
+        address: null,
+        passportData: null,
+        passportSeries: null,
+        passportNumber: null,
+        passportIssuedBy: null,
+        ageYears: null,
+      },
+    });
   });
 
   revalidatePath("/admin-panel/users");

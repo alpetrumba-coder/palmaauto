@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { LEGAL_DOCS } from "@/lib/legal-docs";
+
 /**
  * Нижний колонтитул публичной части.
  * На этапе 1 — минимальный; позже можно добавить контакты, юридические ссылки.
@@ -45,6 +47,28 @@ export function SiteFooter() {
           style={{ fontWeight: 600, color: "var(--color-text-secondary)", textDecoration: "none" }}
         >
           Админпанель
+        </Link>
+        <span aria-hidden="true">·</span>
+        <Link
+          href={LEGAL_DOCS.conditions.path}
+          className="nav-tap-target"
+          style={{ fontWeight: 600, color: "var(--color-text-secondary)", textDecoration: "none" }}
+        >
+          {LEGAL_DOCS.conditions.title}
+        </Link>
+        <Link
+          href={LEGAL_DOCS.policy.path}
+          className="nav-tap-target"
+          style={{ fontWeight: 600, color: "var(--color-text-secondary)", textDecoration: "none" }}
+        >
+          {LEGAL_DOCS.policy.title}
+        </Link>
+        <Link
+          href={LEGAL_DOCS.consent.path}
+          className="nav-tap-target"
+          style={{ fontWeight: 600, color: "var(--color-text-secondary)", textDecoration: "none" }}
+        >
+          {LEGAL_DOCS.consent.title}
         </Link>
       </nav>
       <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem 1rem", justifyContent: "center", flexWrap: "wrap" }}>

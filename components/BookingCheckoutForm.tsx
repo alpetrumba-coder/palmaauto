@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 
 import { submitBookingCheckoutAction } from "@/app/actions/booking-checkout";
 import type { ContractFormInput } from "@/lib/booking-contract";
+import { LEGAL_DOCS } from "@/lib/legal-docs";
 import { OFFICE_ADDRESS } from "@/lib/pickup-dropoff";
 
 const fieldStyle: CSSProperties = {
@@ -73,6 +75,8 @@ export function BookingCheckoutForm({
   const router = useRouter();
   const [step, setStep] = useState<"edit" | "review">("edit");
   const [confirmOk, setConfirmOk] = useState(false);
+  const [pdpConsentOk, setPdpConsentOk] = useState(false);
+  const [marketingConsentOk, setMarketingConsentOk] = useState(false);
   const [contract, setContract] = useState<ContractFormInput>(() => ({
     ...emptyContract(),
     ...initialContract,
@@ -123,6 +127,7 @@ export function BookingCheckoutForm({
       if (!secondDriverAgeYears.trim()) return setError("Укажите возраст второго водителя.");
       if (secondDriverPassportData.trim().length < 5) return setError("Укажите паспортные данные второго водителя (не короче 5 символов).");
     }
+    if (!pdpConsentOk) return setError("Нужно согласие на обработку персональных данных.");
     setConfirmOk(false);
     setStep("review");
   }
@@ -145,6 +150,8 @@ export function BookingCheckoutForm({
       endDate,
       phone,
       contract,
+      pdpConsentOk,
+      marketingConsentOk,
       pickupMode,
       pickupAddress,
       pickupTimeSlot,
@@ -226,7 +233,28 @@ export function BookingCheckoutForm({
               <strong>Итого к оплате</strong>: {totalWithFees.toLocaleString("ru-RU")} ₽
               {extrasTotal > 0 ? <span style={{ display: "block" }}>Включая доп. услуги: {extrasTotal.toLocaleString("ru-RU")} ₽</span> : null}
             </div>
+            <div>
+              <strong>Согласие на ПДн</strong>: {pdpConsentOk ? "да" : "нет"}
+            </div>
+            <div>
+              <strong>Маркетинг</strong>: {marketingConsentOk ? "да" : "нет"}
+            </div>
           </div>
+
+          <p style={{ margin: "0.85rem 0 0", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+            Документы:{" "}
+            <Link href={LEGAL_DOCS.policy.path} className="nav-tap-target" style={{ paddingInline: 0 }}>
+              {LEGAL_DOCS.policy.title}
+            </Link>
+            {" · "}
+            <Link href={LEGAL_DOCS.consent.path} className="nav-tap-target" style={{ paddingInline: 0 }}>
+              {LEGAL_DOCS.consent.title}
+            </Link>
+            {" · "}
+            <Link href={LEGAL_DOCS.conditions.path} className="nav-tap-target" style={{ paddingInline: 0 }}>
+              {LEGAL_DOCS.conditions.title}
+            </Link>
+          </p>
 
           <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)", cursor: "pointer", marginTop: "0.85rem" }}>
             <input type="checkbox" checked={confirmOk} onChange={(e) => setConfirmOk(e.target.checked)} />
@@ -601,6 +629,40 @@ export function BookingCheckoutForm({
           {error}
         </p>
       ) : null}
+
+      <div
+        style={{
+          padding: "1rem",
+          borderRadius: "var(--radius-lg)",
+          border: "1px solid var(--color-border)",
+          background: "var(--color-surface)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.55rem",
+          fontSize: "var(--text-sm)",
+        }}
+      >
+        <label style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start", cursor: "pointer" }}>
+          <input type="checkbox" checked={pdpConsentOk} onChange={(e) => setPdpConsentOk(e.target.checked)} />
+          <span>
+            Я согласен(на) на обработку персональных данных в соответствии с{" "}
+            <Link href={LEGAL_DOCS.policy.path} className="nav-tap-target" style={{ paddingInline: 0, fontWeight: 600 }}>
+              политикой конфиденциальности
+            </Link>{" "}
+            и{" "}
+            <Link href={LEGAL_DOCS.consent.path} className="nav-tap-target" style={{ paddingInline: 0, fontWeight: 600 }}>
+              согласием на обработку ПДн
+            </Link>
+            .
+          </span>
+        </label>
+        <label style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start", cursor: "pointer" }}>
+          <input type="checkbox" checked={marketingConsentOk} onChange={(e) => setMarketingConsentOk(e.target.checked)} />
+          <span>
+            Хочу получать информацию об акциях и скидках (Email/SMS/WhatsApp/Telegram). Можно отказаться в любой момент.
+          </span>
+        </label>
+      </div>
 
       <button
         type="button"

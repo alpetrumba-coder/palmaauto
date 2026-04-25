@@ -46,8 +46,13 @@ model User {
   passportSeries   String?          @map("passport_series")
   passportNumber   String?          @map("passport_number")
   passportIssuedBy String?          @map("passport_issued_by") @db.Text
+  /// Дата обезличивания/удаления персональных данных (по запросу или по ретеншну).
+  personalDataErasedAt DateTime?    @map("personal_data_erased_at")
   resetTokens  PasswordResetToken[]
   bookings     Booking[]
+  consents     ConsentRecord[]
+  personalDataErasures PersonalDataErasure[] @relation("erasure_user")
+  performedPersonalDataErasures PersonalDataErasure[] @relation("erasure_performed_by")
 
   @@map("users")
 }
@@ -109,6 +114,11 @@ enum BookingPlaceMode {
   ADDRESS
 }
 
+enum ConsentType {
+  PDP
+  MARKETING
+}
+
 /// Бронь: даты включительно (startDate … endDate), цена за весь период.
 model Booking {
   id            String        @id @default(cuid())
@@ -138,6 +148,7 @@ model Booking {
   childSeatFeeRub Int @default(0) @map("child_seat_fee_rub")
   /// Снимок данных арендатора для генерации договора (PDF).
   contractMeta  Json?       @map("contract_meta")
+  consents      ConsentRecord[]
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -146,6 +157,41 @@ model Booking {
   @@index([userId])
   @@index([carId])
   @@map("bookings")
+}
+
+model ConsentRecord {
+  id         String      @id @default(cuid())
+  type       ConsentType
+  docVersion String      @map("doc_version") @db.VarChar(40)
+  docPath    String      @map("doc_path") @db.VarChar(200)
+  acceptedAt DateTime    @default(now()) @map("accepted_at")
+  ip         String?     @db.VarChar(80)
+  userAgent  String?     @map("user_agent") @db.Text
+  userId     String?     @map("user_id")
+  bookingId  String?     @map("booking_id")
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  booking    Booking?    @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([bookingId])
+  @@index([type, acceptedAt])
+  @@map("consent_records")
+}
+
+model PersonalDataErasure {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  performedById String?  @map("performed_by_id")
+  performedAt   DateTime @default(now()) @map("performed_at")
+  reason        String   @db.VarChar(120)
+  note          String?  @db.Text
+
+  user          User     @relation("erasure_user", fields: [userId], references: [id], onDelete: Cascade)
+  performedBy   User?    @relation("erasure_performed_by", fields: [performedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([performedAt])
+  @@map("personal_data_erasures")
 }
 
 /// Фото автомобиля: пока внешний URL (этап 5 — загрузка в S3).

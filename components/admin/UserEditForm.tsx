@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 
-import { updateAdminUserAction, type AdminUserProfilePayload } from "@/app/actions/admin-users";
+import { eraseUserPersonalDataAction, updateAdminUserAction, type AdminUserProfilePayload } from "@/app/actions/admin-users";
 
 const fieldStyle: CSSProperties = {
   width: "100%",
@@ -67,6 +67,19 @@ export function UserEditForm({ userId, initial }: UserEditFormProps) {
       return;
     }
     router.push("/admin-panel/users");
+    router.refresh();
+  }
+
+  async function onErasePersonalData() {
+    setError(null);
+    if (!window.confirm("Удалить/обезличить персональные данные пользователя? Это действие необратимо.")) return;
+    setPending(true);
+    const res = await eraseUserPersonalDataAction(userId);
+    setPending(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
     router.refresh();
   }
 
@@ -160,6 +173,22 @@ export function UserEditForm({ userId, initial }: UserEditFormProps) {
           }}
         >
           {pending ? "Сохранение…" : "Сохранить"}
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={onErasePersonalData}
+          style={{
+            padding: "0.65rem 1.25rem",
+            borderRadius: "999px",
+            border: "1px solid var(--color-border)",
+            background: "transparent",
+            color: "var(--color-text)",
+            fontWeight: 600,
+            cursor: pending ? "wait" : "pointer",
+          }}
+        >
+          Удалить ПДн
         </button>
         <Link href="/admin-panel/users" style={{ fontSize: "var(--text-sm)" }}>
           Отмена

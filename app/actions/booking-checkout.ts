@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import type { Prisma } from "@prisma/client";
 
 import { auth } from "@/auth";
@@ -18,6 +19,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { splitRuFullName } from "@/lib/ru-full-name";
 import { inclusiveRentalDays, parseDateInput, utcToday } from "@/lib/rental-dates";
+import { LEGAL_DOCS } from "@/lib/legal-docs";
 
 export type BookingCheckoutActionResult = { ok: true; bookingId: string } | { ok: false; error: string };
 
@@ -35,6 +37,8 @@ export async function submitBookingCheckoutAction(input: {
   endDate: string;
   phone: string;
   contract: ContractFormInput;
+  pdpConsentOk: boolean;
+  marketingConsentOk: boolean;
   pickupMode: "OFFICE" | "ADDRESS";
   pickupAddress: string;
   pickupTimeSlot: string;
@@ -51,6 +55,10 @@ export async function submitBookingCheckoutAction(input: {
   const session = await auth();
   if (!session?.user?.id) {
     return { ok: false, error: "Войдите в аккаунт, чтобы оформить бронь." };
+  }
+
+  if (!input.pdpConsentOk) {
+    return { ok: false, error: "Нужно согласие на обработку персональных данных." };
   }
 
   const phone = trimStr(input.phone, 40);
@@ -176,6 +184,10 @@ export async function submitBookingCheckoutAction(input: {
   const passportData = trimStr(`${meta.passportSeries} ${meta.passportNumber}, ${meta.passportIssuedBy}`, 4000);
   const { lastName, firstName, patronymic } = splitRuFullName(meta.fullName);
 
+  const h = await headers();
+  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? null;
+  const userAgent = h.get("user-agent") ?? null;
+
   const booking = await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: session.user.id },
@@ -191,7 +203,7 @@ export async function submitBookingCheckoutAction(input: {
         passportIssuedBy: meta.passportIssuedBy,
       },
     });
-    return tx.booking.create({
+    const created = await tx.booking.create({
       data: {
         userId: session.user.id,
         carId: input.carId,
@@ -218,6 +230,33 @@ export async function submitBookingCheckoutAction(input: {
         contractMeta: metaJson,
       },
     });
+    await tx.consentRecord.create({
+      data: {
+        type: "PDP",
+        docVersion: LEGAL_DOCS.consent.version,
+        docPath: LEGAL_DOCS.consent.path,
+        acceptedAt: new Date(),
+        ip,
+        userAgent,
+        userId: session.user.id,
+        bookingId: created.id,
+      },
+    });
+    if (input.marketingConsentOk) {
+      await tx.consentRecord.create({
+        data: {
+          type: "MARKETING",
+          docVersion: LEGAL_DOCS.consent.version,
+          docPath: LEGAL_DOCS.consent.path,
+          acceptedAt: new Date(),
+          ip,
+          userAgent,
+          userId: session.user.id,
+          bookingId: created.id,
+        },
+      });
+    }
+    return created;
   });
 
   revalidatePath("/moi-broni");

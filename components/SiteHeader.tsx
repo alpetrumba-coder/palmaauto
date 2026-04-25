@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { PublicAuthNav } from "@/components/PublicAuthNav";
 import { PalmaAutoLogo } from "@/components/PalmaAutoLogo";
+import { LEGAL_DOCS } from "@/lib/legal-docs";
 
 /**
  * Верхняя панель сайта: логотип/название и основные ссылки.
@@ -84,6 +85,9 @@ export function SiteHeader() {
           <nav aria-label="Основная навигация" style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap", alignItems: "center" }}>
             <Link href="/cars" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
               Каталог
+            </Link>
+            <Link href={LEGAL_DOCS.conditions.path} className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
+              Условия
             </Link>
             <PublicAuthNav />
           </nav>
