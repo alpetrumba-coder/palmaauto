@@ -21,7 +21,7 @@ export default async function HomePage({
     <div className="page-shell" style={{ paddingBlock: "clamp(3rem, 10vw, 5rem)" }}>
       <p
         style={{
-          fontSize: "var(--text-sm)",
+          fontSize: "var(--text-lg)",
           color: "var(--color-text-secondary)",
           marginBottom: "var(--space-unit)",
         }}
