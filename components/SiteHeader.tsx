@@ -27,6 +27,7 @@ export function SiteHeader() {
     >
       <div
         className="page-shell"
+        data-site-header-row
         style={{
           display: "flex",
           alignItems: "center",
@@ -46,10 +47,15 @@ export function SiteHeader() {
             textDecoration: "none",
           }}
         >
-          <PalmaAutoLogo />
+          <span data-site-header-logo>
+            <PalmaAutoLogo />
+          </span>
         </Link>
-        <div style={{ display: "flex", gap: "0.75rem 1.25rem", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end" }}>
-          <div style={{ display: "flex", gap: "0.5rem 0.9rem", flexWrap: "wrap", alignItems: "center" }}>
+        <div
+          data-site-header-right
+          style={{ display: "flex", gap: "0.75rem 1.25rem", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end" }}
+        >
+          <div data-site-header-contacts style={{ display: "flex", gap: "0.5rem 0.9rem", flexWrap: "wrap", alignItems: "center" }}>
             <a
               href={`tel:${phoneTel}`}
               className="nav-tap-target"
@@ -57,7 +63,7 @@ export function SiteHeader() {
             >
               {phoneDisplay}
             </a>
-            <span aria-hidden="true" style={{ color: "var(--color-border)" }}>
+            <span data-site-header-dot aria-hidden="true" style={{ color: "var(--color-border)" }}>
               ·
             </span>
             <a
@@ -69,7 +75,7 @@ export function SiteHeader() {
             >
               WhatsApp
             </a>
-            <span aria-hidden="true" style={{ color: "var(--color-border)" }}>
+            <span data-site-header-dot aria-hidden="true" style={{ color: "var(--color-border)" }}>
               ·
             </span>
             <a
@@ -82,7 +88,7 @@ export function SiteHeader() {
               Telegram
             </a>
           </div>
-          <nav aria-label="Основная навигация" style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap", alignItems: "center" }}>
+          <nav data-site-header-nav aria-label="Основная навигация" style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap", alignItems: "center" }}>
             <Link href="/cars" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
               Каталог
             </Link>

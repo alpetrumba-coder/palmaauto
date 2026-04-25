@@ -116,6 +116,45 @@ a.cta-link:hover {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/* Хедер на телефонах: 2 строки, без "разъезжаний" */
+@media (max-width: 520px) {
+  .site-header [data-site-header-row] {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+    padding-block: 0.55rem;
+  }
+
+  .site-header [data-site-header-right] {
+    justify-content: space-between;
+    gap: 0.35rem 0.75rem;
+  }
+
+  .site-header [data-site-header-contacts] {
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.35rem 0.75rem;
+  }
+
+  .site-header [data-site-header-dot] {
+    display: none;
+  }
+
+  .site-header [data-site-header-nav] {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.35rem 0.75rem;
+  }
+
+  .site-header [data-site-header-logo] {
+    display: flex;
+  }
+
+  .site-header [data-site-header-logo] span[aria-hidden] {
+    font-size: var(--text-base);
+  }
+}
+
 /* Минимальная зона нажатия ~44px — рекомендации для мобильных интерфейсов */
 .nav-tap-target {
   display: inline-flex;
