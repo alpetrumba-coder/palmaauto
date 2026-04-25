@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { MaxIcon, SocialIconLink, TelegramIcon, WhatsAppIcon } from "@/components/SocialIconLink";
 import { LEGAL_DOCS } from "@/lib/legal-docs";
 
 /**
@@ -12,6 +13,7 @@ export function SiteFooter() {
   const phoneTel = "+79407146273";
   const whatsappHref = "https://wa.me/79407146273";
   const telegramHref = "https://t.me/PalmaAppartmentsAbkhazia";
+  const maxHref = `tel:${phoneTel}`;
   const email = "palm@tdrubin.com";
   return (
     <footer
@@ -76,13 +78,15 @@ export function SiteFooter() {
           {phoneDisplay}
         </a>
         <span aria-hidden="true">·</span>
-        <a href={whatsappHref} target="_blank" rel="noreferrer" className="nav-tap-target" style={{ paddingInline: 0, color: "inherit", textDecoration: "none", fontWeight: 600 }}>
-          WhatsApp
-        </a>
-        <span aria-hidden="true">·</span>
-        <a href={telegramHref} target="_blank" rel="noreferrer" className="nav-tap-target" style={{ paddingInline: 0, color: "inherit", textDecoration: "none", fontWeight: 600 }}>
-          Telegram
-        </a>
+        <SocialIconLink href={whatsappHref} label="WhatsApp">
+          <WhatsAppIcon />
+        </SocialIconLink>
+        <SocialIconLink href={telegramHref} label="Telegram">
+          <TelegramIcon />
+        </SocialIconLink>
+        <SocialIconLink href={maxHref} label="MAX">
+          <MaxIcon />
+        </SocialIconLink>
         <span aria-hidden="true">·</span>
         <a href={`mailto:${email}`} className="nav-tap-target" style={{ paddingInline: 0, color: "inherit", textDecoration: "none", fontWeight: 600 }}>
           {email}

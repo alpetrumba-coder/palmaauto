@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { PublicAuthNav } from "@/components/PublicAuthNav";
 import { PalmaAutoLogo } from "@/components/PalmaAutoLogo";
+import { MaxIcon, SocialIconLink, TelegramIcon, WhatsAppIcon } from "@/components/SocialIconLink";
 import { LEGAL_DOCS } from "@/lib/legal-docs";
 
 /**
@@ -13,6 +14,7 @@ export function SiteHeader() {
   const phoneTel = "+79407146273";
   const whatsappHref = "https://wa.me/79407146273";
   const telegramHref = "https://t.me/PalmaAppartmentsAbkhazia";
+  const maxHref = `tel:${phoneTel}`;
   return (
     <header
       className="site-header"
@@ -66,27 +68,17 @@ export function SiteHeader() {
             <span data-site-header-dot aria-hidden="true" style={{ color: "var(--color-border)" }}>
               ·
             </span>
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noreferrer"
-              className="nav-tap-target"
-              style={{ paddingInline: 0, textDecoration: "none", color: "var(--color-text)", fontSize: "var(--text-sm)" }}
-            >
-              WhatsApp
-            </a>
-            <span data-site-header-dot aria-hidden="true" style={{ color: "var(--color-border)" }}>
-              ·
-            </span>
-            <a
-              href={telegramHref}
-              target="_blank"
-              rel="noreferrer"
-              className="nav-tap-target"
-              style={{ paddingInline: 0, textDecoration: "none", color: "var(--color-text)", fontSize: "var(--text-sm)" }}
-            >
-              Telegram
-            </a>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "0.15rem" }}>
+              <SocialIconLink href={whatsappHref} label="WhatsApp">
+                <WhatsAppIcon />
+              </SocialIconLink>
+              <SocialIconLink href={telegramHref} label="Telegram">
+                <TelegramIcon />
+              </SocialIconLink>
+              <SocialIconLink href={maxHref} label="MAX">
+                <MaxIcon />
+              </SocialIconLink>
+            </div>
           </div>
           <nav data-site-header-nav aria-label="Основная навигация" style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap", alignItems: "center" }}>
             <Link href="/cars" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
