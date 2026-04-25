@@ -2,9 +2,17 @@ import { BookByDatesSection } from "@/components/BookByDatesSection";
 import { CarCatalogGrid } from "@/components/CarCatalogGrid";
 import { CancellationPolicyModal } from "@/components/CancellationPolicyModal";
 import { getActiveCars } from "@/lib/cars";
+import { buildFaqJsonLd, buildOrganizationJsonLd, buildWebSiteJsonLd, jsonLdScriptTag } from "@/lib/seo-jsonld";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+export const metadata = {
+  title: "Прокат автомобилей в Абхазии",
+  description:
+    "ПальмаАвто — прокат автомобилей в Абхазии. Подбор по датам, доставка на границу/вокзал/аэропорт, скидки от 7 суток. Бесплатная отмена за 3 суток.",
+  alternates: { canonical: "/" },
+};
 
 /**
  * Главная: лендинг + каталог автомобилей из БД.
@@ -17,8 +25,29 @@ export default async function HomePage({
   const sp = await searchParams;
   const cars = await getActiveCars();
 
+  const baseUrl = "https://palmaauto.ru";
+  const jsonLd = [
+    buildOrganizationJsonLd({
+      url: baseUrl,
+      name: "ПальмаАвто",
+      email: "palm@tdrubin.com",
+      phone: "+79407146273",
+      logoUrl: `${baseUrl}/logo.svg`,
+    }),
+    buildWebSiteJsonLd({ url: baseUrl, name: "ПальмаАвто" }),
+    buildFaqJsonLd([
+      { question: "Какая отмена бесплатная?", answer: "Бесплатная отмена возможна не позднее чем за 3 суток до начала аренды. Если позже — удерживается оплата за первые сутки." },
+      { question: "Есть ли доставка?", answer: "Да, возможна доставка на границу/вокзал/аэропорт по договорённости." },
+      { question: "Какой залог?", answer: "Залог 15 000 ₽ и возвращается при сдаче автомобиля при отсутствии страховых случаев." },
+    ]),
+  ];
+
   return (
     <div className="page-shell" style={{ paddingBlock: "clamp(3rem, 10vw, 5rem)" }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLd.map((j) => jsonLdScriptTag(j)).join("\n") }}
+      />
       <p
         style={{
           fontSize: "var(--text-lg)",

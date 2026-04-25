@@ -78,13 +78,13 @@ export function SiteFooter() {
           {phoneDisplay}
         </a>
         <span aria-hidden="true">·</span>
-        <SocialIconLink href={whatsappHref} label="WhatsApp">
+        <SocialIconLink href={whatsappHref} label="WhatsApp" metrikaGoal="click_whatsapp">
           <WhatsAppIcon />
         </SocialIconLink>
-        <SocialIconLink href={telegramHref} label="Telegram">
+        <SocialIconLink href={telegramHref} label="Telegram" metrikaGoal="click_telegram">
           <TelegramIcon />
         </SocialIconLink>
-        <SocialIconLink href={maxHref} label="MAX">
+        <SocialIconLink href={maxHref} label="MAX" metrikaGoal="click_max">
           <MaxIcon />
         </SocialIconLink>
         <span aria-hidden="true">·</span>

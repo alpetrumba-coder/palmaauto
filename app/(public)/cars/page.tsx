@@ -2,19 +2,35 @@ import Link from "next/link";
 
 import { CarCatalogGrid } from "@/components/CarCatalogGrid";
 import { getActiveCars } from "@/lib/cars";
+import { buildBreadcrumbJsonLd, jsonLdScriptTag } from "@/lib/seo-jsonld";
 
 export const dynamic = "force-dynamic";
 /** Prisma требует Node.js runtime, не Edge. */
 export const runtime = "nodejs";
+
+export const metadata = {
+  title: "Каталог автомобилей",
+  description: "Каталог автомобилей ПальмаАвто для аренды в Абхазии. Цена за сутки, подробности на карточке.",
+  alternates: { canonical: "/cars" },
+};
 
 /**
  * Публичный каталог автомобилей (`/cars`). Только активные машины из БД.
  */
 export default async function CarsCatalogPage() {
   const cars = await getActiveCars();
+  const base = "https://palmaauto.ru";
+  const breadcrumb = buildBreadcrumbJsonLd([
+    { name: "Главная", url: `${base}/` },
+    { name: "Каталог", url: `${base}/cars` },
+  ]);
 
   return (
     <div className="page-shell" style={{ paddingBlock: "clamp(2rem, 8vw, 3.5rem)" }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScriptTag(breadcrumb) }}
+      />
       <p
         style={{
           fontSize: "var(--text-sm)",

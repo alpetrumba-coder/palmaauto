@@ -1,18 +1,35 @@
+"use client";
+
 import type { CSSProperties, ReactNode } from "react";
 
 export function SocialIconLink({
   href,
   label,
   children,
+  metrikaGoal,
 }: {
   href: string;
   label: string;
   children: ReactNode;
+  metrikaGoal?: string;
 }) {
   const iconStyle: CSSProperties = {
     width: "1.1rem",
     height: "1.1rem",
     display: "block",
+  };
+
+  const track = () => {
+    if (!metrikaGoal) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ym = (globalThis as any)?.ym as undefined | ((...args: unknown[]) => void);
+    if (typeof ym === "function") {
+      try {
+        ym("reachGoal", metrikaGoal);
+      } catch {
+        // ignore
+      }
+    }
   };
 
   return (
@@ -23,6 +40,7 @@ export function SocialIconLink({
       className="nav-tap-target"
       aria-label={label}
       title={label}
+      onClick={track}
       style={{
         paddingInline: 0,
         color: "var(--color-text)",

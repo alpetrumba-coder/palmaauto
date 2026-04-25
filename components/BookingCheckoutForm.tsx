@@ -10,6 +10,12 @@ import type { ContractFormInput } from "@/lib/booking-contract";
 import { LEGAL_DOCS } from "@/lib/legal-docs";
 import { OFFICE_ADDRESS } from "@/lib/pickup-dropoff";
 
+declare global {
+  interface Window {
+    ym?: (...args: unknown[]) => void;
+  }
+}
+
 const fieldStyle: CSSProperties = {
   width: "100%",
   padding: "0.55rem 0.65rem",
@@ -170,6 +176,13 @@ export function BookingCheckoutForm({
       setError(res.error);
       setStep("edit");
       return;
+    }
+    if (typeof window !== "undefined" && typeof window.ym === "function") {
+      try {
+        window.ym("reachGoal", "booking_created");
+      } catch {
+        // ignore
+      }
     }
     router.push(`/oplata/${res.bookingId}`);
     router.refresh();

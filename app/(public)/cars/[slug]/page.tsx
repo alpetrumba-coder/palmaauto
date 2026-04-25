@@ -9,6 +9,7 @@ import { formatPriceRub } from "@/lib/formatPrice";
 import { prisma } from "@/lib/prisma";
 import type { ContractFormInput } from "@/lib/booking-contract";
 import { formatDateInputUTC, parseDateInput, utcToday } from "@/lib/rental-dates";
+import { buildBreadcrumbJsonLd, buildProductJsonLd, jsonLdScriptTag } from "@/lib/seo-jsonld";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -27,6 +28,7 @@ export async function generateMetadata({ params }: PageProps) {
   return {
     title: `${car.make} ${car.model} — ПальмаАвто`,
     description: car.description.slice(0, 160),
+    alternates: { canonical: `/cars/${car.slug}` },
   };
 }
 
@@ -88,8 +90,26 @@ export default async function CarDetailPage({ params, searchParams }: PageProps)
       car.registrationCertificate?.trim(),
   );
 
+  const base = "https://palmaauto.ru";
+  const productJsonLd = buildProductJsonLd({
+    url: `${base}/cars/${car.slug}`,
+    name: `${car.make} ${car.model} — аренда авто в Абхазии`,
+    description: car.description.slice(0, 300),
+    image: car.images.map((i) => i.url).slice(0, 5),
+    pricePerDayRub: car.pricePerDayRub,
+  });
+  const breadcrumb = buildBreadcrumbJsonLd([
+    { name: "Главная", url: `${base}/` },
+    { name: "Каталог", url: `${base}/cars` },
+    { name: title, url: `${base}/cars/${car.slug}` },
+  ]);
+
   return (
     <div className="page-shell" style={{ paddingBlock: "clamp(2rem, 8vw, 3.5rem)" }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: [breadcrumb, productJsonLd].map((j) => jsonLdScriptTag(j)).join("\n") }}
+      />
       <p
         style={{
           fontSize: "var(--text-sm)",
