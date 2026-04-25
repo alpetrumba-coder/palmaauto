@@ -74,8 +74,22 @@ function ruDateShort(d: Date): string {
   return formatDateInputUTC(d);
 }
 
+function trimPdfText(s: string, max: number): string {
+  const t = (s ?? "").trim().replace(/\s+/g, " ");
+  if (t.length <= max) return t;
+  return t.slice(0, Math.max(0, max - 1)).trimEnd() + "…";
+}
+
+function actLine(label: string, value?: string): string {
+  const v = value?.trim();
+  return `${label}: ${v && v.length > 0 ? v : "______________________________"}`;
+}
+
 function buildDocDefinition(input: RentalContractPdfInput) {
   const m = input.meta;
+  const passportIssuedBy = trimPdfText(m.passportIssuedBy, 220);
+  const regCert = trimPdfText(input.car.registrationCertificate, 120);
+  const extrasInline = trimPdfText(input.extrasLines.join("; "), 180);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const content: any[] = [
@@ -95,7 +109,7 @@ function buildDocDefinition(input: RentalContractPdfInput) {
         ", паспорт: ",
         { text: `${m.passportSeries} ${m.passportNumber}`, bold: true },
         ", выдан ",
-        m.passportIssuedBy,
+        passportIssuedBy,
         ", именуемый(ая) в дальнейшем ",
         { text: "«Арендатор»", bold: true },
         ", с другой стороны, заключили настоящий договор о нижеследующем:",
@@ -111,7 +125,7 @@ function buildDocDefinition(input: RentalContractPdfInput) {
         `, ${input.car.modelYear} года выпуска, цвет ${input.car.color}, гос. номер `,
         { text: input.car.plateNumber, bold: true },
         ", свидетельство о регистрации ТС ",
-        { text: input.car.registrationCertificate, bold: true },
+        { text: regCert, bold: true },
         " (далее — «ТС»).",
       ],
       style: "small",
@@ -145,7 +159,7 @@ function buildDocDefinition(input: RentalContractPdfInput) {
         ".\n",
         "3.2. Дополнительные услуги: ",
         { text: `${input.extrasTotalRub} руб.`, bold: true },
-        input.extrasLines.length > 0 ? ` (${input.extrasLines.join("; ")})` : "",
+        input.extrasLines.length > 0 ? ` (${extrasInline})` : "",
         ".\n",
         { text: "3.3. Оплата: ", bold: true },
         "авансом, в рублях РФ, наличным расчётом.\n",
@@ -256,6 +270,62 @@ function buildDocDefinition(input: RentalContractPdfInput) {
         "9.2. Договор вступает в силу с момента подписания и действует до полного исполнения обязательств.\n" +
         "9.3. Изменения действительны только в письменной форме.\n" +
         "9.4. Споры решаются переговорами, при недостижении согласия — в Арбитражном суде г. Сухум.",
+      style: "small",
+      margin: [0, 0, 0, 6],
+    },
+    { text: "Подписи сторон:", style: "h2" },
+    signLinesBlock(),
+
+    // Отдельный лист: акты
+    { text: "", pageBreak: "before" },
+    { text: "АКТ ПРИЁМА‑ПЕРЕДАЧИ ТС", style: "h2" },
+    {
+      text: `г. Сухум, ${ruDateLong(input.issuedAt)} г.`,
+      style: "small",
+      margin: [0, 0, 0, 4],
+    },
+    {
+      text:
+        "Мы, нижеподписавшиеся, Арендодатель __________ и Арендатор __________ составили настоящий акт о том, что Арендодатель передал, а Арендатор принял ТС на условиях договора аренды.\n" +
+        `Бронь №: ${input.bookingId}\n` +
+        `Срок аренды: с ${ruDateShort(input.startDate)} по ${ruDateShort(input.endDate)} (${input.days} суток)\n` +
+        actLine("ТС", `${input.car.make} ${input.car.model}`) +
+        "\n" +
+        actLine("Год", String(input.car.modelYear)) +
+        "\n" +
+        actLine("Цвет", input.car.color) +
+        "\n" +
+        actLine("Гос. номер", input.car.plateNumber) +
+        "\n" +
+        actLine("СТС", regCert) +
+        "\n" +
+        actLine("Комплектность/документы", "") +
+        "\n" +
+        actLine("Повреждения/особые отметки", ""),
+      style: "small",
+      margin: [0, 0, 0, 6],
+    },
+    { text: "Подписи сторон:", style: "h2" },
+    signLinesBlock(),
+
+    { text: "", margin: [0, 10, 0, 0] },
+    { text: "АКТ ВОЗВРАТА ТС", style: "h2" },
+    {
+      text: `г. Сухум, ${ruDateLong(input.issuedAt)} г.`,
+      style: "small",
+      margin: [0, 0, 0, 4],
+    },
+    {
+      text:
+        "Мы, нижеподписавшиеся, Арендодатель __________ и Арендатор __________ составили настоящий акт о том, что Арендатор возвратил, а Арендодатель принял ТС.\n" +
+        `Бронь №: ${input.bookingId}\n` +
+        actLine("ТС", `${input.car.make} ${input.car.model}`) +
+        "\n" +
+        actLine("Состояние ТС при возврате", "") +
+        "\n" +
+        actLine("Пробег/топливо", "") +
+        "\n" +
+        actLine("Претензии", ""),
       style: "small",
       margin: [0, 0, 0, 6],
     },
