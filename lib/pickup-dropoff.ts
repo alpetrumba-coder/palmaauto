@@ -1,6 +1,6 @@
 import type { ExtraService } from "@prisma/client";
 
-export const OFFICE_ADDRESS = "Республика Абхазия, Сухумский район, с. Дзыгута, ул. Апсильское шоссе, д. 166";
+export const OFFICE_ADDRESS = "Республика Абхазия, г. Сухум, ул. Аргун 29а";
 
 export const DELIVERY_SERVICE_NAME =
   "Подача или приемка ТС в указанном месте в черте городов Сухум, Гагра, Пицунда, Гудаута, Новый Афон";

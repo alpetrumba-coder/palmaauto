@@ -30,7 +30,7 @@ export default function CompanyPage() {
 
           <dt style={{ color: "var(--color-text-secondary)" }}>Юридический адрес</dt>
           <dd style={{ margin: 0 }}>
-            Республика Абхазия, Сухумский район, с. Дзыгута, ул. Апсильское шоссе, д. 166
+            Республика Абхазия, г. Сухум, ул. Аргун 29а
           </dd>
 
           <dt style={{ color: "var(--color-text-secondary)" }}>Телефон</dt>
