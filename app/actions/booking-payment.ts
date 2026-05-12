@@ -108,10 +108,14 @@ export async function createAmobilePayLinkAction(bookingId: string, plan: Amobil
 
   let data: unknown;
   try {
+    const bodyParams = new URLSearchParams();
+    for (const [k, v] of Object.entries(payload)) {
+      bodyParams.set(k, String(v));
+    }
     const resp = await fetch("https://dengi.a-mobile.biz/api/v2/pay-link/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: bodyParams.toString(),
       cache: "no-store",
     });
     data = await resp.json();
