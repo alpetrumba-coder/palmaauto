@@ -20,6 +20,9 @@ public/cars/uploads/*
 # TypeScript
 *.tsbuildinfo
 
+# Платёжные реквизиты (содержит секретное слово ТСП)
+payments/учетные  данные.txt
+
 # IDE (по желанию раскомментируйте)
 # .idea/
 # .vscode/

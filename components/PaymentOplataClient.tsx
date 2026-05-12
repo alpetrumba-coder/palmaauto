@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cancelBookingAction } from "@/app/actions/bookings";
-import { completeFakePaymentAction } from "@/app/actions/booking-payment";
+import { createAmobilePayLinkAction } from "@/app/actions/booking-payment";
 import { formatPriceRub } from "@/lib/formatPrice";
 
 type PaymentOplataClientProps = {
@@ -62,13 +62,13 @@ export function PaymentOplataClient({
   const onPay = useCallback(async () => {
     setError(null);
     setPayPending(true);
-    const res = await completeFakePaymentAction(bookingId, plan);
+    const res = await createAmobilePayLinkAction(bookingId, plan);
     setPayPending(false);
     if (!res.ok) {
       setError(res.error);
       return;
     }
-    window.location.assign(`/oplata/${bookingId}/checkout`);
+    window.location.assign(res.link);
   }, [bookingId, plan]);
 
   const onCancel = useCallback(async () => {
