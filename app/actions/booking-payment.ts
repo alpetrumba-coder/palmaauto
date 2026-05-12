@@ -86,25 +86,15 @@ export async function createAmobilePayLinkAction(bookingId: string, plan: Amobil
   const base = getAppBaseUrl();
   const success_url = `${base}/oplata/${booking.id}/checkout`;
 
-  // comment вернётся обратно в webhook — используем для определения плана
-  const comment = `PALMAAUTO;booking=${booking.id};plan=${normalizedPlan}`;
-
-  const lifetimeMinutes = 15; // как в текущей логике удержания
-  const email = (process.env.AMOBILE_NOTIFY_EMAIL ?? "").trim();
-  const sms_phone_number = digits11Phone(process.env.AMOBILE_NOTIFY_SMS_PHONE ?? "");
-
-  const payload: Record<string, string | number> = {
+  // Минимальный набор параметров (по инструкции обязательны: phone, order_id, sum, md5).
+  // Остальные параметры добавим позже, когда базовый сценарий стабильно проходит у провайдера.
+  const payload: Record<string, string> = {
     phone,
     order_id,
     sum,
     md5,
-    lifetime: lifetimeMinutes,
     success_url,
-    comment,
-    user_id: session.user.id,
   };
-  if (email) payload.email = email;
-  if (sms_phone_number.length === 11) payload.sms_phone_number = sms_phone_number;
 
   let data: unknown;
   try {
@@ -126,7 +116,9 @@ export async function createAmobilePayLinkAction(bookingId: string, plan: Amobil
   const obj = data as { status?: boolean; link?: string; error?: string; code?: number };
   if (!obj?.status || !obj.link) {
     const msg = (obj?.error ?? "").trim();
-    return { ok: false, error: msg ? `Платёжный сервис: ${msg}` : "Платёжный сервис вернул ошибку." };
+    const code = obj?.code;
+    const suffix = code ? ` (код ${code})` : "";
+    return { ok: false, error: msg ? `Платёжный сервис: ${msg}${suffix}` : `Платёжный сервис вернул ошибку.${suffix}` };
   }
 
   // сохраняем выбранный план (чтобы UI/админка соответствовали ожиданию пользователя)
