@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/prisma";
 
@@ -18,6 +19,40 @@ function parsePlanFromComment(comment: string): "FULL" | "FIRST_DAY" | null {
   // ожидаемый формат: "PALMAAUTO;booking=<id>;plan=FULL"
   const m = comment.match(/(?:^|[;&\s])plan=(FULL|FIRST_DAY)(?:$|[;&\s])/);
   return m?.[1] === "FULL" || m?.[1] === "FIRST_DAY" ? m[1] : null;
+}
+
+function possibleSignatureBases(fields: {
+  id: string;
+  order_id: string;
+  sum: string;
+  order_date: string;
+  user_id: string;
+  pay_type: string;
+  comment: string;
+  secret: string;
+}): string[] {
+  const { id, order_id, sum, order_date, user_id, pay_type, comment, secret } = fields;
+  return [
+    // Читаемый вариант без пробелов после разделителей.
+    `${id};${order_id};${sum};${order_date};${user_id};${pay_type};${comment};${secret}`,
+    // В PDF A‑Mobile часть разделителей записана как "; " — поддерживаем и этот вариант.
+    `${id}; ${order_id}; ${sum}; ${order_date};${user_id};${pay_type}; ${comment}; ${secret}`,
+  ];
+}
+
+function signatureMatches(fields: {
+  id: string;
+  order_id: string;
+  sum: string;
+  order_date: string;
+  user_id: string;
+  pay_type: string;
+  comment: string;
+  secret: string;
+  signature: string;
+}): boolean {
+  const got = fields.signature.toLowerCase();
+  return possibleSignatureBases(fields).some((base) => sha256Hex(base).toLowerCase() === got);
 }
 
 function xmlOk(): Response {
@@ -59,12 +94,25 @@ export async function POST(req: Request) {
   const signature = safeStr(fields.signature);
 
   if (!id || !order_id || !sum || !signature) {
+    console.warn("[a-mobile webhook] missing required fields", {
+      hasId: Boolean(id),
+      hasOrderId: Boolean(order_id),
+      hasSum: Boolean(sum),
+      hasSignature: Boolean(signature),
+    });
     return new Response("Missing fields", { status: 400 });
   }
 
-  const base = `${id};${order_id};${sum};${order_date};${user_id};${pay_type};${comment};${secret}`;
-  const expected = sha256Hex(base);
-  if (expected.toLowerCase() !== signature.toLowerCase()) {
+  if (!signatureMatches({ id, order_id, sum, order_date, user_id, pay_type, comment, secret, signature })) {
+    console.warn("[a-mobile webhook] invalid signature", {
+      id,
+      order_id,
+      sum,
+      order_date,
+      user_id,
+      pay_type,
+      comment,
+    });
     return new Response("Invalid signature", { status: 401 });
   }
 
@@ -72,6 +120,7 @@ export async function POST(req: Request) {
   const booking = await prisma.booking.findUnique({ where: { id: order_id }, include: { car: true } });
   if (!booking) {
     // чтобы A‑Mobile не ретраил бесконечно, можно отвечать ОК даже если бронь не найдена
+    console.warn("[a-mobile webhook] booking not found", { order_id, providerPaymentId: id, sum });
     return xmlOk();
   }
 
@@ -82,6 +131,12 @@ export async function POST(req: Request) {
 
   // Идемпотентность: если уже оплачено (или оплачено больше/равно), просто подтверждаем получение
   if ((booking.status === "PAID" || booking.status === "PARTIALLY_PAID") && (booking.paidAmountRub ?? 0) >= paidRub) {
+    console.info("[a-mobile webhook] duplicate paid notification", {
+      bookingId: booking.id,
+      providerPaymentId: id,
+      paidRub,
+      status: booking.status,
+    });
     return xmlOk();
   }
 
@@ -97,6 +152,27 @@ export async function POST(req: Request) {
       paymentPlan: nextPlan,
       paidAmountRub: paidRub,
     },
+  });
+
+  revalidatePath("/moi-broni");
+  revalidatePath("/account");
+  revalidatePath(`/oplata/${booking.id}`);
+  revalidatePath(`/oplata/${booking.id}/checkout`);
+  revalidatePath("/admin-panel/bookings");
+  revalidatePath("/");
+  revalidatePath("/book");
+  revalidatePath("/bronirovanie");
+  if (booking.car) {
+    revalidatePath(`/cars/${booking.car.slug}`);
+  }
+
+  console.info("[a-mobile webhook] booking marked paid", {
+    bookingId: booking.id,
+    providerPaymentId: id,
+    paidRub,
+    status: nextStatus,
+    plan: nextPlan,
+    pay_type,
   });
 
   return xmlOk();
