@@ -61,7 +61,7 @@ export default async function OplataCheckoutSuccessPage({
 
       <h1 style={{ fontSize: "var(--text-hero)", margin: "0 0 1rem" }}>Оплата прошла успешно</h1>
       <p style={{ margin: "0 0 1.5rem", color: "var(--color-text-secondary)", fontSize: "var(--text-lg)" }}>
-        Бронь оформлена. Детали ниже; позже здесь появится настоящая оплата картой.
+        Бронь оформлена. Детали ниже.
       </p>
 
       <section
