@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cancelBookingAction } from "@/app/actions/bookings";
-import { createAmobilePayLinkAction } from "@/app/actions/booking-payment";
+import { checkAmobilePaymentStatusAction, createAmobilePayLinkAction } from "@/app/actions/booking-payment";
 import { formatPriceRub } from "@/lib/formatPrice";
 
 type PaymentOplataClientProps = {
@@ -38,8 +38,11 @@ export function PaymentOplataClient({
     Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000)),
   );
   const [payPending, setPayPending] = useState(false);
+  const [checkPending, setCheckPending] = useState(false);
+  const [paymentWindowOpened, setPaymentWindowOpened] = useState(false);
   const [cancelPending, setCancelPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [plan, setPlan] = useState<"FULL" | "FIRST_DAY">("FULL");
   const refreshedAfterExpiry = useRef(false);
 
@@ -61,15 +64,43 @@ export function PaymentOplataClient({
 
   const onPay = useCallback(async () => {
     setError(null);
+    setInfo(null);
+    const popup = window.open("about:blank", "_blank");
+    if (!popup) {
+      setError("Браузер заблокировал окно оплаты. Разрешите всплывающие окна для palmaauto.ru и попробуйте ещё раз.");
+      return;
+    }
+    popup.opener = null;
+    popup.document.write("<p>Готовим ссылку на оплату...</p>");
     setPayPending(true);
     const res = await createAmobilePayLinkAction(bookingId, plan);
     setPayPending(false);
     if (!res.ok) {
+      popup.close();
       setError(res.error);
       return;
     }
-    window.location.assign(res.link);
+    popup.location.href = res.link;
+    setPaymentWindowOpened(true);
+    setInfo("Оплата открыта в новой вкладке. После оплаты в банке закройте вкладку оплаты и нажмите «Я оплатил, проверить».");
   }, [bookingId, plan]);
+
+  const onCheckPayment = useCallback(async () => {
+    setError(null);
+    setInfo(null);
+    setCheckPending(true);
+    const res = await checkAmobilePaymentStatusAction(bookingId);
+    setCheckPending(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    if (!res.paid) {
+      setInfo(res.message);
+      return;
+    }
+    window.location.assign(`/oplata/${bookingId}/checkout`);
+  }, [bookingId]);
 
   const onCancel = useCallback(async () => {
     setError(null);
@@ -121,6 +152,11 @@ export function PaymentOplataClient({
           {error}
         </p>
       ) : null}
+      {info ? (
+        <p role="status" style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+          {info}
+        </p>
+      ) : null}
 
       {expired ? (
         <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
@@ -141,7 +177,7 @@ export function PaymentOplataClient({
                 value="FULL"
                 checked={plan === "FULL"}
                 onChange={() => setPlan("FULL")}
-                disabled={payPending}
+                disabled={payPending || checkPending}
                 style={{ marginTop: "0.15rem" }}
               />
               <span style={{ fontSize: "var(--text-sm)" }}>
@@ -155,7 +191,7 @@ export function PaymentOplataClient({
                 value="FIRST_DAY"
                 checked={plan === "FIRST_DAY"}
                 onChange={() => setPlan("FIRST_DAY")}
-                disabled={payPending}
+                disabled={payPending || checkPending}
                 style={{ marginTop: "0.15rem" }}
               />
               <span style={{ fontSize: "var(--text-sm)" }}>
@@ -167,7 +203,7 @@ export function PaymentOplataClient({
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
           <button
             type="button"
-            disabled={payPending}
+            disabled={payPending || checkPending}
             onClick={() => void onPay()}
             className="nav-tap-target"
             style={{
@@ -180,11 +216,28 @@ export function PaymentOplataClient({
               cursor: payPending ? "wait" : "pointer",
             }}
           >
-            {payPending ? "…" : "Оплатить"}
+            {payPending ? "…" : paymentWindowOpened ? "Открыть оплату снова" : "Оплатить"}
           </button>
           <button
             type="button"
-            disabled={cancelPending}
+            disabled={payPending || checkPending}
+            onClick={() => void onCheckPayment()}
+            className="nav-tap-target"
+            style={{
+              padding: "0.75rem 1.5rem",
+              borderRadius: "999px",
+              border: "1px solid var(--color-border)",
+              background: "var(--color-bg)",
+              color: "var(--color-text)",
+              fontWeight: 600,
+              cursor: checkPending ? "wait" : "pointer",
+            }}
+          >
+            {checkPending ? "Проверяем…" : paymentWindowOpened ? "Я оплатил, проверить" : "Проверить оплату"}
+          </button>
+          <button
+            type="button"
+            disabled={cancelPending || checkPending}
             onClick={() => void onCancel()}
             className="nav-tap-target"
             style={{
@@ -205,7 +258,7 @@ export function PaymentOplataClient({
 
       {!expired ? (
         <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-          «Оплатить» сейчас ведёт на страницу успешного оформления (без реального списания). Платёжный шлюз добавим позже.
+          Оплата откроется в новой вкладке. После списания вернитесь сюда и нажмите «Я оплатил, проверить».
         </p>
       ) : null}
     </div>
