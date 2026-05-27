@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { PublicAuthNav } from "@/components/PublicAuthNav";
-import { PalmaAutoLogo } from "@/components/PalmaAutoLogo";
+import { SiteHeaderLogo } from "@/components/SiteHeaderLogo";
 import { MaxIcon, SocialIconLink, TelegramIcon, WhatsAppIcon } from "@/components/SocialIconLink";
 import { LEGAL_DOCS } from "@/lib/legal-docs";
 
@@ -50,7 +50,7 @@ export function SiteHeader() {
           }}
         >
           <span data-site-header-logo>
-            <PalmaAutoLogo />
+            <SiteHeaderLogo />
           </span>
         </Link>
         <div

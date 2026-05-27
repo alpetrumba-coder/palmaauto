@@ -48,17 +48,14 @@ export default async function HomePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd.map((j) => jsonLdScriptTag(j)).join("\n") }}
       />
-      <p
+      <h1
         style={{
-          fontSize: "var(--text-lg)",
-          color: "var(--color-text-secondary)",
-          marginBottom: "var(--space-unit)",
+          fontSize: "var(--text-hero)",
+          margin: "0 0 calc(var(--space-unit) * 2)",
+          letterSpacing: "0.02em",
         }}
       >
         Прокат автомобилей в Абхазии
-      </p>
-      <h1 style={{ fontSize: "var(--text-hero)", margin: "0 0 calc(var(--space-unit) * 2)", letterSpacing: "0.02em" }}>
-        ПАЛЬМААВТО
       </h1>
       <ul
         style={{

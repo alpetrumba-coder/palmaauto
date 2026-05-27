@@ -1,9 +1,11 @@
 export function PalmaAutoLogo({
   size = "var(--text-lg)",
   color = "currentColor",
+  showImage = true,
 }: {
   size?: string;
   color?: string;
+  showImage?: boolean;
 }) {
   return (
     <span
@@ -16,19 +18,21 @@ export function PalmaAutoLogo({
         minWidth: 0,
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/logo.svg"
-        alt=""
-        aria-hidden
-        style={{
-          width: `calc(${size} * 1.9)`,
-          height: `calc(${size} * 1.2)`,
-          objectFit: "contain",
-          flex: "0 0 auto",
-          display: "block",
-        }}
-      />
+      {showImage ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src="/logo.svg"
+          alt=""
+          aria-hidden
+          style={{
+            width: `calc(${size} * 1.9)`,
+            height: `calc(${size} * 1.2)`,
+            objectFit: "contain",
+            flex: "0 0 auto",
+            display: "block",
+          }}
+        />
+      ) : null}
       <span
         aria-hidden
         style={{
