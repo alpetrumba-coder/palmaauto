@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     title: "ПальмаАвто — прокат автомобилей в Абхазии",
     description:
       "Прокат автомобилей в Абхазии: каталог, подбор по датам, доставка на границу/вокзал/аэропорт. Бесплатная отмена за 3 суток.",
-    images: [{ url: "/logo.svg", width: 1200, height: 720, alt: "ПальмаАвто" }],
+    images: [{ url: "/logo-brand.png", width: 512, height: 512, alt: "ПальмаАвто" }],
     locale: "ru_RU",
   },
   twitter: {
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     title: "ПальмаАвто — прокат автомобилей в Абхазии",
     description:
       "Каталог авто, подбор по датам, доставка на границу/вокзал/аэропорт. Бесплатная отмена за 3 суток.",
-    images: ["/logo.svg"],
+    images: ["/logo-brand.png"],
   },
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,

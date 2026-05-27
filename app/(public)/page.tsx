@@ -32,7 +32,7 @@ export default async function HomePage({
       name: "ПальмаАвто",
       email: "palm@tdrubin.com",
       phone: "+79407146273",
-      logoUrl: `${baseUrl}/logo.svg`,
+      logoUrl: `${baseUrl}/logo-brand.png`,
     }),
     buildWebSiteJsonLd({ url: baseUrl, name: "ПальмаАвто" }),
     buildFaqJsonLd([

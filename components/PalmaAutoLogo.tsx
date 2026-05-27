@@ -1,3 +1,6 @@
+/** Путь к фирменному логотипу (пальма + дом) в `public/`. */
+export const PALMA_AUTO_LOGO_SRC = "/logo-brand.png";
+
 export function PalmaAutoLogo({
   size = "var(--text-lg)",
   color = "currentColor",
@@ -13,7 +16,7 @@ export function PalmaAutoLogo({
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: "0.5rem",
+        gap: "0.55rem",
         color,
         minWidth: 0,
       }}
@@ -21,12 +24,13 @@ export function PalmaAutoLogo({
       {showImage ? (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
-          src="/logo.svg"
+          src={PALMA_AUTO_LOGO_SRC}
           alt=""
           aria-hidden
           style={{
-            width: `calc(${size} * 1.9)`,
-            height: `calc(${size} * 1.2)`,
+            height: `calc(${size} * 1.55)`,
+            width: "auto",
+            maxWidth: `calc(${size} * 1.55)`,
             objectFit: "contain",
             flex: "0 0 auto",
             display: "block",
