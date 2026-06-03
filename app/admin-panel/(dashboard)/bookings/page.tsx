@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { addUtcDays, buildUtcDayRange, formatDateInputUTC, parseDateInput, utcStartOfMonth, utcToday } from "@/lib/rental-dates";
 
 export const metadata: Metadata = {
-  title: "Брони — админ",
+  title: "Календарь — админ",
   robots: { index: false, follow: false },
 };
 
@@ -63,7 +63,6 @@ export default async function AdminBookingsPage({
   const bookings = bookingsRaw.map((b) => ({
     id: b.id,
     carId: b.carId,
-    userId: b.userId,
     startDate: b.startDate,
     endDate: b.endDate,
     status: b.status,

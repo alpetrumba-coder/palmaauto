@@ -16,7 +16,6 @@ type CarRow = {
 type BookingRow = {
   id: string;
   carId: string;
-  userId: string;
   startDate: Date;
   endDate: Date;
   status: BookingStatus;
@@ -73,6 +72,7 @@ function clipBookingToView(
 function barColor(status: BookingStatus): string {
   if (status === "PAID") return "rgba(90, 140, 90, 0.92)";
   if (status === "PENDING_PAYMENT") return "rgba(220, 140, 120, 0.95)";
+  if (status === "PARTIALLY_PAID") return "rgba(120, 160, 200, 0.92)";
   return "rgba(160, 160, 170, 0.85)";
 }
 
@@ -83,6 +83,11 @@ function compactRub(p: number): string {
     return k % 1 === 0 ? `${k}k` : `${k.toFixed(1)}k`;
   }
   return String(p);
+}
+
+function orderEditHref(bookingId: string, calendarFrom: string): string {
+  const back = `/admin-panel/bookings?from=${encodeURIComponent(calendarFrom)}`;
+  return `/admin-panel/orders/${bookingId}/edit?back=${encodeURIComponent(back)}`;
 }
 
 /**
@@ -98,6 +103,7 @@ export function BookingChessboard({
   bookings,
 }: BookingChessboardProps) {
   const n = days.length;
+  const calendarFrom = formatDateInputUTC(viewStart);
 
   const monthRow: { label: string; colSpan: number }[] = [];
   let mi = 0;
@@ -123,7 +129,7 @@ export function BookingChessboard({
           marginBottom: "1rem",
         }}
       >
-        <h1 style={{ fontSize: "var(--text-2xl)", margin: 0, flex: "1 1 auto" }}>Брони и заявки</h1>
+        <h1 style={{ fontSize: "var(--text-2xl)", margin: 0, flex: "1 1 auto" }}>Календарь броней</h1>
         <Link
           href="/admin-panel/bookings/new"
           className="nav-tap-target"
@@ -175,10 +181,14 @@ export function BookingChessboard({
 
       <p style={{ margin: "0 0 1rem", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
         {formatDateInputUTC(viewStart)} — {formatDateInputUTC(viewEnd)} · оранжевый — ожидает оплаты, зелёный — оплачено.
+        Нажмите на полоску — откроется{" "}
+        <Link href="/admin-panel/orders" style={{ fontWeight: 600 }}>
+          редактирование заказа
+        </Link>
+        .
       </p>
 
       <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: "0.5rem" }}>
-        {/* Заголовок месяцев */}
         <div style={{ display: "flex", minWidth: `calc(14rem + ${n} * 2.35rem)` }}>
           <div style={{ width: "14rem", flexShrink: 0 }} />
           <div style={{ flex: 1, display: "flex" }}>
@@ -201,15 +211,8 @@ export function BookingChessboard({
           </div>
         </div>
 
-        {/* Дни недели и числа */}
         <div style={{ display: "flex", minWidth: `calc(14rem + ${n} * 2.35rem)` }}>
-          <div
-            style={{
-              width: "14rem",
-              flexShrink: 0,
-              borderBottom: "1px solid var(--color-border)",
-            }}
-          />
+          <div style={{ width: "14rem", flexShrink: 0, borderBottom: "1px solid var(--color-border)" }} />
           <div style={{ flex: 1, display: "grid", gridTemplateColumns: `repeat(${n}, 1fr)` }}>
             {days.map((d) => {
               const wd = d.getUTCDay();
@@ -233,13 +236,7 @@ export function BookingChessboard({
         </div>
 
         <div style={{ display: "flex", minWidth: `calc(14rem + ${n} * 2.35rem)` }}>
-          <div
-            style={{
-              width: "14rem",
-              flexShrink: 0,
-              borderBottom: "1px solid var(--color-border)",
-            }}
-          />
+          <div style={{ width: "14rem", flexShrink: 0, borderBottom: "1px solid var(--color-border)" }} />
           <div style={{ flex: 1, display: "grid", gridTemplateColumns: `repeat(${n}, 1fr)` }}>
             {days.map((d) => (
               <div
@@ -258,7 +255,6 @@ export function BookingChessboard({
           </div>
         </div>
 
-        {/* Строки машин */}
         {cars.map((car) => {
           const carBookings = bookings.filter((b) => b.carId === car.id);
           return (
@@ -346,7 +342,7 @@ export function BookingChessboard({
                   return (
                     <Link
                       key={b.id}
-                      href={`/admin-panel/users/${b.userId}/edit`}
+                      href={orderEditHref(b.id, calendarFrom)}
                       title={`${label}${phone}`}
                       style={{
                         position: "absolute",

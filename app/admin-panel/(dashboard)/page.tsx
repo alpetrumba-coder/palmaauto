@@ -39,6 +39,29 @@ export default function AdminPanelHomePage() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           <Link
+            href="/admin-panel/orders"
+            className="nav-tap-target"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0.85rem 1.25rem",
+              borderRadius: "999px",
+              background: "var(--color-accent)",
+              color: "#fff",
+              fontWeight: 600,
+              textDecoration: "none",
+              maxWidth: "22rem",
+            }}
+          >
+            Заказы
+          </Link>
+          <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+            Список активных броней: даты, предоплата, отмена.
+          </p>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <Link
             href="/admin-panel/bookings"
             className="nav-tap-target"
             style={{
@@ -54,7 +77,7 @@ export default function AdminPanelHomePage() {
               maxWidth: "22rem",
             }}
           >
-            Бронирование
+            Календарь
           </Link>
           <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
             Шахматка и{" "}
