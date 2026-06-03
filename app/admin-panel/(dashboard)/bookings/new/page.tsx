@@ -60,8 +60,8 @@ export default async function AdminNewBookingPage({
       </p>
       <h1 style={{ fontSize: "var(--text-2xl)", marginTop: 0 }}>Новая бронь</h1>
       <p style={{ color: "var(--color-text-secondary)", fontSize: "var(--text-sm)", marginBottom: "1.25rem", maxWidth: "40rem" }}>
-        Бронь привязывается к учётной записи клиента на сайте. Цена считается как число суток × тариф машины на момент
-        создания.
+        Бронь привязывается к учётной записи клиента. Общую сумму и предоплату укажите вручную; средняя стоимость в сутки
+        считается автоматически.
       </p>
       <AdminBookingForm
         users={users}

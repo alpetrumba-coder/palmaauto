@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { OrderEditForm } from "@/components/admin/OrderEditForm";
+import { bookingStatusToPaymentStatus } from "@/lib/admin-booking-payment";
 import { formatBookingUserLabel } from "@/lib/booking-display";
 import { formatDateInputUTC } from "@/lib/rental-dates";
 import { prisma } from "@/lib/prisma";
@@ -45,7 +46,7 @@ export default async function AdminOrderEditPage({ params, searchParams }: PageP
     }),
     prisma.car.findMany({
       orderBy: [{ make: "asc" }, { model: "asc" }],
-      select: { id: true, make: true, model: true, active: true },
+      select: { id: true, make: true, model: true, active: true, pricePerDayRub: true },
     }),
   ]);
 
@@ -70,6 +71,7 @@ export default async function AdminOrderEditPage({ params, searchParams }: PageP
   const carOptions = cars.map((c) => ({
     id: c.id,
     label: `${c.make} ${c.model}${c.active ? "" : " (скрыт)"}`,
+    pricePerDayRub: c.pricePerDayRub,
   }));
 
   return (
@@ -95,11 +97,13 @@ export default async function AdminOrderEditPage({ params, searchParams }: PageP
           userId: booking.userId,
           roleLabel: booking.user.role,
           status: booking.status,
+          paymentStatus: bookingStatusToPaymentStatus(booking.status),
           totalPriceRub: booking.totalPriceRub,
           carId: booking.carId,
           startDate: formatDateInputUTC(booking.startDate),
           endDate: formatDateInputUTC(booking.endDate),
           paidAmountRub: booking.paidAmountRub,
+          adminComment: booking.adminComment ?? "",
           email: booking.user.email,
           lastName: booking.user.lastName ?? "",
           firstName: booking.user.firstName ?? "",

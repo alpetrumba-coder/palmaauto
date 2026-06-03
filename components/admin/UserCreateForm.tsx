@@ -27,7 +27,6 @@ export function UserCreateForm() {
   const [firstName, setFirstName] = useState("");
   const [patronymic, setPatronymic] = useState("");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
   const [passportData, setPassportData] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -44,7 +43,7 @@ export function UserCreateForm() {
       firstName,
       patronymic,
       phone,
-      address,
+      address: "",
       passportData,
     };
     setPending(true);
@@ -136,17 +135,6 @@ export function UserCreateForm() {
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           style={fieldStyle}
-        />
-      </label>
-
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Адрес
-        <textarea
-          name="address"
-          rows={3}
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          style={{ ...fieldStyle, resize: "vertical", minHeight: "4rem" }}
         />
       </label>
 

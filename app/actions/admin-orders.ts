@@ -6,22 +6,19 @@ import { type AdminUserProfilePayload, updateAdminUserAction } from "@/app/actio
 import { carBookingOverlapWhere } from "@/lib/booking-overlap";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
+import {
+  resolveBookingPayment,
+  type AdminBookingPaymentStatus,
+} from "@/lib/admin-booking-payment";
 import { inclusiveRentalDays, parseDateInput } from "@/lib/rental-dates";
-import type { BookingStatus } from "@prisma/client";
 
 export type AdminOrderActionResult = { ok: true } | { ok: false; error: string };
 
-function deriveStatusAfterPaymentUpdate(
-  paidAmountRub: number,
-  totalPriceRub: number,
-  previous: BookingStatus,
-): BookingStatus {
-  if (previous === "CANCELLED") return "CANCELLED";
-  if (paidAmountRub <= 0) {
-    return previous === "PAID" || previous === "PARTIALLY_PAID" ? "PENDING_PAYMENT" : previous;
-  }
-  if (paidAmountRub >= totalPriceRub) return "PAID";
-  return "PARTIALLY_PAID";
+export type { AdminBookingPaymentStatus };
+
+function emptyToNull(s: string): string | null {
+  const t = s.trim();
+  return t.length > 0 ? t : null;
 }
 
 export async function updateAdminOrderAction(input: {
@@ -29,7 +26,10 @@ export async function updateAdminOrderAction(input: {
   carId: string;
   startDate: string;
   endDate: string;
+  totalPriceRub: number;
   paidAmountRub: number;
+  paymentStatus: AdminBookingPaymentStatus;
+  adminComment: string;
   user: AdminUserProfilePayload;
 }): Promise<AdminOrderActionResult> {
   await requireAdminPanelSession();
@@ -51,7 +51,16 @@ export async function updateAdminOrderAction(input: {
     return { ok: false, error: "Максимальный срок брони — 90 суток." };
   }
 
-  const paidAmountRub = Math.max(0, Math.round(input.paidAmountRub));
+  const totalPriceRub = Math.round(input.totalPriceRub);
+  if (!Number.isFinite(totalPriceRub) || totalPriceRub <= 0) {
+    return { ok: false, error: "Укажите общую сумму заказа (целое число больше 0)." };
+  }
+
+  const paidInput = Math.max(0, Math.round(input.paidAmountRub));
+  const payment = resolveBookingPayment(input.paymentStatus, totalPriceRub, paidInput);
+  if (!payment.ok) {
+    return payment;
+  }
 
   const booking = await prisma.booking.findUnique({
     where: { id: input.bookingId },
@@ -89,18 +98,16 @@ export async function updateAdminOrderAction(input: {
     return userRes;
   }
 
-  const totalPriceRub = days * car.pricePerDayRub;
-  const status = deriveStatusAfterPaymentUpdate(paidAmountRub, totalPriceRub, booking.status);
-
   await prisma.booking.update({
     where: { id: booking.id },
     data: {
       carId: input.carId,
       startDate: start,
       endDate: end,
-      paidAmountRub,
+      paidAmountRub: payment.paidAmountRub,
       totalPriceRub,
-      status,
+      status: payment.status,
+      adminComment: emptyToNull(input.adminComment),
     },
   });
 

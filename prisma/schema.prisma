@@ -148,6 +148,8 @@ model Booking {
   childSeatFeeRub Int @default(0) @map("child_seat_fee_rub")
   /// Снимок данных арендатора для генерации договора (PDF).
   contractMeta  Json?       @map("contract_meta")
+  /// Комментарий администратора к заказу (только админ-панель).
+  adminComment  String?     @map("admin_comment") @db.Text
   consents      ConsentRecord[]
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")

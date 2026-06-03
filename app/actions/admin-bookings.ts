@@ -7,20 +7,26 @@ import { sendAdminBookingCreatedEmail } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
 import { inclusiveRentalDays, parseDateInput, utcToday } from "@/lib/rental-dates";
-import type { BookingStatus } from "@prisma/client";
+import {
+  resolveBookingPayment,
+  type AdminBookingPaymentStatus,
+} from "@/lib/admin-booking-payment";
 
 export type AdminBookingActionResult = { ok: true } | { ok: false; error: string };
 
+export type { AdminBookingPaymentStatus };
+
 /**
- * Создание брони менеджером: тот же расчёт цены и проверка пересечений, что у клиента на сайте.
+ * Создание брони менеджером: сумма и предоплата задаются вручную.
  */
 export async function createAdminBookingAction(input: {
   userId: string;
   carId: string;
   startDate: string;
   endDate: string;
-  /** По умолчанию «ожидает оплаты»; можно сразу отметить оплаченной. */
-  status: "PENDING_PAYMENT" | "PAID";
+  totalPriceRub: number;
+  paidAmountRub: number;
+  status: AdminBookingPaymentStatus;
 }): Promise<AdminBookingActionResult> {
   await requireAdminPanelSession();
 
@@ -48,6 +54,17 @@ export async function createAdminBookingAction(input: {
     return { ok: false, error: "Максимальный срок брони — 90 суток." };
   }
 
+  const totalPriceRub = Math.round(input.totalPriceRub);
+  if (!Number.isFinite(totalPriceRub) || totalPriceRub <= 0) {
+    return { ok: false, error: "Укажите общую сумму заказа (целое число больше 0)." };
+  }
+
+  const paidInput = Math.max(0, Math.round(input.paidAmountRub));
+  const payment = resolveBookingPayment(input.status, totalPriceRub, paidInput);
+  if (!payment.ok) {
+    return payment;
+  }
+
   const [user, car] = await Promise.all([
     prisma.user.findUnique({ where: { id: input.userId } }),
     prisma.car.findUnique({ where: { id: input.carId } }),
@@ -73,19 +90,15 @@ export async function createAdminBookingAction(input: {
     return { ok: false, error: "Эти даты пересекаются с другой активной бронью по этой машине." };
   }
 
-  const totalPriceRub = days * car.pricePerDayRub;
-
-  const status: BookingStatus = input.status === "PAID" ? "PAID" : "PENDING_PAYMENT";
-
   const created = await prisma.booking.create({
     data: {
       userId: input.userId,
       carId: input.carId,
       startDate: start,
       endDate: end,
-      status,
+      status: payment.status,
       paymentPlan: "FULL",
-      paidAmountRub: input.status === "PAID" ? totalPriceRub : 0,
+      paidAmountRub: payment.paidAmountRub,
       totalPriceRub,
     },
   });
@@ -116,6 +129,7 @@ export async function createAdminBookingAction(input: {
   revalidatePath("/book");
   revalidatePath(`/cars/${car.slug}`);
   revalidatePath("/admin-panel/bookings");
+  revalidatePath("/admin-panel/orders");
 
   return { ok: true };
 }

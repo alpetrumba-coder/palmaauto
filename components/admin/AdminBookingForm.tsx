@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 
-import { createAdminBookingAction } from "@/app/actions/admin-bookings";
+import {
+  createAdminBookingAction,
+  type AdminBookingPaymentStatus,
+} from "@/app/actions/admin-bookings";
 import { formatBookingUserLabel } from "@/lib/booking-display";
 import { formatPriceRub } from "@/lib/formatPrice";
 import { inclusiveRentalDays, parseDateInput } from "@/lib/rental-dates";
@@ -68,21 +71,41 @@ export function AdminBookingForm({
   });
   const [start, setStart] = useState(initialFrom ?? "");
   const [end, setEnd] = useState(initialTo ?? "");
-  const [status, setStatus] = useState<"PENDING_PAYMENT" | "PAID">("PENDING_PAYMENT");
+  const [totalPriceRub, setTotalPriceRub] = useState("");
+  const [paidAmountRub, setPaidAmountRub] = useState("");
+  const [status, setStatus] = useState<AdminBookingPaymentStatus>("PENDING_PAYMENT");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   const selectedCar = cars.find((c) => c.id === carId);
 
-  const preview = useMemo(() => {
-    if (!start || !end || !selectedCar) return null;
+  const rentalDays = useMemo(() => {
+    if (!start || !end) return null;
     const a = parseDateInput(start);
     const b = parseDateInput(end);
     if (!a || !b || b < a) return null;
     const days = inclusiveRentalDays(a, b);
-    if (days < 1) return null;
-    return { days, total: days * selectedCar.pricePerDayRub };
-  }, [start, end, selectedCar]);
+    return days >= 1 ? days : null;
+  }, [start, end]);
+
+  const totalNum = useMemo(() => {
+    const n = Number.parseInt(totalPriceRub.replace(/\s/g, ""), 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [totalPriceRub]);
+
+  const averagePerDay = useMemo(() => {
+    if (rentalDays === null || totalNum === null) return null;
+    return Math.round(totalNum / rentalDays);
+  }, [rentalDays, totalNum]);
+
+  function onStatusChange(next: AdminBookingPaymentStatus) {
+    setStatus(next);
+    if (next === "PENDING_PAYMENT") {
+      setPaidAmountRub("0");
+    } else if (next === "PAID" && totalNum !== null) {
+      setPaidAmountRub(String(totalNum));
+    }
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -91,12 +114,29 @@ export function AdminBookingForm({
       setError("Выберите клиента и автомобиль.");
       return;
     }
+    if (rentalDays === null) {
+      setError("Укажите корректный период аренды.");
+      return;
+    }
+    const total = Number.parseInt(totalPriceRub.replace(/\s/g, ""), 10);
+    const paid = Number.parseInt(paidAmountRub.replace(/\s/g, ""), 10);
+    if (!Number.isFinite(total) || total <= 0) {
+      setError("Укажите общую сумму заказа.");
+      return;
+    }
+    if (!Number.isFinite(paid) || paid < 0) {
+      setError("Укажите сумму предоплаты.");
+      return;
+    }
+
     setPending(true);
     const res = await createAdminBookingAction({
       userId,
       carId,
       startDate: start,
       endDate: end,
+      totalPriceRub: total,
+      paidAmountRub: paid,
       status,
     });
     setPending(false);
@@ -149,7 +189,7 @@ export function AdminBookingForm({
           {cars.map((c) => (
             <option key={c.id} value={c.id}>
               {c.make} {c.model}
-              {!c.active ? " (скрыт в каталоге)" : ""} — {formatPriceRub(c.pricePerDayRub)}/сут.
+              {!c.active ? " (скрыт в каталоге)" : ""} — {formatPriceRub(c.pricePerDayRub)}/сут. в каталоге
             </option>
           ))}
         </select>
@@ -180,25 +220,80 @@ export function AdminBookingForm({
         />
       </label>
 
+      {rentalDays !== null ? (
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+          Срок аренды: <strong style={{ color: "var(--color-text)" }}>{rentalDays} сут.</strong>
+          {selectedCar ? (
+            <>
+              {" "}
+              · тариф в каталоге: {formatPriceRub(selectedCar.pricePerDayRub)}/сут. (только справка)
+            </>
+          ) : null}
+        </p>
+      ) : null}
+
       <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Статус
+        Общая сумма заказа, ₽
+        <input
+          type="number"
+          min={1}
+          step={1}
+          required
+          value={totalPriceRub}
+          onChange={(e) => {
+            setTotalPriceRub(e.target.value);
+            if (status === "PAID") {
+              const n = Number.parseInt(e.target.value.replace(/\s/g, ""), 10);
+              if (Number.isFinite(n) && n > 0) setPaidAmountRub(String(n));
+            }
+          }}
+          style={fieldStyle}
+        />
+      </label>
+
+      {averagePerDay !== null && rentalDays !== null ? (
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+          Средняя стоимость в сутки:{" "}
+          <strong style={{ color: "var(--color-text)" }}>{formatPriceRub(averagePerDay)}</strong>
+          {" "}
+          ({formatPriceRub(totalNum!)} ÷ {rentalDays} сут.)
+        </p>
+      ) : totalPriceRub && rentalDays === null ? (
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+          Укажите даты, чтобы посчитать среднюю стоимость в сутки.
+        </p>
+      ) : null}
+
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        Предоплата, ₽
+        <input
+          type="number"
+          min={0}
+          step={1}
+          required
+          value={paidAmountRub}
+          onChange={(e) => setPaidAmountRub(e.target.value)}
+          disabled={status === "PENDING_PAYMENT"}
+          style={{
+            ...fieldStyle,
+            opacity: status === "PENDING_PAYMENT" ? 0.7 : 1,
+          }}
+        />
+      </label>
+
+      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+        Статус оплаты
         <select
           name="status"
           value={status}
-          onChange={(e) => setStatus(e.target.value as "PENDING_PAYMENT" | "PAID")}
+          onChange={(e) => onStatusChange(e.target.value as AdminBookingPaymentStatus)}
           style={fieldStyle}
         >
           <option value="PENDING_PAYMENT">Ожидает оплаты</option>
-          <option value="PAID">Оплачено</option>
+          <option value="PARTIALLY_PAID">Внесена предоплата</option>
+          <option value="PAID">Полная оплата</option>
         </select>
       </label>
-
-      {preview && selectedCar ? (
-        <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-          {preview.days} сут. × {formatPriceRub(selectedCar.pricePerDayRub)} ={" "}
-          <strong style={{ color: "var(--color-text)" }}>{formatPriceRub(preview.total)}</strong>
-        </p>
-      ) : null}
 
       {error ? (
         <p role="alert" style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-danger, #c00)" }}>
