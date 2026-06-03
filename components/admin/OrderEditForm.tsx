@@ -63,7 +63,6 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
   const [firstName, setFirstName] = useState(initial.firstName);
   const [patronymic, setPatronymic] = useState(initial.patronymic);
   const [phone, setPhone] = useState(initial.phone);
-  const [address, setAddress] = useState(initial.address);
   const [passportData, setPassportData] = useState(initial.passportData);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -86,7 +85,7 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
       firstName,
       patronymic,
       phone,
-      address,
+      address: initial.address,
       passportData,
     };
 
@@ -258,17 +257,6 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             style={fieldStyle}
-          />
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-          Адрес
-          <textarea
-            name="address"
-            rows={3}
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            style={{ ...fieldStyle, resize: "vertical", minHeight: "4rem" }}
           />
         </label>
 
