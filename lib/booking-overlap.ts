@@ -19,13 +19,13 @@ export function bookingHoldsCarWhere(referenceTime: Date = new Date()): Prisma.B
   };
 }
 
-/** Пересечение с интервалом [rangeStart, rangeEnd] (включительно, UTC-даты). */
+/** Пересечение с периодом [rangeStart, rangeEnd) по ночам (UTC-даты). */
 export function bookingsOverlappingRangeWhere(rangeStart: Date, rangeEnd: Date): Prisma.BookingWhereInput {
   return {
     AND: [
       bookingHoldsCarWhere(),
-      { startDate: { lte: rangeEnd } },
-      { endDate: { gte: rangeStart } },
+      { startDate: { lt: rangeEnd } },
+      { endDate: { gt: rangeStart } },
     ],
   };
 }
@@ -36,8 +36,8 @@ export function carBookingOverlapWhere(carId: string, rangeStart: Date, rangeEnd
     carId,
     AND: [
       bookingHoldsCarWhere(),
-      { startDate: { lte: rangeEnd } },
-      { endDate: { gte: rangeStart } },
+      { startDate: { lt: rangeEnd } },
+      { endDate: { gt: rangeStart } },
     ],
   };
 }

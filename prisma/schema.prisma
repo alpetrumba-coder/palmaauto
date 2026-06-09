@@ -119,7 +119,7 @@ enum ConsentType {
   MARKETING
 }
 
-/// Бронь: даты включительно (startDate … endDate), цена за весь период.
+/// Бронь: startDate — выдача, endDate — возврат; сутки считаются по ночам между датами.
 model Booking {
   id            String        @id @default(cuid())
   userId        String        @map("user_id")

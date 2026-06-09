@@ -112,7 +112,7 @@ export async function BookByDatesSection({
             </p>
             {rentalDays > 0 ? (
               <p style={{ margin: "0.35rem 0 0", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-                Срок аренды: {rentalDays} дн. (включительно). Цена «всего» = за сутки × {rentalDays} дн.
+                Срок аренды: {rentalDays} сут. (по ночам). Цена «всего» = за сутки × {rentalDays} сут.
               </p>
             ) : null}
           </div>

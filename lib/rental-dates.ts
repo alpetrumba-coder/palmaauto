@@ -11,12 +11,14 @@ export function parseDateInput(isoDate: string): Date | null {
   return dt;
 }
 
-/** Число суток проката включительно (start … end). */
+/**
+ * Число суток проката по ночам: с start по end (дата возврата).
+ * Например 7–10 июня = 3 ночи (7→8, 8→9, 9→10); 30 июня–2 июля = 2 ночи.
+ */
 export function inclusiveRentalDays(start: Date, end: Date): number {
   const s = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
   const e = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
-  const diff = Math.round((e - s) / 86400000);
-  return diff + 1;
+  return Math.round((e - s) / 86400000);
 }
 
 /** Сегодняшняя дата UTC (начало дня) для сравнения с полями @db.Date. */
