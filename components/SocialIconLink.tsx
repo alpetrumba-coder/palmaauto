@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import { useId, type CSSProperties, type ReactNode } from "react";
 
 export function SocialIconLink({
   href,
@@ -14,9 +14,10 @@ export function SocialIconLink({
   metrikaGoal?: string;
 }) {
   const iconStyle: CSSProperties = {
-    width: "1.1rem",
-    height: "1.1rem",
+    width: "calc(1.1rem + 1px)",
+    height: "calc(1.1rem + 1px)",
     display: "block",
+    flexShrink: 0,
   };
 
   const track = () => {
@@ -60,24 +61,51 @@ export function SocialIconLink({
 
 export function WhatsAppIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M20.52 3.48A11.78 11.78 0 0 0 12.02 0C5.4 0 0.02 5.38 0.02 12c0 2.1.55 4.14 1.6 5.95L0 24l6.22-1.6a12 12 0 0 0 5.8 1.48h.01c6.62 0 12-5.38 12-12 0-3.2-1.25-6.2-3.51-8.4ZM12.02 21.9h-.01a10 10 0 0 1-5.1-1.4l-.36-.21-3.69.95.99-3.6-.24-.37A9.9 9.9 0 0 1 2.12 12c0-5.46 4.44-9.9 9.9-9.9 2.65 0 5.14 1.03 7 2.9a9.85 9.85 0 0 1 2.9 7c0 5.46-4.44 9.9-9.9 9.9Zm5.76-7.88c-.31-.16-1.82-.9-2.1-1-.28-.1-.49-.16-.7.16-.2.31-.8 1-.98 1.2-.18.2-.36.23-.67.08-.31-.16-1.3-.48-2.48-1.53-.92-.82-1.54-1.83-1.72-2.14-.18-.31-.02-.48.14-.64.14-.14.31-.36.47-.54.16-.18.2-.31.31-.52.1-.2.05-.39-.03-.54-.08-.16-.7-1.68-.96-2.3-.25-.6-.5-.52-.7-.53h-.6c-.2 0-.54.08-.82.39-.28.31-1.07 1.05-1.07 2.56s1.1 2.97 1.25 3.18c.16.2 2.16 3.3 5.24 4.63.73.31 1.3.5 1.75.64.73.23 1.4.2 1.93.12.59-.09 1.82-.74 2.08-1.45.26-.7.26-1.3.18-1.45-.08-.16-.28-.23-.6-.39Z" />
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="12" fill="#25D366" />
+      <path
+        fill="#fff"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 4.6c-4.09 0-7.4 3.31-7.4 7.4 0 1.3.34 2.56.98 3.68l-1.08 3.82 3.92-1.03a7.37 7.37 0 0 0 3.58.92h.003c4.09 0 7.4-3.31 7.4-7.4S16.09 4.6 12 4.6Zm3.96 10.47c-.17-.09-1.01-.5-1.16-.55-.15-.06-.26-.09-.37.09-.1.18-.41.55-.5.66-.1.11-.19.12-.36.04-.17-.09-.72-.27-1.37-.85-.51-.45-.85-1-.95-1.17-.1-.17 0-.26.07-.35.08-.08.17-.21.26-.31.09-.1.12-.17.17-.28.06-.11.03-.21-.02-.31-.04-.09-.37-.9-.51-1.23-.13-.32-.27-.27-.37-.28-.1 0-.21 0-.31 0-.11 0-.28.04-.43.22-.15.18-.57.56-.57 1.36 0 .81.59 1.59.67 1.7.09.11 1.15 1.76 2.79 2.47 1.09.47 1.53.6 2.06.51.33-.06 1.01-.41 1.15-.81.14-.4.14-.74.1-.81-.04-.08-.15-.12-.32-.21Z"
+      />
     </svg>
   );
 }
 
 export function TelegramIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M22.5 1.5 1.2 10.2c-1 .4-1 1.8.1 2.1l5.5 1.7 2.1 6.5c.3.9 1.5 1.2 2.2.6l3.1-2.8 5.6 4.1c.8.6 1.9.1 2.1-.9L23.9 2.8c.2-1-.6-1.7-1.4-1.3ZM8.1 13.1l11.5-7.1c.2-.1.4.2.2.3L10.3 15c-.3.2-.5.6-.5.9l-.2 2.9-1.6-5.2c-.1-.2 0-.4.1-.5Z" />
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="12" fill="#24A1DE" />
+      <path
+        fill="#fff"
+        d="M5.5 11.8 17.3 7.3c.5-.2 1 .1.8.7l-2 9.4c-.1.5-.4.6-.8.4l-2.2-1.7-1.1 1c-.1.1-.2.2-.5.2l.2-2.8 8.1-7.3c.1-.1 0-.2-.1-.1L8.8 13.8l-2.8-.9c-.6-.2-.6-.6.5-.9Z"
+      />
     </svg>
   );
 }
 
 export function MaxIcon() {
+  const gradId = useId();
+
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4.5 3.4A1 1 0 0 1 4 18.6V16a2 2 0 0 1-2-2V6Zm4.2 7.4h1.6l1.2-2.3 1.2 2.3h1.6V8.6h-1.4v2.7L11 8.6h-.1l-1.5 2.7V8.6H8.2v4.8Zm7.4 0h1.7l.9-1.4.9 1.4h1.7l-1.7-2.5 1.6-2.3h-1.7l-.8 1.3-.8-1.3h-1.7l1.6 2.3-1.7 2.5Z" />
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <defs>
+        <linearGradient id={gradId} x1="2" y1="22" x2="22" y2="2" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#007AFF" />
+          <stop offset="1" stopColor="#BF5AF2" />
+        </linearGradient>
+      </defs>
+      <rect width="24" height="24" rx="5.5" fill={`url(#${gradId})`} />
+      <path
+        fill="none"
+        stroke="#fff"
+        strokeWidth="2.15"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 7.4a4.6 4.6 0 1 1 0 9.2 4.6 4.6 0 0 1 0-9.2Z"
+      />
+      <path fill="#fff" d="M9.1 16.9 7.8 19.4a.45.45 0 0 0 .55.65l2.2-1.05Z" />
     </svg>
   );
 }
