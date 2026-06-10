@@ -14,6 +14,7 @@ import type { AdminUserProfilePayload } from "@/app/actions/admin-users";
 import { bookingStatusToPaymentStatus } from "@/lib/admin-booking-payment";
 import { formatPriceRub } from "@/lib/formatPrice";
 import { inclusiveRentalDays, parseDateInput } from "@/lib/rental-dates";
+import { formatRuFullName, splitRuFullName } from "@/lib/ru-full-name";
 import type { BookingStatus } from "@prisma/client";
 
 const fieldStyle: CSSProperties = {
@@ -72,9 +73,13 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
   );
   const [adminComment, setAdminComment] = useState(initial.adminComment);
   const [email, setEmail] = useState(initial.email);
-  const [lastName, setLastName] = useState(initial.lastName);
-  const [firstName, setFirstName] = useState(initial.firstName);
-  const [patronymic, setPatronymic] = useState(initial.patronymic);
+  const [fullName, setFullName] = useState(() =>
+    formatRuFullName({
+      lastName: initial.lastName,
+      firstName: initial.firstName,
+      patronymic: initial.patronymic,
+    }),
+  );
   const [phone, setPhone] = useState(initial.phone);
   const [passportData, setPassportData] = useState(initial.passportData);
   const [error, setError] = useState<string | null>(null);
@@ -125,11 +130,12 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
       return;
     }
 
+    const { lastName, firstName, patronymic } = splitRuFullName(fullName);
     const user: AdminUserProfilePayload = {
       email,
-      lastName,
-      firstName,
-      patronymic,
+      lastName: lastName ?? "",
+      firstName: firstName ?? "",
+      patronymic: patronymic ?? "",
       phone,
       address: initial.address,
       passportData,
@@ -347,16 +353,15 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
         </label>
 
         <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-          Фамилия
-          <input name="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} style={fieldStyle} />
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-          Имя
-          <input name="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} style={fieldStyle} />
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-          Отчество
-          <input name="patronymic" value={patronymic} onChange={(e) => setPatronymic(e.target.value)} style={fieldStyle} />
+          ФИО клиента
+          <input
+            name="fullName"
+            autoComplete="name"
+            placeholder="Фамилия Имя Отчество"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            style={fieldStyle}
+          />
         </label>
 
         <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>

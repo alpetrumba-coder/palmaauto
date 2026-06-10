@@ -1,3 +1,12 @@
+/** Собирает поля профиля в одну строку ФИО для поля ввода. */
+export function formatRuFullName(parts: {
+  lastName?: string | null;
+  firstName?: string | null;
+  patronymic?: string | null;
+}): string {
+  return [parts.lastName, parts.firstName, parts.patronymic].filter(Boolean).join(" ").trim();
+}
+
 /** Делит строку ФИО в порядке «фамилия имя отчество» для полей профиля в БД. */
 export function splitRuFullName(fullName: string): {
   lastName: string | null;

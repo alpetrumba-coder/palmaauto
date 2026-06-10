@@ -15,6 +15,7 @@ export function SiteHeader() {
   const whatsappHref = "https://wa.me/79407146273";
   const telegramHref = "https://t.me/PalmaAppartmentsAbkhazia";
   const maxHref = `tel:${phoneTel}`;
+  const apartmentsHref = "https://palm3.ru";
   return (
     <header
       className="site-header"
@@ -27,6 +28,20 @@ export function SiteHeader() {
         borderBottom: "1px solid var(--color-border)",
       }}
     >
+      <div className="site-header-sister page-shell">
+        <a
+          href={apartmentsHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="site-header-sister-link nav-tap-target"
+        >
+          <span>Апартаменты в Абхазии</span>
+          <span className="site-header-sister-domain">palm3.ru</span>
+          <span aria-hidden="true" className="site-header-sister-arrow">
+            ↗
+          </span>
+        </a>
+      </div>
       <div
         className="page-shell"
         data-site-header-row

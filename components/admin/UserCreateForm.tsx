@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 
 import { createAdminUserAction, type AdminCreateUserPayload } from "@/app/actions/admin-users";
+import { splitRuFullName } from "@/lib/ru-full-name";
 
 const fieldStyle: CSSProperties = {
   width: "100%",
@@ -23,9 +24,7 @@ export function UserCreateForm() {
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [role, setRole] = useState<"CUSTOMER" | "ADMIN">("CUSTOMER");
-  const [lastName, setLastName] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [patronymic, setPatronymic] = useState("");
+  const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [passportData, setPassportData] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -34,14 +33,15 @@ export function UserCreateForm() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const { lastName, firstName, patronymic } = splitRuFullName(fullName);
     const payload: AdminCreateUserPayload = {
       email,
       password,
       passwordConfirm,
       role,
-      lastName,
-      firstName,
-      patronymic,
+      lastName: lastName ?? "",
+      firstName: firstName ?? "",
+      patronymic: patronymic ?? "",
       phone,
       address: "",
       passportData,
@@ -114,16 +114,15 @@ export function UserCreateForm() {
       </label>
 
       <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Фамилия
-        <input name="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} style={fieldStyle} />
-      </label>
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Имя
-        <input name="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} style={fieldStyle} />
-      </label>
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Отчество
-        <input name="patronymic" value={patronymic} onChange={(e) => setPatronymic(e.target.value)} style={fieldStyle} />
+        ФИО клиента
+        <input
+          name="fullName"
+          autoComplete="name"
+          placeholder="Фамилия Имя Отчество"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          style={fieldStyle}
+        />
       </label>
 
       <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
