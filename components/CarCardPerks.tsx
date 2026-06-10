@@ -132,9 +132,9 @@ export function CarCardPerks() {
         gap: "0.45rem",
       }}
     >
-      {perks.map((perk) => (
+      {perks.map(({ label, Icon }) => (
         <li
-          key={perk.label}
+          key={label}
           style={{
             display: "flex",
             alignItems: "center",
@@ -145,9 +145,9 @@ export function CarCardPerks() {
           }}
         >
           <PerkIconCircle>
-            <perk.Icon />
+            <Icon />
           </PerkIconCircle>
-          <span>{perk.label}</span>
+          <span>{label}</span>
         </li>
       ))}
     </ul>

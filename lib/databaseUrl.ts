@@ -15,7 +15,10 @@ export function prepareDatabaseUrl(url: string): string {
 
     if (isNeonPooler) {
       u.searchParams.set("pgbouncer", "true");
-      if (!u.searchParams.has("connection_limit")) {
+      // В dev несколько RSC-запросов идут параллельно; с лимитом 1 — таймаут пула.
+      if (process.env.NODE_ENV === "development") {
+        u.searchParams.set("connection_limit", "5");
+      } else if (!u.searchParams.has("connection_limit")) {
         u.searchParams.set("connection_limit", "1");
       }
     }
