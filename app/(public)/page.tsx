@@ -1,6 +1,6 @@
 import { BookByDatesSection } from "@/components/BookByDatesSection";
 import { CarCatalogGrid } from "@/components/CarCatalogGrid";
-import { CancellationPolicyModal } from "@/components/CancellationPolicyModal";
+import { HomeHeroIntro } from "@/components/HomeHeroIntro";
 import { getActiveCars } from "@/lib/cars";
 import { buildFaqJsonLd, buildOrganizationJsonLd, buildWebSiteJsonLd, jsonLdScriptTag } from "@/lib/seo-jsonld";
 
@@ -57,26 +57,7 @@ export default async function HomePage({
       >
         Прокат автомобилей в Абхазии
       </h1>
-      <ul
-        style={{
-          fontSize: "var(--text-xl)",
-          color: "var(--color-text-secondary)",
-          maxWidth: "44rem",
-          lineHeight: "var(--leading-relaxed)",
-          margin: 0,
-          paddingLeft: "1.25rem",
-        }}
-      >
-        <li style={{ marginBottom: "0.55rem" }}>От 7 суток — скидки</li>
-        <li style={{ marginBottom: "0.55rem" }}>Доставка машины на границу / вокзал / аэропорт</li>
-        <li style={{ marginBottom: "0.55rem" }}>
-          Бесплатная отмена (
-          <span style={{ whiteSpace: "nowrap" }}>
-            прочитать <CancellationPolicyModal />
-          </span>
-          )
-        </li>
-      </ul>
+      <HomeHeroIntro />
 
       <section
         style={{ marginTop: "calc(var(--space-unit) * 2)" }}
@@ -109,7 +90,7 @@ export default async function HomePage({
         >
           Выберите класс и бюджет — цена за сутки; подробнее на карточке машины.
         </p>
-        <CarCatalogGrid cars={cars} />
+        <CarCatalogGrid cars={cars} variant="home" />
       </section>
     </div>
   );

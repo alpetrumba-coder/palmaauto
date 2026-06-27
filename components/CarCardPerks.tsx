@@ -138,10 +138,10 @@ export function CarCardPerks() {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "0.6rem",
-            fontSize: "var(--text-sm)",
-            color: "var(--color-text)",
-            lineHeight: 1.25,
+            gap: "0.75rem",
+            fontSize: "var(--text-xl)",
+            color: "var(--color-text-secondary)",
+            lineHeight: "var(--leading-relaxed)",
           }}
         >
           <PerkIconCircle>

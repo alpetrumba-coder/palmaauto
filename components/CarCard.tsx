@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { CarCardPerks } from "@/components/CarCardPerks";
 import { CarPhotoImage } from "@/components/CarPhotoImage";
 import { formatPriceRub } from "@/lib/formatPrice";
 
@@ -70,7 +69,6 @@ export function CarCard({ slug, make, model, pricePerDayRub, coverUrl, coverAlt 
         </div>
         <div style={{ padding: "clamp(1rem, 3vw, 1.25rem)", display: "flex", flexDirection: "column", gap: "0.35rem", flex: 1 }}>
           <h2 style={{ margin: 0, fontSize: "var(--text-xl)", fontWeight: 600, letterSpacing: "-0.02em" }}>{title}</h2>
-          <CarCardPerks />
           <p style={{ margin: "0.15rem 0 0", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>за сутки</p>
           <p style={{ margin: "0.25rem 0 0", fontSize: "var(--text-lg)", fontWeight: 600 }}>{formatPriceRub(pricePerDayRub)}</p>
         </div>
