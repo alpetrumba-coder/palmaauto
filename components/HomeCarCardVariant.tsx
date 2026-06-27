@@ -43,10 +43,12 @@ function buildCells(spec: HomeCarCardSpec, includeDepositInGrid = false) {
   cells.push({ key: "steering", icon: <SteeringIcon />, label: spec.steering });
   cells.push({ key: "transmission", icon: <TransmissionIcon />, label: spec.transmission });
 
+  if (spec.engine) {
+    cells.push({ key: "engine", icon: <EngineIcon />, label: spec.engine });
+  }
+
   if (spec.airConditioning) {
     cells.push({ key: "ac", icon: <AirConditioningIcon />, label: "Кондиционер" });
-  } else if (spec.engine) {
-    cells.push({ key: "engine", icon: <EngineIcon />, label: spec.engine });
   }
 
   cells.push(

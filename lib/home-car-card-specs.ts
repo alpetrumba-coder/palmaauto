@@ -5,7 +5,7 @@ export type HomeCarCardSpec = {
   transmission: string;
   /** Топливо / тип двигателя. */
   engine?: string;
-  /** Вместо объёма — кондиционер (Nissan Note). */
+  /** Кондиционер — отдельная ячейка, может быть вместе с engine. */
   airConditioning?: boolean;
   color: { label: string; hex: string };
   depositRub: number;
@@ -26,6 +26,7 @@ const SPECS_BY_SLUG: Record<string, HomeCarCardSpec> = {
     year: 2005,
     drive: "Передний",
     transmission: "АКПП",
+    engine: "Бензин",
     airConditioning: true,
     color: { label: "Зелёный", hex: "#22c55e" },
     depositRub: 5000,
@@ -36,6 +37,7 @@ const SPECS_BY_SLUG: Record<string, HomeCarCardSpec> = {
     year: 2004,
     drive: "Передний",
     transmission: "АКПП",
+    engine: "Гибрид",
     airConditioning: true,
     color: { label: "Серебристый", hex: "#c0c0c0" },
     depositRub: 5000,
@@ -46,6 +48,7 @@ const SPECS_BY_SLUG: Record<string, HomeCarCardSpec> = {
     year: 2006,
     drive: "Полный",
     transmission: "АКПП",
+    engine: "Гибрид",
     airConditioning: true,
     color: { label: "Серебристый", hex: "#c0c0c0" },
     depositRub: 10000,
@@ -57,6 +60,7 @@ const SPECS_BY_SLUG: Record<string, HomeCarCardSpec> = {
     drive: "Задний",
     transmission: "АКПП",
     engine: "3.0 — бензин",
+    airConditioning: true,
     color: { label: "Чёрный", hex: "#1f2937" },
     depositRub: 10000,
     luggage: "2–3 чемодана",
