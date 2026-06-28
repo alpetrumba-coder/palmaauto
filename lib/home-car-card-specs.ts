@@ -59,7 +59,7 @@ const SPECS_BY_SLUG: Record<string, HomeCarCardSpec> = {
     year: 2008,
     drive: "Задний",
     transmission: "АКПП",
-    engine: "3.0 — бензин",
+    engine: "Бензин",
     airConditioning: true,
     color: { label: "Чёрный", hex: "#1f2937" },
     depositRub: 10000,
