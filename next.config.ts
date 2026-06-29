@@ -7,6 +7,14 @@ import type { NextConfig } from "next";
  */
 const nextConfig: NextConfig = {
   serverExternalPackages: ["sharp", "pdfmake"],
+  async headers() {
+    return [
+      {
+        source: "/cars/:path*",
+        headers: [{ key: "Cache-Control", value: "no-store, must-revalidate" }],
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
