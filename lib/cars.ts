@@ -7,7 +7,7 @@ export type ActiveCar = Awaited<ReturnType<typeof getActiveCars>>[number];
 
 /** Сортировка для главной: Note → Prius → Estima → Crown, остальные в конце. */
 export function sortCarsForHomepage<T extends { slug: string }>(cars: T[]): T[] {
-  const rank = new Map(HOME_CAR_SLUG_ORDER.map((slug, index) => [slug, index]));
+  const rank = new Map<string, number>(HOME_CAR_SLUG_ORDER.map((slug, index) => [slug, index]));
   return [...cars].sort((a, b) => {
     const aRank = rank.get(a.slug) ?? HOME_CAR_SLUG_ORDER.length;
     const bRank = rank.get(b.slug) ?? HOME_CAR_SLUG_ORDER.length;
