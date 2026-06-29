@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { CarBookingForm } from "@/components/CarBookingForm";
 import { CarPhotoImage } from "@/components/CarPhotoImage";
+import { CarVkVideoEmbed } from "@/components/CarVkVideoEmbed";
 import { getActiveCarBySlug } from "@/lib/cars";
 import { prisma } from "@/lib/prisma";
 import type { ContractFormInput } from "@/lib/booking-contract";
@@ -155,7 +156,7 @@ export default async function CarDetailPage({ params, searchParams }: PageProps)
           />
         </div>
 
-        {car.images.length > 0 ? (
+        {car.images.length > 0 || car.videoUrl ? (
           <ul
             style={{
               listStyle: "none",
@@ -165,22 +166,37 @@ export default async function CarDetailPage({ params, searchParams }: PageProps)
               gap: "1rem",
             }}
           >
-            {car.images.map((img, index) => (
-              <li
-                key={img.id}
-                style={{
-                  position: "relative",
-                  borderRadius: "var(--radius-lg)",
-                  overflow: "hidden",
-                  border: "1px solid var(--color-border)",
-                  boxShadow: "var(--shadow-soft)",
-                  aspectRatio: "16 / 10",
-                  maxHeight: "min(70vh, 520px)",
-                }}
-              >
-                <CarPhotoImage src={img.url} alt={img.alt ?? title} priority={index === 0} />
+            {car.images.flatMap((img, index) => {
+              const items = [
+                <li
+                  key={img.id}
+                  style={{
+                    position: "relative",
+                    borderRadius: "var(--radius-lg)",
+                    overflow: "hidden",
+                    border: "1px solid var(--color-border)",
+                    boxShadow: "var(--shadow-soft)",
+                    aspectRatio: "16 / 10",
+                    maxHeight: "min(70vh, 520px)",
+                  }}
+                >
+                  <CarPhotoImage src={img.url} alt={img.alt ?? title} priority={index === 0} />
+                </li>,
+              ];
+              if (index === 0 && car.videoUrl) {
+                items.push(
+                  <li key="vk-video">
+                    <CarVkVideoEmbed videoUrl={car.videoUrl} title={title} />
+                  </li>,
+                );
+              }
+              return items;
+            })}
+            {car.images.length === 0 && car.videoUrl ? (
+              <li key="vk-video">
+                <CarVkVideoEmbed videoUrl={car.videoUrl} title={title} />
               </li>
-            ))}
+            ) : null}
           </ul>
         ) : (
           <div className="catalog-placeholder" role="status">

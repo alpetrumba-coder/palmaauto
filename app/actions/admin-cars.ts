@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { isValidCarImageSrc } from "@/lib/carImageSrc";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
+import { isValidVkVideoUrl } from "@/lib/vk-video";
 import { prisma } from "@/lib/prisma";
 
 export type CarImageInput = { url: string; alt: string };
@@ -22,6 +23,8 @@ export type CarFormPayload = {
   minRentalDays: number;
   active: boolean;
   images: CarImageInput[];
+  /** Ссылка на видео ВКонтакте; пустая строка — без видео. */
+  videoUrl: string;
 };
 
 function normalizeSlug(raw: string): string {
@@ -72,6 +75,10 @@ function validatePayload(p: CarFormPayload): string | null {
       return "Некорректный адрес фото: путь /cars/..., https или результат загрузки (data:image/...).";
     }
   }
+  const video = p.videoUrl.trim();
+  if (video && !isValidVkVideoUrl(video)) {
+    return "Ссылка на видео: укажите адрес vk.com, vk.ru или vkvideo.ru (например https://vk.com/video-123_456).";
+  }
   return null;
 }
 
@@ -101,6 +108,7 @@ export async function createCarAction(payload: CarFormPayload): Promise<{ ok: tr
       registrationCertificate: payload.registrationCertificate.trim(),
       minRentalDays: Math.round(payload.minRentalDays),
       active: payload.active,
+      videoUrl: payload.videoUrl.trim() || null,
       images: {
         create: images.map((img, index) => ({
           url: img.url.trim(),
@@ -156,6 +164,7 @@ export async function updateCarAction(
         registrationCertificate: payload.registrationCertificate.trim(),
         minRentalDays: Math.round(payload.minRentalDays),
         active: payload.active,
+        videoUrl: payload.videoUrl.trim() || null,
       },
     });
     await tx.carImage.deleteMany({ where: { carId } });

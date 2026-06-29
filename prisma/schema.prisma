@@ -88,6 +88,8 @@ model Car {
   registrationCertificate   String? @map("registration_certificate") @db.Text
   /// Порядок на витрине (меньше — выше в списке).
   sortOrder         Int        @default(100) @map("sort_order")
+  /// Ссылка на видео ВКонтакте (vk.com / vkvideo.ru).
+  videoUrl          String?    @map("video_url") @db.VarChar(500)
   active          Boolean    @default(true)
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")

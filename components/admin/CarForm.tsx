@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 
 import { createCarAction, updateCarAction, type CarFormPayload } from "@/app/actions/admin-cars";
+import { buildVkVideoEmbedSrc, parseVkVideoUrl } from "@/lib/vk-video";
 
 const fieldStyle: CSSProperties = {
   width: "100%",
@@ -30,6 +31,7 @@ export type CarFormInitial = {
   minRentalDays: number;
   active: boolean;
   images: { url: string; alt: string }[];
+  videoUrl: string;
 };
 
 type CarFormProps =
@@ -86,6 +88,34 @@ function ImageUrlPreview({ url }: { url: string }) {
   );
 }
 
+function VkVideoUrlPreview({ url }: { url: string }) {
+  const embed = parseVkVideoUrl(url);
+  if (!embed) return null;
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        maxWidth: "280px",
+        aspectRatio: "16 / 10",
+        borderRadius: "var(--radius-md)",
+        border: "1px solid var(--color-border)",
+        overflow: "hidden",
+        background: "var(--color-border)",
+      }}
+    >
+      <iframe
+        src={buildVkVideoEmbedSrc(embed)}
+        title="Превью видео"
+        allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+        allowFullScreen
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
+      />
+    </div>
+  );
+}
+
 export function CarForm(props: CarFormProps) {
   const router = useRouter();
   const initial = props.mode === "edit" ? props.initial : undefined;
@@ -104,6 +134,7 @@ export function CarForm(props: CarFormProps) {
   const [images, setImages] = useState<{ url: string; alt: string }[]>(
     initial?.images?.length ? initial.images : [{ url: "", alt: "" }],
   );
+  const [videoUrl, setVideoUrl] = useState(initial?.videoUrl ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
@@ -172,6 +203,7 @@ export function CarForm(props: CarFormProps) {
       minRentalDays: minDays,
       active,
       images: images.map((i) => ({ url: i.url.trim(), alt: i.alt.trim() })),
+      videoUrl,
     };
     setPending(true);
     const res =
@@ -402,6 +434,23 @@ export function CarForm(props: CarFormProps) {
         >
           + Ещё фото
         </button>
+      </div>
+
+      <div>
+        <p style={{ margin: "0 0 0.5rem", fontSize: "var(--text-sm)", fontWeight: 600 }}>Видео</p>
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+          Ссылка на видео ВКонтакте
+          <input
+            placeholder="https://vk.com/video-123_456 или https://vkvideo.ru/video-123_456"
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+        <p style={{ margin: "0.35rem 0 0", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+          Вставьте ссылку на ролик с vk.com или vkvideo.ru — на странице авто видео появится под главным фото.
+        </p>
+        <VkVideoUrlPreview url={videoUrl} />
       </div>
 
       {error ? (
