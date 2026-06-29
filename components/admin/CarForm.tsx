@@ -441,14 +441,14 @@ export function CarForm(props: CarFormProps) {
         <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
           Ссылка на видео ВКонтакте
           <input
-            placeholder="https://vk.com/video-123_456 или https://vkvideo.ru/video-123_456"
+            placeholder="https://vk.com/video-123_456, https://vk.com/clip-123_456 или vkvideo.ru/…"
             value={videoUrl}
             onChange={(e) => setVideoUrl(e.target.value)}
             style={fieldStyle}
           />
         </label>
         <p style={{ margin: "0.35rem 0 0", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-          Вставьте ссылку на ролик с vk.com или vkvideo.ru — на странице авто видео появится под главным фото.
+          Вставьте ссылку на ролик или клип с vk.com или vkvideo.ru — на странице авто видео появится под главным фото.
         </p>
         <VkVideoUrlPreview url={videoUrl} />
       </div>

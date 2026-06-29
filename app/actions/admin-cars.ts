@@ -77,7 +77,7 @@ function validatePayload(p: CarFormPayload): string | null {
   }
   const video = p.videoUrl.trim();
   if (video && !isValidVkVideoUrl(video)) {
-    return "Ссылка на видео: укажите адрес vk.com, vk.ru или vkvideo.ru (например https://vk.com/video-123_456).";
+    return "Ссылка на видео: укажите адрес vk.com, vk.ru или vkvideo.ru (видео или клип, например https://vk.com/video-123_456 или https://vk.com/clip-123_456).";
   }
   return null;
 }
