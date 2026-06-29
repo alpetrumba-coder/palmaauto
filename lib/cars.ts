@@ -20,7 +20,7 @@ export function sortCarsForHomepage<T extends { slug: string }>(cars: T[]): T[] 
 export function getActiveCars() {
   return prisma.car.findMany({
     where: { active: true },
-    orderBy: [{ make: "asc" }, { model: "asc" }],
+    orderBy: [{ sortOrder: "asc" }, { make: "asc" }, { model: "asc" }],
     include: {
       images: { orderBy: { sortOrder: "asc" } },
     },
