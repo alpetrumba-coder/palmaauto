@@ -1,5 +1,6 @@
 import { CarCard } from "@/components/CarCard";
 import { HomeCarCard, toHomeCarCardProps } from "@/components/HomeCarCard";
+import { sortCarsForHomepage } from "@/lib/cars";
 
 /** Тип элемента списка из `getActiveCars()`. */
 export type CarCatalogItem = Awaited<ReturnType<typeof import("@/lib/cars").getActiveCars>>[number];
@@ -14,7 +15,9 @@ type CarCatalogGridProps = {
  * Сетка карточек активных автомобилей (главная, /cars).
  */
 export function CarCatalogGrid({ cars, variant = "default" }: CarCatalogGridProps) {
-  if (cars.length === 0) {
+  const displayCars = variant === "home" ? sortCarsForHomepage(cars) : cars;
+
+  if (displayCars.length === 0) {
     return (
       <div className="catalog-placeholder" role="status">
         В каталоге пока нет доступных автомобилей. Загляните позже или свяжитесь с нами.
@@ -37,7 +40,7 @@ export function CarCatalogGrid({ cars, variant = "default" }: CarCatalogGridProp
         gap: "clamp(1rem, 3vw, 1.5rem)",
       }}
     >
-      {cars.map((car) => {
+      {displayCars.map((car) => {
         const cover = car.images[0];
         const cardProps = {
           slug: car.slug,
