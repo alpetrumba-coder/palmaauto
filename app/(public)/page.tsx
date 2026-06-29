@@ -1,7 +1,7 @@
 import { BookByDatesSection } from "@/components/BookByDatesSection";
 import { CarCatalogGrid } from "@/components/CarCatalogGrid";
 import { HomeHeroIntro } from "@/components/HomeHeroIntro";
-import { getActiveCars } from "@/lib/cars";
+import { getActiveCars, sortCarsForHomepage } from "@/lib/cars";
 import { buildFaqJsonLd, buildOrganizationJsonLd, buildWebSiteJsonLd, jsonLdScriptTag } from "@/lib/seo-jsonld";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export default async function HomePage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   const sp = await searchParams;
-  const cars = await getActiveCars();
+  const cars = sortCarsForHomepage(await getActiveCars());
 
   const baseUrl = "https://palmaauto.ru";
   const jsonLd = [
