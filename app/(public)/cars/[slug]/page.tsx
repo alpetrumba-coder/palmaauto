@@ -5,7 +5,6 @@ import { auth } from "@/auth";
 import { CarBookingForm } from "@/components/CarBookingForm";
 import { CarPhotoImage } from "@/components/CarPhotoImage";
 import { getActiveCarBySlug } from "@/lib/cars";
-import { formatPriceRub } from "@/lib/formatPrice";
 import { prisma } from "@/lib/prisma";
 import type { ContractFormInput } from "@/lib/booking-contract";
 import { formatDateInputUTC, parseDateInput, utcToday } from "@/lib/rental-dates";
@@ -130,11 +129,7 @@ export default async function CarDetailPage({ params, searchParams }: PageProps)
 
       <div className="car-detail-layout">
         <div>
-          <h1 style={{ fontSize: "var(--text-hero)", margin: "0 0 calc(var(--space-unit) * 2)" }}>{title}</h1>
-          <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>за сутки</p>
-          <p style={{ margin: "0.25rem 0 calc(var(--space-unit) * 3)", fontSize: "clamp(1.5rem, 4vw, 2rem)", fontWeight: 600 }}>
-            {formatPriceRub(car.pricePerDayRub)}
-          </p>
+          <h1 style={{ fontSize: "var(--text-hero)", margin: "0 0 calc(var(--space-unit) * 3)" }}>{title}</h1>
           <p
             style={{
               margin: 0,
