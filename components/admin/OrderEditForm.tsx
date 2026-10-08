@@ -41,6 +41,7 @@ export type OrderEditFormInitial = {
   endDate: string;
   paidAmountRub: number;
   adminComment: string;
+  isTest: boolean;
   email: string;
   lastName: string;
   firstName: string;
@@ -72,6 +73,7 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
     initial.paymentStatus ?? bookingStatusToPaymentStatus(initial.status),
   );
   const [adminComment, setAdminComment] = useState(initial.adminComment);
+  const [isTest, setIsTest] = useState(initial.isTest);
   const [email, setEmail] = useState(initial.email);
   const [fullName, setFullName] = useState(() =>
     formatRuFullName({
@@ -151,6 +153,7 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
       paidAmountRub: paid,
       paymentStatus,
       adminComment,
+      isTest,
       user,
     });
     setPending(false);
@@ -321,6 +324,11 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
             placeholder="Заметки для администраторов (клиент не видит)"
             style={{ ...fieldStyle, resize: "vertical", minHeight: "4rem" }}
           />
+        </label>
+
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)", cursor: "pointer" }}>
+          <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} />
+          Тестовый заказ (не учитывается в отчётах)
         </label>
       </fieldset>
 

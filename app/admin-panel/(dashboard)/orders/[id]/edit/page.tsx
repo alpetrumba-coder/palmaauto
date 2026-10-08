@@ -104,6 +104,7 @@ export default async function AdminOrderEditPage({ params, searchParams }: PageP
           endDate: formatDateInputUTC(booking.endDate),
           paidAmountRub: booking.paidAmountRub,
           adminComment: booking.adminComment ?? "",
+          isTest: booking.isTest,
           email: booking.user.email,
           lastName: booking.user.lastName ?? "",
           firstName: booking.user.firstName ?? "",

@@ -22,6 +22,8 @@ export type CarFormPayload = {
   registrationCertificate: string;
   minRentalDays: number;
   active: boolean;
+  /** Тестовая машина: скрыта с сайта, не учитывается в отчётах. */
+  isTest: boolean;
   images: CarImageInput[];
   /** Ссылка на видео ВКонтакте; пустая строка — без видео. */
   videoUrl: string;
@@ -108,6 +110,7 @@ export async function createCarAction(payload: CarFormPayload): Promise<{ ok: tr
       registrationCertificate: payload.registrationCertificate.trim(),
       minRentalDays: Math.round(payload.minRentalDays),
       active: payload.active,
+      isTest: payload.isTest,
       videoUrl: payload.videoUrl.trim() || null,
       images: {
         create: images.map((img, index) => ({
@@ -164,6 +167,7 @@ export async function updateCarAction(
         registrationCertificate: payload.registrationCertificate.trim(),
         minRentalDays: Math.round(payload.minRentalDays),
         active: payload.active,
+        isTest: payload.isTest,
         videoUrl: payload.videoUrl.trim() || null,
       },
     });

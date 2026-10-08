@@ -37,6 +37,7 @@ export default async function AdminOrdersPage() {
     status: b.status,
     totalPriceRub: b.totalPriceRub,
     paidAmountRub: b.paidAmountRub,
+    isTest: b.isTest,
     user: b.user,
   }));
 

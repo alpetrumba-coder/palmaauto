@@ -30,6 +30,7 @@ export async function updateAdminOrderAction(input: {
   paidAmountRub: number;
   paymentStatus: AdminBookingPaymentStatus;
   adminComment: string;
+  isTest: boolean;
   user: AdminUserProfilePayload;
 }): Promise<AdminOrderActionResult> {
   await requireAdminPanelSession();
@@ -108,6 +109,7 @@ export async function updateAdminOrderAction(input: {
       totalPriceRub,
       status: payment.status,
       adminComment: emptyToNull(input.adminComment),
+      isTest: input.isTest,
     },
   });
 

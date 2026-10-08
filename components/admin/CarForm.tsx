@@ -30,6 +30,7 @@ export type CarFormInitial = {
   registrationCertificate: string;
   minRentalDays: number;
   active: boolean;
+  isTest: boolean;
   images: { url: string; alt: string }[];
   videoUrl: string;
 };
@@ -131,6 +132,7 @@ export function CarForm(props: CarFormProps) {
   const [registrationCertificate, setRegistrationCertificate] = useState(initial?.registrationCertificate ?? "");
   const [minRentalDays, setMinRentalDays] = useState(String(initial?.minRentalDays ?? "1"));
   const [active, setActive] = useState(initial?.active ?? true);
+  const [isTest, setIsTest] = useState(initial?.isTest ?? false);
   const [images, setImages] = useState<{ url: string; alt: string }[]>(
     initial?.images?.length ? initial.images : [{ url: "", alt: "" }],
   );
@@ -202,6 +204,7 @@ export function CarForm(props: CarFormProps) {
       registrationCertificate,
       minRentalDays: minDays,
       active,
+      isTest,
       images: images.map((i) => ({ url: i.url.trim(), alt: i.alt.trim() })),
       videoUrl,
     };
@@ -341,6 +344,10 @@ export function CarForm(props: CarFormProps) {
       <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)", cursor: "pointer" }}>
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
         Показывать в каталоге на сайте
+      </label>
+      <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)", cursor: "pointer" }}>
+        <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} />
+        Тестовая машина (не показывается на сайте, не учитывается в отчётах)
       </label>
 
       <div>

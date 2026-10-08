@@ -39,6 +39,7 @@ export default async function AdminEditCarPage({ params }: PageProps) {
     registrationCertificate: car.registrationCertificate ?? "",
     minRentalDays: car.minRentalDays,
     active: car.active,
+    isTest: car.isTest,
     videoUrl: car.videoUrl ?? "",
     images:
       car.images.length > 0

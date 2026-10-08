@@ -88,6 +88,19 @@ export default async function AdminCarsListPage() {
                     скрыт
                   </span>
                 ) : null}
+                {car.isTest ? (
+                  <span
+                    style={{
+                      marginLeft: "0.5rem",
+                      fontSize: "var(--text-xs)",
+                      padding: "0.15rem 0.45rem",
+                      borderRadius: "4px",
+                      background: "var(--color-border)",
+                    }}
+                  >
+                    тест
+                  </span>
+                ) : null}
               </div>
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                 <Link

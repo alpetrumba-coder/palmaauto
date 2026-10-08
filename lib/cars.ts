@@ -19,7 +19,7 @@ export function sortCarsForHomepage<T extends { slug: string }>(cars: T[]): T[] 
 /** Активные машины для публичного каталога, с фото по порядку. */
 export function getActiveCars() {
   return prisma.car.findMany({
-    where: { active: true },
+    where: { active: true, isTest: false },
     orderBy: [{ sortOrder: "asc" }, { make: "asc" }, { model: "asc" }],
     include: {
       images: { orderBy: { sortOrder: "asc" } },
@@ -30,7 +30,7 @@ export function getActiveCars() {
 /** Одна активная машина по slug или null. */
 export function getActiveCarBySlug(slug: string) {
   return prisma.car.findFirst({
-    where: { slug, active: true },
+    where: { slug, active: true, isTest: false },
     include: {
       images: { orderBy: { sortOrder: "asc" } },
     },

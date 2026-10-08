@@ -91,6 +91,8 @@ model Car {
   /// Ссылка на видео ВКонтакте (vk.com / vkvideo.ru).
   videoUrl          String?    @map("video_url") @db.VarChar(500)
   active          Boolean    @default(true)
+  /// Тестовая машина: не показывается на сайте и не учитывается в отчётах.
+  isTest          Boolean    @default(false) @map("is_test")
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
   images          CarImage[]
@@ -154,6 +156,8 @@ model Booking {
   contractMeta  Json?       @map("contract_meta")
   /// Комментарий администратора к заказу (только админ-панель).
   adminComment  String?     @map("admin_comment") @db.Text
+  /// Тестовый заказ: не учитывается в отчётах.
+  isTest        Boolean       @default(false) @map("is_test")
   consents      ConsentRecord[]
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")

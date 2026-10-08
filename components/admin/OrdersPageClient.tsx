@@ -17,6 +17,7 @@ export type OrderListRow = {
   status: BookingStatus;
   totalPriceRub: number;
   paidAmountRub: number;
+  isTest: boolean;
   user: {
     email: string;
     firstName: string | null;
@@ -103,7 +104,22 @@ export function OrdersListTable({ orders: initialOrders }: { orders: OrderListRo
               const busy = deletingId === o.id;
               return (
                 <tr key={o.id}>
-                  <td style={{ padding: "0.6rem 0.75rem", borderBottom: "1px solid var(--color-border)" }}>{o.carLabel}</td>
+                  <td style={{ padding: "0.6rem 0.75rem", borderBottom: "1px solid var(--color-border)" }}>
+                    {o.carLabel}
+                    {o.isTest ? (
+                      <span
+                        style={{
+                          marginLeft: "0.4rem",
+                          fontSize: "var(--text-xs)",
+                          padding: "0.1rem 0.4rem",
+                          borderRadius: "4px",
+                          background: "var(--color-border)",
+                        }}
+                      >
+                        тест
+                      </span>
+                    ) : null}
+                  </td>
                   <td style={{ padding: "0.6rem 0.75rem", borderBottom: "1px solid var(--color-border)" }}>
                     {formatBookingUserLabel(o.user)}
                     {o.user.phone ? (

@@ -100,6 +100,7 @@ export async function createAdminBookingAction(input: {
       paymentPlan: "FULL",
       paidAmountRub: payment.paidAmountRub,
       totalPriceRub,
+      isTest: car.isTest,
     },
   });
 
