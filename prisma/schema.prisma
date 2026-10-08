@@ -293,6 +293,8 @@ model Asset {
   sortOrder    Int       @default(0) @map("sort_order")
   active       Boolean   @default(true)
   project      Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  deals        Deal[]
+  operations   Operation[]
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
@@ -313,9 +315,13 @@ model CashAccount {
   kind        CashAccountKind
   /// Ответственный (имя) — чьи деньги.
   responsible String?
+  /// Начальный остаток в копейках (на дату начала учёта в системе).
+  openingKop  Int             @default(0) @map("opening_kop")
   sortOrder   Int             @default(0) @map("sort_order")
   active      Boolean         @default(true)
   createdAt   DateTime        @default(now()) @map("created_at")
+  operations  Operation[]     @relation("OperationAccount")
+  incoming    Operation[]     @relation("OperationToAccount")
 
   @@map("cash_accounts")
 }
@@ -342,6 +348,7 @@ model Category {
   /// Названия статьи в УК.xlsx (для импорта истории), по одному названию в строке.
   aliases   String?        @db.Text
   createdAt DateTime       @default(now()) @map("created_at")
+  operations Operation[]
 
   @@map("categories")
 }
@@ -356,6 +363,90 @@ model Channel {
   sortOrder         Int      @default(0) @map("sort_order")
   active            Boolean  @default(true)
   createdAt         DateTime @default(now()) @map("created_at")
+  deals             Deal[]
 
   @@map("channels")
+}
+
+// ============================================================================
+// Учёт «Пальма»: заезды/аренды и журнал операций (этап 2)
+// Деньги — целые копейки. Операции не удаляются, а аннулируются (voidedAt).
+// ============================================================================
+
+enum DealStatus {
+  ACTIVE
+  CANCELLED
+}
+
+/// Заезд (квартира) или аренда авто: сумма, срок, оплаты и расходы цепляются операциями.
+model Deal {
+  id             String      @id @default(cuid())
+  /// Сквозной номер для людей («Заезд №123»).
+  number         Int         @unique @default(autoincrement())
+  assetId        String      @map("asset_id")
+  channelId      String?     @map("channel_id")
+  guestName      String      @map("guest_name")
+  phone          String?
+  startDate      DateTime    @map("start_date") @db.Date
+  endDate        DateTime    @map("end_date") @db.Date
+  /// Сумма заезда/аренды, которую платит гость (брутто), коп.
+  grossKop       Int         @map("gross_kop")
+  /// Комиссия площадки, коп.
+  commissionKop  Int         @default(0) @map("commission_kop")
+  comment        String?     @db.Text
+  status         DealStatus  @default(ACTIVE)
+  /// Бронь сайта проката (на будущее, этап 5).
+  siteBookingId  String?     @unique @map("site_booking_id")
+  createdBy      String      @map("created_by")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+  asset          Asset       @relation(fields: [assetId], references: [id])
+  channel        Channel?    @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  operations     Operation[]
+
+  @@index([assetId, startDate])
+  @@index([startDate])
+  @@map("deals")
+}
+
+enum OperationType {
+  INCOME
+  EXPENSE
+  /// Перемещение между нашими кассами.
+  TRANSFER
+  /// Сдача денег во внешнюю кассу (Рубин): деньги уходят из нашей кассы, это не расход.
+  HANDOVER
+}
+
+/// Строка журнала: приход, расход, перемещение или сдача в Рубин.
+model Operation {
+  id          String        @id @default(cuid())
+  number      Int           @unique @default(autoincrement())
+  date        DateTime      @db.Date
+  type        OperationType
+  amountKop   Int           @map("amount_kop")
+  /// Касса: куда пришло (INCOME) или откуда ушло (EXPENSE, TRANSFER, HANDOVER).
+  accountId   String        @map("account_id")
+  /// Только для TRANSFER: касса-получатель.
+  toAccountId String?       @map("to_account_id")
+  categoryId  String?       @map("category_id")
+  assetId     String?       @map("asset_id")
+  dealId      String?       @map("deal_id")
+  comment     String?       @db.Text
+  createdBy   String        @map("created_by")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  voidedAt    DateTime?     @map("voided_at")
+  voidedBy    String?       @map("voided_by")
+  account     CashAccount   @relation("OperationAccount", fields: [accountId], references: [id])
+  toAccount   CashAccount?  @relation("OperationToAccount", fields: [toAccountId], references: [id])
+  category    Category?     @relation(fields: [categoryId], references: [id])
+  asset       Asset?        @relation(fields: [assetId], references: [id])
+  deal        Deal?         @relation(fields: [dealId], references: [id])
+
+  @@index([date])
+  @@index([accountId])
+  @@index([dealId])
+  @@index([assetId])
+  @@map("operations")
 }

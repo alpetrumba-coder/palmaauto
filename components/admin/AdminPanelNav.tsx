@@ -6,6 +6,9 @@ export function AdminPanelNav({ isOwner = false }: { isOwner?: boolean }) {
       <Link href="/admin-panel" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
         Обзор
       </Link>
+      <Link href="/admin-panel/accounting" className="nav-tap-target" style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>
+        Учёт
+      </Link>
       <Link
         href="/admin-panel/cars"
         className="nav-tap-target"

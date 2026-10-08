@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { saveDictionaryItemAction, type DictValues } from "@/app/actions/admin-dictionaries";
 import type { DictEntity, DictSpec, FieldSpec } from "@/lib/dictionaries";
+import { formatKop, kopToInput } from "@/lib/money";
 
 export type DictRow = Record<string, string | number | boolean | null> & { id: string };
 
@@ -35,6 +36,7 @@ function optionsFor(f: FieldSpec, projects: Props["projects"]) {
 function display(f: FieldSpec, row: DictRow, projects: Props["projects"]): string {
   const v = row[f.key];
   if (f.type === "checkbox") return v ? "да" : "нет";
+  if (f.type === "money") return formatKop(Number(v ?? 0));
   if (v === null || v === undefined || v === "") return "—";
   if (f.type === "select") return optionsFor(f, projects).find((o) => o.value === v)?.label ?? String(v);
   return String(v);
@@ -56,7 +58,14 @@ function valuesFromRow(fields: FieldSpec[], row: DictRow): DictValues {
   const v: DictValues = {};
   for (const f of fields) {
     const x = row[f.key];
-    v[f.key] = f.type === "checkbox" ? x === true : x === null || x === undefined ? "" : String(x);
+    v[f.key] =
+      f.type === "checkbox"
+        ? x === true
+        : f.type === "money"
+          ? kopToInput(Number(x ?? 0))
+          : x === null || x === undefined
+            ? ""
+            : String(x);
   }
   return v;
 }
@@ -140,6 +149,15 @@ export function DictionaryTable({ entity, spec, rows, projects, canEdit }: Props
                 {f.label}
                 {f.required ? " *" : ""}
               </span>
+              {f.type === "money" ? (
+                <input
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={String(values[f.key] ?? "")}
+                  onChange={(e) => setValues((p) => ({ ...p, [f.key]: e.target.value }))}
+                  style={fieldStyle}
+                />
+              ) : null}
               {f.type === "text" || f.type === "number" ? (
                 <input
                   type={f.type === "number" ? "number" : "text"}

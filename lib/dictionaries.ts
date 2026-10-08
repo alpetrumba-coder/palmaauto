@@ -8,7 +8,7 @@ export type DictEntity = "projects" | "assets" | "cash" | "categories" | "channe
 export type FieldSpec = {
   key: string;
   label: string;
-  type: "text" | "textarea" | "number" | "select" | "checkbox";
+  type: "text" | "textarea" | "number" | "money" | "select" | "checkbox";
   required?: boolean;
   /** Для select: фиксированный список. Для projectId список приходит с сервера (динамический). */
   options?: { value: string; label: string }[];
@@ -79,6 +79,13 @@ export const DICTS: Record<DictEntity, DictSpec> = {
         ],
       },
       { key: "responsible", label: "Ответственный", type: "text", inList: true },
+      {
+        key: "openingKop",
+        label: "Начальный остаток, ₽",
+        type: "money",
+        inList: true,
+        hint: "Сколько денег было в кассе на день начала учёта в системе (можно с копейками)",
+      },
       sortField,
       activeField,
     ],

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { seedAccountingDictionaries } from "@/lib/accounting-seed";
+import { parseMoneyToKop } from "@/lib/money";
 import { DICTS, isDictEntity, type DictEntity, type FieldSpec } from "@/lib/dictionaries";
 import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/require-admin-panel";
@@ -24,6 +25,16 @@ function coerce(
       continue;
     }
     const str = typeof v === "string" ? v.trim() : "";
+    if (f.type === "money") {
+      if (str === "") {
+        data[f.key] = 0;
+        continue;
+      }
+      const kop = parseMoneyToKop(str);
+      if (kop === null) return { error: `«${f.label}» — сумма вроде 15000 или 15000,50.` };
+      data[f.key] = kop;
+      continue;
+    }
     if (f.type === "number") {
       if (str === "") {
         if (f.key === "sortOrder") {
