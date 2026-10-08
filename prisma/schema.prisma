@@ -231,3 +231,131 @@ model ExtraService {
 
   @@map("extra_services")
 }
+
+// ============================================================================
+// Учёт «Пальма»: справочники и сотрудники (этап 1 плана docs/PLAN-UCHET.md)
+// ============================================================================
+
+enum StaffRole {
+  OWNER
+  OPERATOR
+}
+
+/// Сотрудник с личным входом в админ-панель (отдельно от клиентов сайта).
+model StaffUser {
+  id           String    @id @default(cuid())
+  /// Логин для входа (email), в нижнем регистре.
+  login        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  role         StaffRole @default(OPERATOR)
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("staff_users")
+}
+
+/// Проект (юрлицо/направление) из учёта УК: УН, Проект N, Библая В. и т.д.
+model Project {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0) @map("sort_order")
+  active    Boolean  @default(true)
+  assets    Asset[]
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("projects")
+}
+
+enum AssetKind {
+  APARTMENT
+  CAR
+}
+
+/// Объект учёта: квартира/дом или автомобиль.
+model Asset {
+  id           String    @id @default(cuid())
+  kind         AssetKind
+  name         String
+  /// Адрес или госномер.
+  address      String?
+  projectId    String?   @map("project_id")
+  /// Доля собственника в %, остаток — УК (для квартир: 65/35).
+  ownerSharePct Int      @default(65) @map("owner_share_pct")
+  /// Название объекта в RealtyCalendar (для сопоставления броней).
+  rcName       String?   @map("rc_name")
+  /// Как объект назывался в УК.xlsx (для импорта истории), по одному названию в строке.
+  aliases      String?   @db.Text
+  /// Связь с машиной сайта проката (slug из таблицы cars).
+  carSlug      String?   @map("car_slug")
+  sortOrder    Int       @default(0) @map("sort_order")
+  active       Boolean   @default(true)
+  project      Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@unique([kind, name])
+  @@map("assets")
+}
+
+enum CashAccountKind {
+  CARD
+  CASH
+  ONLINE
+}
+
+/// Касса / счёт: карта, наличные у сотрудника, онлайн-кошелёк.
+model CashAccount {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  kind        CashAccountKind
+  /// Ответственный (имя) — чьи деньги.
+  responsible String?
+  sortOrder   Int             @default(0) @map("sort_order")
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@map("cash_accounts")
+}
+
+enum CategoryKind {
+  INCOME
+  EXPENSE
+}
+
+/// Переменный расход относится к конкретному заезду/аренде; постоянный — распределяется по объектам.
+enum CategoryNature {
+  VARIABLE
+  FIXED
+}
+
+/// Статья доходов/расходов (очищенный справочник из УК.xlsx).
+model Category {
+  id        String         @id @default(cuid())
+  name      String         @unique
+  kind      CategoryKind
+  nature    CategoryNature @default(VARIABLE)
+  sortOrder Int            @default(0) @map("sort_order")
+  active    Boolean        @default(true)
+  /// Названия статьи в УК.xlsx (для импорта истории), по одному названию в строке.
+  aliases   String?        @db.Text
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@map("categories")
+}
+
+/// Площадка/канал продаж с комиссией по сезону.
+model Channel {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  /// Комиссия площадки в % (низкий сезон / высокий сезон).
+  commissionLowPct  Int      @default(0) @map("commission_low_pct")
+  commissionHighPct Int      @default(0) @map("commission_high_pct")
+  sortOrder         Int      @default(0) @map("sort_order")
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("channels")
+}

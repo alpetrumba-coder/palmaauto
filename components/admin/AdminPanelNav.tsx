@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export function AdminPanelNav() {
+export function AdminPanelNav({ isOwner = false }: { isOwner?: boolean }) {
   return (
     <nav aria-label="Админ-панель" style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
       <Link href="/admin-panel" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
@@ -29,6 +29,18 @@ export function AdminPanelNav() {
       >
         Доп. услуги
       </Link>
+      <Link
+        href="/admin-panel/dictionaries"
+        className="nav-tap-target"
+        style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}
+      >
+        Справочники
+      </Link>
+      {isOwner ? (
+        <Link href="/admin-panel/staff" className="nav-tap-target" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
+          Сотрудники
+        </Link>
+      ) : null}
       <Link href="/" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
         Сайт
       </Link>

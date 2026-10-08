@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { adminPanelCookieName, verifyAdminPanelSessionToken } from "@/lib/admin-panel-session";
+import { getAdminPanelSession } from "@/lib/require-admin-panel";
 import { processCarPhotoBuffer } from "@/lib/car-photo-process";
 import { persistCarPhotoJpeg } from "@/lib/save-car-photo-upload";
 
@@ -11,8 +10,7 @@ export const runtime = "nodejs";
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 export async function POST(req: Request) {
-  const cookieStore = await cookies();
-  if (!verifyAdminPanelSessionToken(cookieStore.get(adminPanelCookieName())?.value)) {
+  if (!(await getAdminPanelSession())) {
     return NextResponse.json({ error: "Нет доступа" }, { status: 401 });
   }
 

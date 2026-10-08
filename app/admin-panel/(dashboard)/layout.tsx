@@ -6,7 +6,7 @@ import { requireAdminPanelSession } from "@/lib/require-admin-panel";
 import Link from "next/link";
 
 export default async function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
-  await requireAdminPanelSession();
+  const session = await requireAdminPanelSession();
 
   return (
     <div
@@ -29,9 +29,14 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
           <Link href="/" className="nav-tap-target" style={{ textDecoration: "none", color: "var(--color-text)" }}>
             <PalmaAutoLogo size="var(--text-xl)" />
           </Link>
-          <AdminPanelNav />
+          <AdminPanelNav isOwner={session.role === "OWNER"} />
         </div>
-        <AdminPanelLogoutButton />
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+            {session.name} · {session.role === "OWNER" ? "владелец" : "оператор"}
+          </span>
+          <AdminPanelLogoutButton />
+        </div>
       </header>
       {children}
       <footer
