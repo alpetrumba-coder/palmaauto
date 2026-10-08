@@ -448,7 +448,7 @@ export function CarForm(props: CarFormProps) {
           />
         </label>
         <p style={{ margin: "0.35rem 0 0", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-          Вставьте ссылку на ролик или клип с vk.com или vkvideo.ru — на странице авто видео появится под главным фото.
+          Вставьте ссылку на ролик или клип с vk.com или vkvideo.ru — на странице авто видео будет первым в правой колонке.
         </p>
         <VkVideoUrlPreview url={videoUrl} />
       </div>

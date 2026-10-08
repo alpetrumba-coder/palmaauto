@@ -26,3 +26,6 @@ payments/учетные  данные.txt
 # IDE (по желанию раскомментируйте)
 # .idea/
 # .vscode/
+
+.twc-secrets/
+
