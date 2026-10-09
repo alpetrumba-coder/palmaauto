@@ -40,7 +40,7 @@ const bigBtn: React.CSSProperties = {
 };
 
 export default async function AccountingPage({ searchParams }: { searchParams: Promise<SP> }) {
-  await requireAdminPanelSession();
+  const session = await requireAdminPanelSession();
   const sp = await searchParams;
 
   const from = sp.from ? parseDateInput(sp.from) : null;
@@ -111,6 +111,11 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
         <Link href="/admin-panel/accounting/deals" style={{ ...bigBtn, border: "1px solid var(--color-border)", color: "var(--color-text)" }}>
           Все заезды и аренды
         </Link>
+        {session.role === "OWNER" ? (
+          <Link href="/admin-panel/accounting/import" style={{ ...bigBtn, border: "1px dashed var(--color-border)", color: "var(--color-text-secondary)", fontWeight: 600 }}>
+            Импорт истории
+          </Link>
+        ) : null}
       </div>
 
       <h2 style={{ fontSize: "var(--text-lg)", margin: "0 0 0.6rem" }}>Остатки по кассам</h2>

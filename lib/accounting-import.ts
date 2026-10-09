@@ -16,12 +16,32 @@ export type ImportOperation = {
 
 export type ImportResult = { created: number; alreadyThere: number; total: number };
 
-/**
- * Загружает историю как «перенесённые» операции (isImported=true): они видны в журнале и отчётах,
- * но не меняют остатки касс. Повторный запуск безопасен: строки с тем же sourceRef не дублируются и не перезаписываются.
- * Названия касс/статей/объектов должны существовать в справочниках (иначе — понятная ошибка до записи).
- */
-export async function importOperations(ops: ImportOperation[], createdBy = "Импорт УК.xlsx"): Promise<ImportResult> {
+export type ImportPreview = {
+  total: number;
+  alreadyThere: number;
+  toCreate: number;
+  needsReview: number;
+  byType: Record<string, number>;
+  missing: string[];
+};
+
+type Prepared = {
+  sourceRef: string;
+  date: Date;
+  type: ImportOperation["type"];
+  amountKop: number;
+  accountId: string;
+  categoryId: string | null;
+  assetId: string | null;
+  comment: string;
+  needsReview: boolean;
+  reviewNote: string | null;
+  isImported: true;
+  createdBy: string;
+};
+
+/** Сопоставляет названия с записями справочников и проверяет строки; названия, которых нет, возвращаются списком. */
+async function prepare(ops: ImportOperation[], createdBy: string): Promise<{ data: Prepared[]; missing: string[] }> {
   const [accounts, categories, assets] = await Promise.all([
     prisma.cashAccount.findMany({ select: { id: true, name: true } }),
     prisma.category.findMany({ select: { id: true, name: true } }),
@@ -32,7 +52,7 @@ export async function importOperations(ops: ImportOperation[], createdBy = "Им
   const ast = new Map(assets.map((a) => [a.name, a.id]));
 
   const missing = new Set<string>();
-  const data = ops.map((o) => {
+  const data = ops.map((o): Prepared => {
     const accountId = acc.get(o.accountName);
     if (!accountId) missing.add(`касса «${o.accountName}»`);
     const categoryId = o.categoryName ? cat.get(o.categoryName) : null;
@@ -56,10 +76,43 @@ export async function importOperations(ops: ImportOperation[], createdBy = "Им
       createdBy,
     };
   });
-  if (missing.size > 0) {
-    throw new Error(`В справочниках не найдено: ${[...missing].join(", ")}. Сначала заполните справочники («Справочники → Заполнить стартовыми данными»).`);
-  }
+  return { data, missing: [...missing] };
+}
 
+async function countExisting(refs: string[]): Promise<number> {
+  let n = 0;
+  for (let i = 0; i < refs.length; i += 1000) {
+    n += await prisma.operation.count({ where: { sourceRef: { in: refs.slice(i, i + 1000) } } });
+  }
+  return n;
+}
+
+/** Предпросмотр без записи: сколько будет создано, сколько уже есть, чего не хватает в справочниках. */
+export async function previewImport(ops: ImportOperation[]): Promise<ImportPreview> {
+  const { data, missing } = await prepare(ops, "Импорт УК.xlsx");
+  const alreadyThere = await countExisting(data.map((d) => d.sourceRef));
+  const byType: Record<string, number> = {};
+  for (const d of data) byType[d.type] = (byType[d.type] ?? 0) + 1;
+  return {
+    total: data.length,
+    alreadyThere,
+    toCreate: data.length - alreadyThere,
+    needsReview: data.filter((d) => d.needsReview).length,
+    byType,
+    missing,
+  };
+}
+
+/**
+ * Загружает историю как «перенесённые» операции (isImported=true): они видны в журнале и отчётах,
+ * но не меняют остатки касс. Повторный запуск безопасен: строки с тем же sourceRef не дублируются и не перезаписываются.
+ * Названия касс/статей/объектов должны существовать в справочниках (иначе — понятная ошибка до записи).
+ */
+export async function importOperations(ops: ImportOperation[], createdBy = "Импорт УК.xlsx"): Promise<ImportResult> {
+  const { data, missing } = await prepare(ops, createdBy);
+  if (missing.length > 0) {
+    throw new Error(`В справочниках не найдено: ${missing.join(", ")}. Сначала заполните справочники («Справочники → Заполнить стартовыми данными»).`);
+  }
   let created = 0;
   for (let i = 0; i < data.length; i += 500) {
     const res = await prisma.operation.createMany({ data: data.slice(i, i + 500), skipDuplicates: true });
