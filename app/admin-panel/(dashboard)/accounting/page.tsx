@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-type SP = { from?: string; to?: string; account?: string; type?: string; asset?: string; voided?: string };
+type SP = { from?: string; to?: string; account?: string; type?: string; asset?: string; voided?: string; imp?: string; review?: string };
 
 const cell: React.CSSProperties = { padding: "0.55rem 0.7rem", borderBottom: "1px solid var(--color-border)", verticalAlign: "top" };
 const field: React.CSSProperties = {
@@ -46,6 +46,8 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
   const from = sp.from ? parseDateInput(sp.from) : null;
   const to = sp.to ? parseDateInput(sp.to) : null;
   const showVoided = sp.voided === "1";
+  const hideImported = sp.imp === "hide";
+  const onlyReview = sp.review === "1";
   const type = ["INCOME", "EXPENSE", "TRANSFER", "HANDOVER"].includes(sp.type ?? "") ? (sp.type as Prisma.OperationWhereInput["type"]) : undefined;
 
   const where: Prisma.OperationWhereInput = {
@@ -54,6 +56,8 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
     ...(sp.account ? { OR: [{ accountId: sp.account }, { toAccountId: sp.account }] } : {}),
     ...(type ? { type } : {}),
     ...(sp.asset ? { assetId: sp.asset } : {}),
+    ...(hideImported ? { isImported: false } : {}),
+    ...(onlyReview ? { needsReview: true } : {}),
   };
 
   const [balances, rows, totals, accounts, assets] = await Promise.all([
@@ -128,7 +132,7 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
         ))}
       </div>
       <p style={{ margin: "0.6rem 0 0", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-        Всего в кассах: <strong style={{ color: "var(--color-text)" }}>{formatKop(totalKop)}</strong>. Сдачи в Рубин в остаток не входят: эти деньги уже ушли из касс.
+        Всего в кассах: <strong style={{ color: "var(--color-text)" }}>{formatKop(totalKop)}</strong>. Сдачи в Рубин и перенесённая из старой истории (метка «импорт») в остаток не входят: остатки задаются вручную.
       </p>
 
       <h2 style={{ fontSize: "var(--text-lg)", margin: "1.75rem 0 0.6rem" }}>Журнал операций</h2>
@@ -172,6 +176,14 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
           <input type="checkbox" name="voided" value="1" defaultChecked={showVoided} />
           с аннулированными
         </label>
+        <label style={{ display: "flex", gap: "0.35rem", alignItems: "center", paddingBottom: "0.45rem" }}>
+          <input type="checkbox" name="imp" value="hide" defaultChecked={hideImported} />
+          без перенесённой истории
+        </label>
+        <label style={{ display: "flex", gap: "0.35rem", alignItems: "center", paddingBottom: "0.45rem" }}>
+          <input type="checkbox" name="review" value="1" defaultChecked={onlyReview} />
+          только «проверить»
+        </label>
         <button type="submit" style={{ ...field, cursor: "pointer", fontWeight: 600 }}>Показать</button>
         <Link href="/admin-panel/accounting" style={{ paddingBottom: "0.45rem" }}>Сбросить</Link>
       </form>
@@ -200,7 +212,15 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
                 const sign = o.type === "INCOME" ? "+" : o.type === "TRANSFER" ? "" : "−";
                 return (
                   <tr key={o.id} style={{ opacity: voided ? 0.5 : 1, textDecoration: voided ? "line-through" : undefined }}>
-                    <td style={cell}>{o.number}</td>
+                    <td style={cell}>
+                      {o.number}
+                      {o.isImported ? <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>импорт</div> : null}
+                      {o.needsReview ? (
+                        <div title={o.reviewNote ?? ""} style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--color-danger, #b00020)" }}>
+                          проверить
+                        </div>
+                      ) : null}
+                    </td>
                     <td style={{ ...cell, whiteSpace: "nowrap" }}>{fmtDate(o.date)}</td>
                     <td style={cell}>{OPERATION_TYPE_LABEL[o.type]}</td>
                     <td style={{ ...cell, whiteSpace: "nowrap", fontWeight: 600, color: o.type === "INCOME" ? "var(--color-success, #1a7f37)" : undefined }}>
@@ -221,7 +241,12 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
                         (o.asset?.name ?? "—")
                       )}
                     </td>
-                    <td style={{ ...cell, maxWidth: "18rem" }}>{o.comment ?? ""}</td>
+                    <td style={{ ...cell, maxWidth: "18rem" }}>
+                      {o.comment ?? ""}
+                      {o.needsReview && o.reviewNote ? (
+                        <div style={{ fontSize: "var(--text-xs)", color: "var(--color-danger, #b00020)" }}>{o.reviewNote}</div>
+                      ) : null}
+                    </td>
                     <td style={{ ...cell, whiteSpace: "nowrap", color: "var(--color-text-secondary)" }}>
                       {o.createdBy}
                       {voided ? ` · аннулировал ${o.voidedBy ?? ""}` : ""}

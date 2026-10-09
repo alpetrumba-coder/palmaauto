@@ -17,19 +17,19 @@ export type AccountBalance = {
 
 /**
  * Остатки по кассам: начальный остаток + приходы − расходы − сдачи в Рубин − перемещения наружу + перемещения внутрь.
- * Аннулированные операции не учитываются.
+ * Аннулированные и перенесённые из старой истории (isImported) операции не учитываются: остатки задаются вручную.
  */
 export async function getAccountBalances(): Promise<AccountBalance[]> {
   const [accounts, byAccount, transfersIn] = await Promise.all([
     prisma.cashAccount.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     prisma.operation.groupBy({
       by: ["accountId", "type"],
-      where: { voidedAt: null },
+      where: { voidedAt: null, isImported: false },
       _sum: { amountKop: true },
     }),
     prisma.operation.groupBy({
       by: ["toAccountId"],
-      where: { voidedAt: null, type: "TRANSFER", toAccountId: { not: null } },
+      where: { voidedAt: null, isImported: false, type: "TRANSFER", toAccountId: { not: null } },
       _sum: { amountKop: true },
     }),
   ]);

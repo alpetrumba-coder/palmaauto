@@ -11,7 +11,7 @@ const lines = (...names: string[]) => names.join("\n");
 
 const PROJECTS = ["УН", "Проект N", "Библая В.", "Кизер А.", "Кошман В."];
 
-type A = { name: string; rcName?: string; address?: string; aliases?: string[]; kind?: "APARTMENT" | "CAR"; carSlug?: string; share?: number };
+type A = { name: string; rcName?: string; address?: string; aliases?: string[]; kind?: "APARTMENT" | "CAR"; carSlug?: string; share?: number; ownerName?: string };
 
 const APARTMENTS: A[] = [
   { name: "Муха", rcName: "00 Муха - Заречная 16", address: "Сухум, ул. Заречная 16, кв. 41", aliases: ["ул. Заречная 16/41 Двухкомнатная"] },
@@ -26,7 +26,8 @@ const APARTMENTS: A[] = [
   { name: "Маркиза", rcName: "7. Маркиза - Адлейба, 232", address: "Сухум, ул. Адлейба 232, кв. 29", aliases: ["ул.Адлейба 232, кв. 29"] },
   { name: "Полёт", rcName: "8. Полет - Гумистинская 29 - Новый район", address: "Сухум, ул. Гумистинская 29, кв. 71", aliases: ["ул. Гумистинская 29, кв. 71"] },
   { name: "Массив Гумиста 14", rcName: "9.1. Массив Гумиста 14", address: "Сухум, Массив Гумиста 14, кв. 5", aliases: ["Массив Гумиста 14 кв 5"] },
-  { name: "Почтовая", rcName: "9.2. Почтовая улица 27", address: "Сухум, ул. Почтовая 27", aliases: ["ул. Почтовая 27"] },
+  { name: "Почтовая", rcName: "9.2. Почтовая улица 27", address: "Сухум, ул. Почтовая 27", aliases: ["ул. Почтовая 27"], ownerName: "Кошман В." },
+  { name: "Акиртава 27", address: "Сухум, ул. Акиртава 27", aliases: ["Акиртава 27"] },
   { name: "Классика", rcName: "9. Классика - Очамчира", address: "Очамчира, ул. Б. Шинкуба 72", aliases: ["Очамчира, ул. Б.Шинкуба 72"] },
 ];
 
@@ -37,7 +38,7 @@ const CARS: A[] = [
   { name: "Toyota Crown", kind: "CAR", carSlug: "toyota-crown", share: 85 },
 ];
 
-const CASH: { name: string; kind: "CARD" | "CASH" | "ONLINE"; responsible?: string }[] = [
+const CASH: { name: string; kind: "CARD" | "CASH" | "ONLINE"; responsible?: string; active?: boolean }[] = [
   { name: "Т-банк", kind: "CARD" },
   { name: "Карта Х", kind: "CARD" },
   { name: "Наличные Ева", kind: "CASH", responsible: "Ева" },
@@ -45,6 +46,8 @@ const CASH: { name: string; kind: "CARD" | "CASH" | "ONLINE"; responsible?: stri
   { name: "Карта Дмитрия Л.", kind: "CARD", responsible: "Дмитрий" },
   { name: "Карта Анны Нестеровой", kind: "CARD", responsible: "Анна Нестерова" },
   { name: "Монета", kind: "ONLINE" },
+  // Служебная касса для перенесённой истории, где реальную кассу определить нельзя; в формах ввода не показывается.
+  { name: "Перенесённая история (не распознано)", kind: "CASH", active: false },
 ];
 
 type C = { name: string; kind: "INCOME" | "EXPENSE"; nature: "VARIABLE" | "FIXED"; aliases?: string[] };
@@ -68,6 +71,9 @@ const CATEGORIES: C[] = [
   { name: "ГСМ", kind: "EXPENSE", nature: "VARIABLE", aliases: ["ГСМ"] },
   { name: "Ремонт и обслуживание транспорта", kind: "EXPENSE", nature: "VARIABLE", aliases: ["ремонт, обслуживание и содержание транспорта"] },
   { name: "Возврат клиенту", kind: "EXPENSE", nature: "VARIABLE", aliases: ["возврат денежных средств"] },
+  { name: "Прочие расходы (не классифицировано)", kind: "EXPENSE", nature: "FIXED", aliases: [] },
+  // Служебная статья: деньги получены из кассы Рубина / на карту — это не доход, в отчёты о доходах не входит.
+  { name: "Служебное: получение денег (не доход)", kind: "INCOME", nature: "FIXED", aliases: ["Получение ДС из кассы ТДР", "Получение ДС на карту"] },
   { name: "Банковская комиссия", kind: "EXPENSE", nature: "VARIABLE", aliases: ["банковская комиссия"] },
   // Постоянные расходы (распределяются по объектам)
   { name: "Связь", kind: "EXPENSE", nature: "FIXED", aliases: ["связь"] },
@@ -120,6 +126,7 @@ export async function seedAccountingDictionaries(): Promise<SeedResult> {
           address: a.address ?? null,
           rcName: a.rcName ?? null,
           carSlug: a.carSlug ?? null,
+          ownerName: a.ownerName ?? null,
           ownerSharePct: a.share ?? 65,
           aliases: a.aliases ? lines(...a.aliases) : null,
           sortOrder: i,
@@ -131,7 +138,7 @@ export async function seedAccountingDictionaries(): Promise<SeedResult> {
 
   for (const [i, c] of CASH.entries()) {
     if (!(await prisma.cashAccount.findUnique({ where: { name: c.name } }))) {
-      await prisma.cashAccount.create({ data: { name: c.name, kind: c.kind, responsible: c.responsible ?? null, sortOrder: i } });
+      await prisma.cashAccount.create({ data: { name: c.name, kind: c.kind, responsible: c.responsible ?? null, active: c.active ?? true, sortOrder: i } });
       created.cash++;
     }
   }

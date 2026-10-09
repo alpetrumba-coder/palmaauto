@@ -282,7 +282,9 @@ model Asset {
   /// Адрес или госномер.
   address      String?
   projectId    String?   @map("project_id")
-  /// Доля собственника в %, остаток — УК (для квартир: 65/35).
+  /// Внешний собственник (имя). Пусто — объект компании: расчёт «доли собственника» не нужен.
+  ownerName    String?   @map("owner_name")
+  /// Доля внешнего собственника в % (остаток — УК); имеет смысл, только если ownerName задан.
   ownerSharePct Int      @default(65) @map("owner_share_pct")
   /// Название объекта в RealtyCalendar (для сопоставления броней).
   rcName       String?   @map("rc_name")
@@ -438,6 +440,13 @@ model Operation {
   updatedAt   DateTime      @updatedAt @map("updated_at")
   voidedAt    DateTime?     @map("voided_at")
   voidedBy    String?       @map("voided_by")
+  /// Перенесено из старой истории (УК.xlsx): не влияет на остатки касс, остатки задаются вручную.
+  isImported  Boolean       @default(false) @map("is_imported")
+  /// Откуда взято: «uk:<строка в УК.xlsx>»; уникально — повторный импорт не создаёт дублей.
+  sourceRef   String?       @unique @map("source_ref")
+  /// Требует проверки человеком (расхождение с 1С, нераспознанная касса и т.п.); в отчёты не попадает до решения.
+  needsReview Boolean       @default(false) @map("needs_review")
+  reviewNote  String?       @map("review_note")
   account     CashAccount   @relation("OperationAccount", fields: [accountId], references: [id])
   toAccount   CashAccount?  @relation("OperationToAccount", fields: [toAccountId], references: [id])
   category    Category?     @relation(fields: [categoryId], references: [id])
@@ -448,5 +457,6 @@ model Operation {
   @@index([accountId])
   @@index([dealId])
   @@index([assetId])
+  @@index([needsReview])
   @@map("operations")
 }
