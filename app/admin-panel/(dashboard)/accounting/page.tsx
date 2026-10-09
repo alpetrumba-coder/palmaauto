@@ -111,6 +111,9 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
         <Link href="/admin-panel/accounting/deals" style={{ ...bigBtn, border: "1px solid var(--color-border)", color: "var(--color-text)" }}>
           Все заезды и аренды
         </Link>
+        <Link href="/admin-panel/accounting/reports" style={{ ...bigBtn, border: "1px solid var(--color-border)", color: "var(--color-text)" }}>
+          Отчёты
+        </Link>
         {session.role === "OWNER" ? (
           <Link href="/admin-panel/accounting/import" style={{ ...bigBtn, border: "1px dashed var(--color-border)", color: "var(--color-text-secondary)", fontWeight: 600 }}>
             Импорт истории
