@@ -81,7 +81,7 @@ export async function rcLogin(): Promise<string> {
   if (!creds) throw new RcError("настройка", "Не задан доступ к RealtyCalendar: введите логин и пароль служебной учётки на странице «Сверка с RealtyCalendar».");
   const { login, password } = creds;
 
-  const variants: Record<string, unknown>[] = [{ login, password }, { user: { login, password } }, { email: login, password }];
+  const variants: Record<string, unknown>[] = [{ username: login, password }, { login, password }, { user: { username: login, password } }];
   const tried: string[] = [];
   for (const body of variants) {
     const res = await http(`${BASE()}/v2/sign_in`, {

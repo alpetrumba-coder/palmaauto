@@ -21,6 +21,7 @@ export function RcCredentialsForm({ savedLogin, passwordSaved, fromEnv }: { save
   const router = useRouter();
   const [login, setLogin] = useState(savedLogin);
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -63,7 +64,24 @@ export function RcCredentialsForm({ savedLogin, passwordSaved, fromEnv }: { save
       </label>
       <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem", fontSize: "var(--text-sm)" }}>
         Пароль {passwordSaved ? "(сохранён и скрыт; введите новый, чтобы заменить)" : ""}
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" style={field} />
+        <span style={{ position: "relative", display: "block" }}>
+          <input
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            style={{ ...field, paddingRight: "2.8rem" }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+            title={showPassword ? "Скрыть пароль" : "Показать пароль"}
+            style={{ position: "absolute", right: "0.4rem", top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", cursor: "pointer", fontSize: "1.1rem", lineHeight: 1, padding: "0.3rem" }}
+          >
+            {showPassword ? "🙈" : "👁"}
+          </button>
+        </span>
       </label>
       <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", alignItems: "center" }}>
         <button
