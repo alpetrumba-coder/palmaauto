@@ -1,3 +1,5 @@
+import { getSetting } from "@/lib/app-settings";
+
 /**
  * Клиент RealtyCalendar для недельной сверки. Только ЧТЕНИЕ.
  *
@@ -8,7 +10,8 @@
  * Формат внутренний и может измениться без предупреждения; при любой неожиданности клиент останавливается и
  * возвращает понятную диагностику (без паролей и токенов).
  *
- * Логин и пароль — только в переменных окружения сервера: RC_LOGIN, RC_PASSWORD (вносит владелец в панели Timeweb).
+ * Логин и пароль: сначала переменные окружения RC_LOGIN / RC_PASSWORD, иначе то, что владелец ввёл на странице
+ * «Сверка с RealtyCalendar» (пароль хранится зашифрованным).
  */
 
 export type RcEvent = {
@@ -30,8 +33,17 @@ export type RcDiagnostics = { ok: boolean; step: string; detail: string };
 
 const BASE = () => (process.env.RC_BASE_URL || "https://realtycalendar.ru").replace(/\/$/, "");
 
-export function rcConfigured(): boolean {
-  return !!process.env.RC_LOGIN && !!process.env.RC_PASSWORD;
+export const RC_LOGIN_KEY = "rc.login";
+export const RC_PASSWORD_KEY = "rc.password";
+
+export async function rcCredentials(): Promise<{ login: string; password: string } | null> {
+  const login = process.env.RC_LOGIN || (await getSetting(RC_LOGIN_KEY));
+  const password = process.env.RC_PASSWORD || (await getSetting(RC_PASSWORD_KEY));
+  return login && password ? { login, password } : null;
+}
+
+export async function rcConfigured(): Promise<boolean> {
+  return (await rcCredentials()) !== null;
 }
 
 class RcError extends Error {
@@ -65,9 +77,9 @@ const keysOf = (j: unknown) => (j && typeof j === "object" ? Object.keys(j as ob
 
 /** Вход служебной учётной записью. Формат тела подбирается из нескольких вариантов; успешный вариант запоминается на время запроса. */
 export async function rcLogin(): Promise<string> {
-  const login = process.env.RC_LOGIN;
-  const password = process.env.RC_PASSWORD;
-  if (!login || !password) throw new RcError("настройка", "Не заданы RC_LOGIN и RC_PASSWORD в настройках сервера.");
+  const creds = await rcCredentials();
+  if (!creds) throw new RcError("настройка", "Не задан доступ к RealtyCalendar: введите логин и пароль служебной учётки на странице «Сверка с RealtyCalendar».");
+  const { login, password } = creds;
 
   const variants: Record<string, unknown>[] = [{ login, password }, { user: { login, password } }, { email: login, password }];
   const tried: string[] = [];
@@ -131,7 +143,7 @@ export async function rcFetchEvents(from: Date, to: Date, token?: string): Promi
 
 /** Проверка подключения (кнопка «Проверить подключение»): вход + один запрос; без данных гостей в ответе. */
 export async function rcCheck(): Promise<RcDiagnostics> {
-  if (!rcConfigured()) return { ok: false, step: "настройка", detail: "Не заданы RC_LOGIN и RC_PASSWORD в настройках сервера (Timeweb → приложение → переменные)." };
+  if (!(await rcConfigured())) return { ok: false, step: "настройка", detail: "Не задан доступ к RealtyCalendar: введите логин и пароль служебной учётки в форме выше и нажмите «Сохранить»." };
   try {
     const token = await rcLogin();
     const today = new Date();

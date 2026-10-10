@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { RcCredentialsForm } from "@/components/admin/RcCredentialsForm";
 import { RcRowButton } from "@/components/admin/RcRowButton";
 import { RcSyncPanel } from "@/components/admin/RcSyncPanel";
+import { getSetting, hasSetting } from "@/lib/app-settings";
 import { formatKop } from "@/lib/money";
+import { RC_LOGIN_KEY, RC_PASSWORD_KEY, rcConfigured } from "@/lib/rc-client";
 import type { RcRunSummary } from "@/lib/rc-sync";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
@@ -45,8 +48,10 @@ export default async function RcSyncPage() {
     prisma.rcSyncRun.findMany({ orderBy: { startedAt: "desc" }, take: 8, select: { id: true, startedAt: true, trigger: true, status: true, error: true } }),
   ]);
   const res = last?.status === "ok" ? (last.result as RcRunSummary | null) : null;
-  const configured = !!process.env.RC_LOGIN && !!process.env.RC_PASSWORD;
-  const cronSet = !!process.env.CRON_SECRET;
+  const fromEnv = !!process.env.RC_LOGIN && !!process.env.RC_PASSWORD;
+  const configured = await rcConfigured();
+  const savedLogin = (await getSetting(RC_LOGIN_KEY)) ?? "";
+  const passwordSaved = await hasSetting(RC_PASSWORD_KEY);
   const TRIG: Record<string, string> = { cron: "по расписанию", manual: "вручную", check: "проверка" };
 
   return (
@@ -61,11 +66,16 @@ export default async function RcSyncPage() {
       </p>
 
       <ul style={{ margin: "0 0 1rem", paddingLeft: "1.1rem", fontSize: "var(--text-sm)" }}>
-        <li>Подключение к RealtyCalendar: {configured ? "логин и пароль заданы" : <strong style={{ color: "var(--color-danger, #b00020)" }}>не заданы (RC_LOGIN и RC_PASSWORD в настройках сервера)</strong>}</li>
-        <li>Запуск по расписанию (понедельник, 08:00): {cronSet ? "ключ задан на сервере" : <strong style={{ color: "var(--color-danger, #b00020)" }}>ключ CRON_SECRET не задан на сервере</strong>}</li>
+        <li>Доступ к RealtyCalendar: {configured ? "логин и пароль заданы" : <strong style={{ color: "var(--color-danger, #b00020)" }}>не заданы — введите ниже</strong>}</li>
+        <li>Расписание: каждый понедельник около 08:00 по Москве сервер сам запускает сверку (если доступ задан).</li>
       </ul>
 
-      {session.role === "OWNER" ? <RcSyncPanel /> : <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>Запускать сверку и проверять подключение может владелец.</p>}
+      {session.role === "OWNER" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <RcCredentialsForm savedLogin={savedLogin} passwordSaved={passwordSaved} fromEnv={fromEnv} />
+          <RcSyncPanel />
+        </div>
+      ) : <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>Запускать сверку и проверять подключение может владелец.</p>}
 
       <h2 style={{ fontSize: "var(--text-lg)", margin: "1.5rem 0 0.5rem" }}>Последняя сверка</h2>
       {!last ? (

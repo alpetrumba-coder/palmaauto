@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { createDealAction, type DealInput } from "@/app/actions/deals";
-import { rcCheck, type RcDiagnostics } from "@/lib/rc-client";
+import { deleteSetting, setSetting } from "@/lib/app-settings";
+import { RC_LOGIN_KEY, RC_PASSWORD_KEY, rcCheck, type RcDiagnostics } from "@/lib/rc-client";
 import type { RcRunSummary } from "@/lib/rc-sync";
 import { runRcSync } from "@/lib/rc-sync";
 import { isHighSeason } from "@/lib/season";
@@ -76,4 +77,24 @@ export async function linkDealToRcAction(dealId: string, rcId: number): Promise<
   }
   revalidate();
   return { ok: true, message: "Связано. Расхождения останутся в сверке, пока вы не исправите заезд." };
+}
+
+/** Сохраняет доступ служебной учётки RealtyCalendar. Пароль шифруется и больше никогда не показывается. Только владелец. */
+export async function saveRcCredentialsAction(login: string, password: string): Promise<RcActionResult> {
+  const me = await requireOwner();
+  const l = login.trim();
+  if (!l || l.length > 200) return { ok: false, error: "Укажите логин (почту) служебной учётки." };
+  if (password.length < 6 || password.length > 200) return { ok: false, error: "Пароль — от 6 до 200 символов." };
+  await setSetting(RC_LOGIN_KEY, l, { by: me.name });
+  await setSetting(RC_PASSWORD_KEY, password, { secret: true, by: me.name });
+  revalidate();
+  return { ok: true, message: "Сохранено. Пароль хранится в зашифрованном виде и больше не показывается. Нажмите «Проверить подключение»." };
+}
+
+export async function clearRcCredentialsAction(): Promise<RcActionResult> {
+  await requireOwner();
+  await deleteSetting(RC_LOGIN_KEY);
+  await deleteSetting(RC_PASSWORD_KEY);
+  revalidate();
+  return { ok: true, message: "Доступ к RealtyCalendar удалён." };
 }

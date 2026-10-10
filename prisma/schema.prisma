@@ -482,3 +482,14 @@ model RcSyncRun {
   @@index([startedAt])
   @@map("rc_sync_runs")
 }
+
+/// Настройки приложения «ключ → значение». Секреты (пароль RealtyCalendar) лежат в зашифрованном виде (lib/app-settings.ts).
+model AppSetting {
+  key       String   @id
+  value     String   @db.Text
+  secret    Boolean  @default(false)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by")
+
+  @@map("app_settings")
+}
