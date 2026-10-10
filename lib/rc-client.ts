@@ -89,7 +89,8 @@ export async function rcLogin(): Promise<string> {
       headers: { "Content-Type": "application/json", Accept: "application/json", "X-Locale": "ru" },
       body: JSON.stringify(body),
     });
-    const token = res.json && typeof res.json === "object" ? (res.json as { token?: unknown }).token : undefined;
+    const j = res.json && typeof res.json === "object" ? (res.json as { auth_token?: unknown; token?: unknown }) : undefined;
+    const token = j?.auth_token ?? j?.token;
     if (res.status >= 200 && res.status < 300 && typeof token === "string" && token.length > 8) return token;
     tried.push(`${Object.keys(body).join("+")}: HTTP ${res.status}${res.json ? ` (${keysOf(res.json)})` : ""}`);
     if (res.status === 429) break;
