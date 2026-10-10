@@ -397,8 +397,10 @@ model Deal {
   commissionKop  Int         @default(0) @map("commission_kop")
   comment        String?     @db.Text
   status         DealStatus  @default(ACTIVE)
-  /// Бронь сайта проката (на будущее, этап 5).
+  /// Бронь сайта проката (на будущее).
   siteBookingId  String?     @unique @map("site_booking_id")
+  /// Номер брони в RealtyCalendar: по нему сверка находит заезд (ставится автоматически при точном совпадении).
+  rcBookingId    Int?        @unique @map("rc_booking_id")
   createdBy      String      @map("created_by")
   createdAt      DateTime    @default(now()) @map("created_at")
   updatedAt      DateTime    @updatedAt @map("updated_at")
@@ -459,4 +461,24 @@ model Operation {
   @@index([assetId])
   @@index([needsReview])
   @@map("operations")
+}
+
+/// Запуск сверки броней с RealtyCalendar (раз в неделю по расписанию или вручную). Результат — JSON для страницы сверки.
+model RcSyncRun {
+  id         String    @id @default(cuid())
+  startedAt  DateTime  @default(now()) @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  /// cron | manual | check
+  trigger    String
+  /// ok | error
+  status     String    @default("ok")
+  error      String?   @db.Text
+  periodFrom DateTime? @map("period_from") @db.Date
+  periodTo   DateTime? @map("period_to") @db.Date
+  /// Сводные числа и строки по группам (нет у нас, расходятся, нет в RC и т.п.).
+  result     Json?
+  startedBy  String?   @map("started_by")
+
+  @@index([startedAt])
+  @@map("rc_sync_runs")
 }

@@ -114,6 +114,9 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
         <Link href="/admin-panel/accounting/reports" style={{ ...bigBtn, border: "1px solid var(--color-border)", color: "var(--color-text)" }}>
           Отчёты
         </Link>
+        <Link href="/admin-panel/accounting/rc" style={{ ...bigBtn, border: "1px solid var(--color-border)", color: "var(--color-text)" }}>
+          Сверка с RealtyCalendar
+        </Link>
         {session.role === "OWNER" ? (
           <Link href="/admin-panel/accounting/import" style={{ ...bigBtn, border: "1px dashed var(--color-border)", color: "var(--color-text-secondary)", fontWeight: 600 }}>
             Импорт истории
