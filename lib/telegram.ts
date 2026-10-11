@@ -1,7 +1,19 @@
-/** Тонкая обёртка над Telegram Bot API (без внешних зависимостей). */
+/**
+ * Тонкая обёртка над Telegram Bot API (без внешних зависимостей).
+ *
+ * С хостинга сервера (ru-3) api.telegram.org напрямую недоступен (исходящие соединения зависают).
+ * Поэтому запросы, если задан TELEGRAM_RELAY_URL, идут через маленький прокси на отдельном сервере
+ * (telegram-relay/server.js, сервер в Нидерландах), который пересылает их в api.telegram.org.
+ * Прокси проверяет заголовок X-Relay-Secret.
+ */
 
 function token(): string | null {
   return process.env.TELEGRAM_BOT_TOKEN || null;
+}
+
+function apiBase(): string {
+  const relay = process.env.TELEGRAM_RELAY_URL;
+  return relay ? relay.replace(/\/$/, "") : "https://api.telegram.org";
 }
 
 async function call<T = unknown>(method: string, body: Record<string, unknown>): Promise<T> {
@@ -11,9 +23,12 @@ async function call<T = unknown>(method: string, body: Record<string, unknown>):
   const timer = setTimeout(() => ac.abort(), 8000);
   let res: Response;
   try {
-    res = await fetch(`https://api.telegram.org/bot${t}/${method}`, {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const relaySecret = process.env.TELEGRAM_RELAY_SECRET;
+    if (relaySecret) headers["X-Relay-Secret"] = relaySecret;
+    res = await fetch(`${apiBase()}/bot${t}/${method}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(body),
       signal: ac.signal,
     });
