@@ -253,6 +253,14 @@ model StaffUser {
   lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
+  /// Привязанный чат Telegram-бота (после ввода кода /start).
+  telegramChatId      BigInt?   @unique @map("telegram_chat_id")
+  /// Одноразовый код для привязки Telegram (владелец показывает, сотрудник вводит боту).
+  telegramLinkCode     String?   @unique @map("telegram_link_code")
+  telegramLinkExpires  DateTime? @map("telegram_link_expires")
+  /// Касса по умолчанию для команд бота («расход», «остаток»).
+  defaultCashAccountId String?   @map("default_cash_account_id")
+  defaultCashAccount   CashAccount? @relation(fields: [defaultCashAccountId], references: [id])
 
   @@map("staff_users")
 }
@@ -324,6 +332,7 @@ model CashAccount {
   createdAt   DateTime        @default(now()) @map("created_at")
   operations  Operation[]     @relation("OperationAccount")
   incoming    Operation[]     @relation("OperationToAccount")
+  staffDefault StaffUser[]
 
   @@map("cash_accounts")
 }
@@ -492,4 +501,17 @@ model AppSetting {
   updatedBy String?  @map("updated_by")
 
   @@map("app_settings")
+}
+
+/// Черновик операции в Telegram-боте, ждущий подтверждения кнопкой «Верно». Один на чат.
+model TelegramDraft {
+  id        String   @id @default(cuid())
+  chatId    BigInt   @unique @map("chat_id")
+  /// Готовые данные для createOperationAction (OperationInput в JSON).
+  input     Json
+  /// Короткое описание для карточки подтверждения («Расход · Уборка · Рио · 3 000 ₽»).
+  summary   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("telegram_drafts")
 }

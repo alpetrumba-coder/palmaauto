@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { createStaffAction, updateStaffAction } from "@/app/actions/admin-staff";
+import { createStaffAction, generateTelegramLinkCodeAction, unlinkTelegramAction, updateStaffAction } from "@/app/actions/admin-staff";
 
 export type StaffRow = {
   id: string;
@@ -12,6 +12,8 @@ export type StaffRow = {
   role: "OWNER" | "OPERATOR";
   active: boolean;
   lastLoginAt: string | null;
+  telegramLinked: boolean;
+  defaultCashAccountId: string | null;
 };
 
 const roleLabel: Record<StaffRow["role"], string> = { OWNER: "Владелец", OPERATOR: "Оператор" };
@@ -43,21 +45,93 @@ const ghost: React.CSSProperties = {
   border: "1px solid var(--color-border)",
   fontWeight: 400,
 };
+const linkBtn: React.CSSProperties = {
+  border: "none",
+  background: "transparent",
+  padding: 0,
+  font: "inherit",
+  fontWeight: 600,
+  color: "var(--color-accent)",
+  cursor: "pointer",
+  textDecoration: "underline",
+};
 
-type Draft = { id: string | "new"; login: string; name: string; role: "OWNER" | "OPERATOR"; active: boolean; password: string };
+type Draft = {
+  id: string | "new";
+  login: string;
+  name: string;
+  role: "OWNER" | "OPERATOR";
+  active: boolean;
+  password: string;
+  defaultCashAccountId: string;
+};
 
-export function StaffManager({ rows, myId }: { rows: StaffRow[]; myId: string }) {
+function TelegramCell({ row }: { row: StaffRow }) {
+  const router = useRouter();
+  const [code, setCode] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function makeCode() {
+    setPending(true);
+    const r = await generateTelegramLinkCodeAction(row.id);
+    setPending(false);
+    if (r.ok) setCode(r.code);
+  }
+  async function unlink() {
+    if (!window.confirm(`Отвязать Telegram у ${row.name}?`)) return;
+    setPending(true);
+    await unlinkTelegramAction(row.id);
+    setPending(false);
+    router.refresh();
+  }
+
+  if (row.telegramLinked) {
+    return (
+      <span style={{ display: "flex", flexDirection: "column", gap: "0.2rem", alignItems: "flex-start" }}>
+        <span>привязан</span>
+        <button type="button" onClick={unlink} disabled={pending} style={{ ...linkBtn, fontWeight: 400, fontSize: "var(--text-xs)" }}>
+          отвязать
+        </button>
+      </span>
+    );
+  }
+  if (code) {
+    return (
+      <span style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+        <code style={{ fontWeight: 700 }}>{code}</code>
+        <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>
+          В Telegram: /start {code} (код на 30 минут)
+        </span>
+      </span>
+    );
+  }
+  return (
+    <button type="button" onClick={makeCode} disabled={pending} style={linkBtn}>
+      {pending ? "…" : "Код для привязки"}
+    </button>
+  );
+}
+
+export function StaffManager({ rows, myId, accounts }: { rows: StaffRow[]; myId: string; accounts: { id: string; name: string }[] }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   function startNew() {
-    setDraft({ id: "new", login: "", name: "", role: "OPERATOR", active: true, password: "" });
+    setDraft({ id: "new", login: "", name: "", role: "OPERATOR", active: true, password: "", defaultCashAccountId: "" });
     setError(null);
   }
   function startEdit(r: StaffRow) {
-    setDraft({ id: r.id, login: r.login, name: r.name, role: r.role, active: r.active, password: "" });
+    setDraft({
+      id: r.id,
+      login: r.login,
+      name: r.name,
+      role: r.role,
+      active: r.active,
+      password: "",
+      defaultCashAccountId: r.defaultCashAccountId ?? "",
+    });
     setError(null);
   }
 
@@ -69,7 +143,13 @@ export function StaffManager({ rows, myId }: { rows: StaffRow[]; myId: string })
     const res =
       draft.id === "new"
         ? await createStaffAction({ login: draft.login, name: draft.name, role: draft.role, password: draft.password })
-        : await updateStaffAction(draft.id, { name: draft.name, role: draft.role, active: draft.active, newPassword: draft.password });
+        : await updateStaffAction(draft.id, {
+            name: draft.name,
+            role: draft.role,
+            active: draft.active,
+            newPassword: draft.password,
+            defaultCashAccountId: draft.defaultCashAccountId,
+          });
     setPending(false);
     if (!res.ok) {
       setError(res.error);
@@ -136,10 +216,27 @@ export function StaffManager({ rows, myId }: { rows: StaffRow[]; myId: string })
             />
           </label>
           {draft.id !== "new" ? (
-            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)" }}>
-              <input type="checkbox" checked={draft.active} onChange={(e) => setDraft((d) => d && { ...d, active: e.target.checked })} />
-              Вход разрешён
-            </label>
+            <>
+              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)" }}>
+                <input type="checkbox" checked={draft.active} onChange={(e) => setDraft((d) => d && { ...d, active: e.target.checked })} />
+                Вход разрешён
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+                Касса по умолчанию (для Telegram-бота)
+                <select
+                  value={draft.defaultCashAccountId}
+                  onChange={(e) => setDraft((d) => d && { ...d, defaultCashAccountId: e.target.value })}
+                  style={fieldStyle}
+                >
+                  <option value="">не задана</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
           ) : null}
           <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
             <button type="submit" disabled={pending} className="nav-tap-target" style={btn}>
@@ -166,13 +263,14 @@ export function StaffManager({ rows, myId }: { rows: StaffRow[]; myId: string })
               <th style={{ ...cell, fontWeight: 600 }}>Роль</th>
               <th style={{ ...cell, fontWeight: 600 }}>Вход</th>
               <th style={{ ...cell, fontWeight: 600 }}>Последний вход</th>
+              <th style={{ ...cell, fontWeight: 600 }}>Telegram</th>
               <th style={cell} />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td style={cell} colSpan={6}>
+                <td style={cell} colSpan={7}>
                   Личных учёток пока нет. Вы входите общей учёткой владельца — добавьте сотрудников.
                 </td>
               </tr>
@@ -187,12 +285,11 @@ export function StaffManager({ rows, myId }: { rows: StaffRow[]; myId: string })
                 <td style={cell}>{roleLabel[r.role]}</td>
                 <td style={cell}>{r.active ? "разрешён" : "отключён"}</td>
                 <td style={cell}>{r.lastLoginAt ? new Date(r.lastLoginAt).toLocaleString("ru-RU") : "—"}</td>
+                <td style={cell}>
+                  <TelegramCell row={r} />
+                </td>
                 <td style={{ ...cell, whiteSpace: "nowrap" }}>
-                  <button
-                    type="button"
-                    onClick={() => startEdit(r)}
-                    style={{ border: "none", background: "transparent", padding: 0, font: "inherit", fontWeight: 600, color: "var(--color-accent)", cursor: "pointer", textDecoration: "underline" }}
-                  >
+                  <button type="button" onClick={() => startEdit(r)} style={linkBtn}>
                     Изменить
                   </button>
                 </td>

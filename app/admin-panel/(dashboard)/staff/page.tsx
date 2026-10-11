@@ -13,7 +13,10 @@ export const dynamic = "force-dynamic";
 
 export default async function StaffPage() {
   const me = await requireOwner();
-  const staff = await prisma.staffUser.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] });
+  const [staff, accounts] = await Promise.all([
+    prisma.staffUser.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] }),
+    prisma.cashAccount.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+  ]);
   const rows: StaffRow[] = staff.map((s) => ({
     id: s.id,
     login: s.login,
@@ -21,6 +24,8 @@ export default async function StaffPage() {
     role: s.role,
     active: s.active,
     lastLoginAt: s.lastLoginAt ? s.lastLoginAt.toISOString() : null,
+    telegramLinked: !!s.telegramChatId,
+    defaultCashAccountId: s.defaultCashAccountId,
   }));
 
   return (
@@ -28,9 +33,10 @@ export default async function StaffPage() {
       <h1 style={{ fontSize: "var(--text-2xl)", margin: 0 }}>Сотрудники</h1>
       <p style={{ margin: "0.75rem 0 1.25rem", color: "var(--color-text-secondary)", fontSize: "var(--text-sm)", maxWidth: "44rem" }}>
         Личные входы в админ-панель. Пока все сотрудники видят все разделы; справочники и этот раздел — только владелец.
-        Общая учётка владельца из настроек сервера продолжает работать.
+        Общая учётка владельца из настроек сервера продолжает работать. Касса по умолчанию нужна для команд Telegram-бота
+        («расход», «остаток»).
       </p>
-      <StaffManager rows={rows} myId={me.staffId} />
+      <StaffManager rows={rows} myId={me.staffId} accounts={accounts.map((a) => ({ id: a.id, name: a.name }))} />
     </>
   );
 }

@@ -40,7 +40,7 @@ export async function createStaffAction(input: {
 
 export async function updateStaffAction(
   id: string,
-  input: { name: string; role: "OWNER" | "OPERATOR"; active: boolean; newPassword: string },
+  input: { name: string; role: "OWNER" | "OPERATOR"; active: boolean; newPassword: string; defaultCashAccountId: string },
 ): Promise<StaffActionResult> {
   const me = await requireOwner();
 
@@ -51,10 +51,17 @@ export async function updateStaffAction(
     return { ok: false, error: "Нельзя отключить себя или снять с себя роль владельца." };
   }
 
-  const data: { name: string; role: "OWNER" | "OPERATOR"; active: boolean; passwordHash?: string } = {
+  const data: {
+    name: string;
+    role: "OWNER" | "OPERATOR";
+    active: boolean;
+    passwordHash?: string;
+    defaultCashAccountId: string | null;
+  } = {
     name,
     role: input.role,
     active: input.active,
+    defaultCashAccountId: input.defaultCashAccountId || null,
   };
   if (input.newPassword) {
     const pwErr = validatePasswordPlain(input.newPassword);
@@ -68,6 +75,35 @@ export async function updateStaffAction(
     if ((e as { code?: string }).code === "P2025") return { ok: false, error: "Сотрудник не найден." };
     throw e;
   }
+  revalidatePath("/admin-panel/staff");
+  return { ok: true };
+}
+
+export type TelegramLinkResult = { ok: true; code: string; botUsername: string | null } | { ok: false; error: string };
+
+/** Одноразовый код на 30 минут: сотрудник пишет боту «/start <код>», чат привязывается к его учётке. */
+export async function generateTelegramLinkCodeAction(staffId: string): Promise<TelegramLinkResult> {
+  await requireOwner();
+  const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+  try {
+    await prisma.staffUser.update({
+      where: { id: staffId },
+      data: { telegramLinkCode: code, telegramLinkExpires: new Date(Date.now() + 30 * 60_000) },
+    });
+  } catch (e) {
+    if ((e as { code?: string }).code === "P2025") return { ok: false, error: "Сотрудник не найден." };
+    throw e;
+  }
+  revalidatePath("/admin-panel/staff");
+  return { ok: true, code, botUsername: process.env.TELEGRAM_BOT_USERNAME || null };
+}
+
+export async function unlinkTelegramAction(staffId: string): Promise<StaffActionResult> {
+  await requireOwner();
+  await prisma.staffUser.update({
+    where: { id: staffId },
+    data: { telegramChatId: null, telegramLinkCode: null, telegramLinkExpires: null },
+  });
   revalidatePath("/admin-panel/staff");
   return { ok: true };
 }
