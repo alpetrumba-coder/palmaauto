@@ -19,11 +19,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  try {
-    await handleTelegramUpdate(update);
-  } catch (e) {
+  // Отвечаем сразу: иначе, если отправка ответного сообщения зависнет (сеть, Telegram API),
+  // сам вебхук тоже зависнет и Telegram посчитает доставку неудачной. Обработка — в фоне,
+  // процесс у нас постоянный (next start), так что фоновая задача доработает и после ответа.
+  handleTelegramUpdate(update).catch((e) => {
     console.error("[telegram-webhook]", e instanceof Error ? e.message : e);
-  }
-  // Telegram ждёт 200 в любом случае, иначе повторяет доставку.
+  });
   return NextResponse.json({ ok: true });
 }

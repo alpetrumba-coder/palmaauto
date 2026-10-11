@@ -7,11 +7,21 @@ function token(): string | null {
 async function call<T = unknown>(method: string, body: Record<string, unknown>): Promise<T> {
   const t = token();
   if (!t) throw new Error("TELEGRAM_BOT_TOKEN не задан");
-  const res = await fetch(`https://api.telegram.org/bot${t}/${method}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 8000);
+  let res: Response;
+  try {
+    res = await fetch(`https://api.telegram.org/bot${t}/${method}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: ac.signal,
+    });
+  } catch (e) {
+    throw new Error(`Telegram ${method}: сеть недоступна (${e instanceof Error ? e.message : String(e)})`);
+  } finally {
+    clearTimeout(timer);
+  }
   const json = (await res.json().catch(() => null)) as { ok: boolean; result?: T; description?: string } | null;
   if (!res.ok || !json?.ok) throw new Error(`Telegram ${method}: HTTP ${res.status}${json?.description ? ` — ${json.description}` : ""}`);
   return json.result as T;
