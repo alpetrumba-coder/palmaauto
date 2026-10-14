@@ -31,6 +31,13 @@ const TYPE_BUTTONS: { type: OperationInput["type"]; label: string }[] = [
   { type: "HANDOVER", label: "Сдано в Рубин" },
 ];
 
+const TYPE_HINT: Record<OperationInput["type"], string> = {
+  INCOME: "Деньги пришли в кассу: оплата от гостя, аренда авто и т.п.",
+  EXPENSE: "Деньги ушли из кассы: уборка, зарплата, закупка и т.п.",
+  TRANSFER: "Переложили деньги из одной кассы в другую — остатки касс поменяются, а общая сумма — нет.",
+  HANDOVER: "Наличные физически сдали в общую (центральную) кассу — спишется с кассы сотрудника.",
+};
+
 const ACCOUNT_LABEL: Record<OperationInput["type"], string> = {
   INCOME: "Куда пришли деньги",
   EXPENSE: "Из какой кассы",
@@ -158,6 +165,7 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
           </button>
         ))}
       </div>
+      <p style={{ margin: "-0.6rem 0 0", fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>{TYPE_HINT[v.type]}</p>
 
       <label style={labelStyle}>
         Сумма, ₽ *

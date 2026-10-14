@@ -45,6 +45,9 @@ export default async function DictionariesPage({ searchParams }: { searchParams:
 
   return (
     <>
+      <p style={{ margin: "0 0 0.5rem", fontSize: "var(--text-sm)" }}>
+        <Link href="/admin-panel/accounting">← К остаткам и журналу</Link>
+      </p>
       <h1 style={{ fontSize: "var(--text-2xl)", margin: 0 }}>Справочники</h1>
       <nav aria-label="Справочники" style={{ display: "flex", gap: "1rem", flexWrap: "wrap", margin: "0.75rem 0" }}>
         {DICT_ORDER.map((e) => (

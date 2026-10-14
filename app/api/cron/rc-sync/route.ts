@@ -18,7 +18,7 @@ function authorized(req: Request): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** Сверка по расписанию (еженедельно из GitHub Actions). Защищена секретом CRON_SECRET из настроек сервера. */
+/** Запасной ручной запуск сверки по HTTP (расписание теперь встроено в сервер — lib/rc-scheduler.ts). Защищена секретом CRON_SECRET из настроек сервера. */
 export async function POST(req: Request) {
   if (!process.env.CRON_SECRET) return NextResponse.json({ error: "CRON_SECRET не задан на сервере." }, { status: 503 });
   if (!authorized(req)) return NextResponse.json({ error: "Нет доступа." }, { status: 401 });

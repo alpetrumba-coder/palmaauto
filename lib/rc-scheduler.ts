@@ -3,19 +3,18 @@ import { runRcSync } from "@/lib/rc-sync";
 import { prisma } from "@/lib/prisma";
 
 /**
- * Расписание сверки внутри сервера: по понедельникам после 05:00 UTC (08:00 по Москве). Успешная сверка — раз в неделю,
- * неудачная повторяется не раньше чем через сутки. Проверка каждые 30 минут; если сервер в понедельник перезапускали,
- * сверка пройдёт при ближайшей проверке.
+ * Расписание сверки внутри сервера: каждый день после 05:00 UTC (08:00 по Москве). Повторяется не раньше чем
+ * через 20 часов после предыдущего запуска (успешного или нет) — так не задвоится при перезапуске сервера, но
+ * пройдёт при ближайшей проверке, если сервер был выключен в момент обычного времени запуска. Проверка каждые 30 минут.
  */
 
 const HOUR = 3600_000;
 
 /** Пора ли запускать: чистая функция (удобно проверять). */
 export function isDue(now: Date, lastCron: { startedAt: Date; status: string } | null): boolean {
-  if (now.getUTCDay() !== 1 || now.getUTCHours() < 5) return false; // понедельник, после 08:00 МСК
+  if (now.getUTCHours() < 5) return false; // не раньше 08:00 МСК
   if (!lastCron) return true;
   const age = now.getTime() - lastCron.startedAt.getTime();
-  if (lastCron.status === "ok") return age > 6 * 24 * HOUR;
   return age > 20 * HOUR;
 }
 
@@ -41,5 +40,5 @@ export function startRcScheduler() {
   started = true;
   setTimeout(tick, 60_000).unref?.();
   setInterval(tick, 30 * 60_000).unref?.();
-  console.log("[rc-scheduler] запущен: сверка с RealtyCalendar по понедельникам около 08:00 МСК");
+  console.log("[rc-scheduler] запущен: сверка с RealtyCalendar каждый день около 08:00 МСК");
 }

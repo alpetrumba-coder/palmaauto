@@ -92,36 +92,42 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
     <>
       <h1 style={{ fontSize: "var(--text-2xl)", margin: 0 }}>Учёт</h1>
 
-      <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", margin: "1rem 0 1.5rem" }}>
-        <Link href="/admin-panel/accounting/new?type=INCOME" style={{ ...bigBtn, background: "var(--color-accent)", color: "#fff" }}>
-          + Приход
-        </Link>
-        <Link href="/admin-panel/accounting/new?type=EXPENSE" style={{ ...bigBtn, background: "var(--color-accent)", color: "#fff" }}>
-          + Расход
-        </Link>
-        <Link href="/admin-panel/accounting/new?type=HANDOVER" style={{ ...bigBtn, border: "1px solid var(--color-border)", color: "var(--color-text)" }}>
-          Сдано в Рубин
-        </Link>
-        <Link href="/admin-panel/accounting/new?type=TRANSFER" style={{ ...bigBtn, border: "1px solid var(--color-border)", color: "var(--color-text)" }}>
-          Перемещение
-        </Link>
-        <Link href="/admin-panel/accounting/deals/new" style={{ ...bigBtn, border: "1px solid var(--color-border)", color: "var(--color-text)" }}>
-          + Заезд / аренда
-        </Link>
-        <Link href="/admin-panel/accounting/deals" style={{ ...bigBtn, border: "1px solid var(--color-border)", color: "var(--color-text)" }}>
-          Все заезды и аренды
-        </Link>
-        <Link href="/admin-panel/accounting/reports" style={{ ...bigBtn, border: "1px solid var(--color-border)", color: "var(--color-text)" }}>
-          Отчёты
-        </Link>
-        <Link href="/admin-panel/accounting/rc" style={{ ...bigBtn, border: "1px solid var(--color-border)", color: "var(--color-text)" }}>
-          Сверка с RealtyCalendar
-        </Link>
-        {session.role === "OWNER" ? (
-          <Link href="/admin-panel/accounting/import" style={{ ...bigBtn, border: "1px dashed var(--color-border)", color: "var(--color-text-secondary)", fontWeight: 600 }}>
-            Импорт истории
-          </Link>
-        ) : null}
+      <div style={{ display: "flex", gap: "0.8rem", flexWrap: "wrap", margin: "1rem 0 1.5rem" }}>
+        {(
+          [
+            { href: "/admin-panel/accounting/new?type=INCOME", label: "+ Приход", hint: "Деньги пришли: оплата от гостя, аренда авто и т.п.", variant: "accent" as const },
+            { href: "/admin-panel/accounting/new?type=EXPENSE", label: "+ Расход", hint: "Деньги ушли: уборка, зарплата, закупка и т.п.", variant: "accent" as const },
+            { href: "/admin-panel/accounting/new?type=HANDOVER", label: "Сдано в Рубин", hint: "Наличные сдали в общую кассу — спишется у сотрудника.", variant: "outline" as const },
+            { href: "/admin-panel/accounting/new?type=TRANSFER", label: "Перемещение", hint: "Переложили деньги из одной кассы в другую — не доход и не расход.", variant: "outline" as const },
+            { href: "/admin-panel/accounting/deals/new", label: "+ Заезд / аренда", hint: "Завести карточку гостя/клиента — к ней потом привязываются оплаты и расходы.", variant: "outline" as const },
+            { href: "/admin-panel/accounting/deals", label: "Все заезды и аренды", hint: "Список карточек: кто, когда, сколько должен и оплатил.", variant: "outline" as const },
+            { href: "/admin-panel/accounting/reports", label: "Отчёты", hint: "Прибыль по объектам, расчёт с собственниками, премии за период.", variant: "outline" as const },
+            { href: "/admin-panel/accounting/rc", label: "Сверка с RealtyCalendar", hint: "Проверка, все ли брони из RealtyCalendar заведены как заезды.", variant: "outline" as const },
+            ...(session.role === "OWNER"
+              ? [
+                  { href: "/admin-panel/dictionaries", label: "Справочники", hint: "Объекты, кассы, статьи, каналы продаж — настройки для операций.", variant: "outline" as const },
+                  { href: "/admin-panel/accounting/import", label: "Импорт истории", hint: "Разовая загрузка старых данных из Excel — не для повседневной работы.", variant: "dashed" as const },
+                ]
+              : []),
+          ] as const
+        ).map((b) => (
+          <div key={b.href} style={{ display: "flex", flexDirection: "column", gap: "0.3rem", maxWidth: "13rem" }}>
+            <Link
+              href={b.href}
+              style={{
+                ...bigBtn,
+                ...(b.variant === "accent"
+                  ? { background: "var(--color-accent)", color: "#fff" }
+                  : b.variant === "dashed"
+                    ? { border: "1px dashed var(--color-border)", color: "var(--color-text-secondary)", fontWeight: 600 }
+                    : { border: "1px solid var(--color-border)", color: "var(--color-text)" }),
+              }}
+            >
+              {b.label}
+            </Link>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>{b.hint}</span>
+          </div>
+        ))}
       </div>
 
       <h2 style={{ fontSize: "var(--text-lg)", margin: "0 0 0.6rem" }}>Остатки по кассам</h2>

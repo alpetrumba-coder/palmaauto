@@ -32,13 +32,6 @@ export function AdminPanelNav({ isOwner = false }: { isOwner?: boolean }) {
       >
         Доп. услуги
       </Link>
-      <Link
-        href="/admin-panel/dictionaries"
-        className="nav-tap-target"
-        style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}
-      >
-        Справочники
-      </Link>
       {isOwner ? (
         <Link href="/admin-panel/staff" className="nav-tap-target" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
           Сотрудники
