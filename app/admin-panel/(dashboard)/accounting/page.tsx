@@ -243,20 +243,20 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
                       {o.toAccount ? ` → ${o.toAccount.name}` : ""}
                     </td>
                     <td style={cell}>{o.category?.name ?? (o.type === "HANDOVER" ? "Касса Рубина" : "—")}</td>
-                    <td style={cell}>
+                    <td style={{ ...cell, minWidth: "9rem" }}>
+                      {o.asset ? o.asset.name : null}
                       {o.deal ? (
-                        <Link href={`/admin-panel/accounting/deals/${o.deal.id}`}>
-                          №{o.deal.number} {o.deal.guestName}
-                        </Link>
-                      ) : o.asset ? (
-                        o.asset.name
-                      ) : (o.type === "INCOME" || o.type === "EXPENSE") ? (
-                        <span style={{ color: "var(--color-text-secondary)" }}>общий</span>
-                      ) : (
-                        "—"
-                      )}
+                        <div style={{ fontSize: "var(--text-xs)" }}>
+                          <Link href={`/admin-panel/accounting/deals/${o.deal.id}`}>
+                            №{o.deal.number} {o.deal.guestName}
+                          </Link>
+                        </div>
+                      ) : null}
+                      {!o.asset && !o.deal ? (
+                        (o.type === "INCOME" || o.type === "EXPENSE") ? <span style={{ color: "var(--color-text-secondary)" }}>общий</span> : "—"
+                      ) : null}
                     </td>
-                    <td style={{ ...cell, maxWidth: "18rem" }}>
+                    <td style={{ ...cell, minWidth: "24rem", maxWidth: "40rem", wordBreak: "break-word" }}>
                       {!o.assetId && !o.dealId && (o.type === "INCOME" || o.type === "EXPENSE") ? (
                         <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>{o.comment ?? ""}</span>
                       ) : (
