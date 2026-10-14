@@ -274,8 +274,20 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
       </label>
 
       <label style={labelStyle}>
-        Комментарий
-        <textarea rows={2} value={v.comment} onChange={(e) => set("comment", e.target.value)} style={{ ...fieldStyle, resize: "vertical" }} />
+        {isMoney && !v.assetId ? "Комментарий — на что распределяется этот общий расход? *" : "Комментарий"}
+        <textarea
+          rows={2}
+          value={v.comment}
+          onChange={(e) => set("comment", e.target.value)}
+          placeholder={isMoney && !v.assetId ? "например: поровну на все 14 квартир, октябрь 2026" : undefined}
+          style={{ ...fieldStyle, resize: "vertical" }}
+        />
+        {isMoney && !v.assetId ? (
+          <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>
+            Без объекта операция считается общей (на несколько объектов или за период) — коротко опишите здесь, как она распределяется.
+            Эта запись одна, дублировать по объектам не нужно.
+          </span>
+        ) : null}
       </label>
 
       {error ? (

@@ -78,6 +78,11 @@ export async function buildOperationData(input: OperationInput): Promise<BuiltOp
 
   const comment = input.comment.trim();
   if (comment.length > 1000) return { error: "Комментарий слишком длинный (до 1000 символов)." };
+  // Расход/приход без объекта и без заезда — значит, общий (на несколько объектов или за период).
+  // Для таких просим короткое пояснение в комментарии: как он распределяется — это видно в журнале.
+  if ((input.type === "INCOME" || input.type === "EXPENSE") && !assetId && !dealId && comment.length < 5) {
+    return { error: "Это общий расход (без объекта)? Коротко опишите в комментарии, на что он распределяется — например «поровну на все квартиры, октябрь»." };
+  }
 
   return {
     data: {

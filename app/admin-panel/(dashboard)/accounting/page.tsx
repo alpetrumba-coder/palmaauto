@@ -248,12 +248,20 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
                         <Link href={`/admin-panel/accounting/deals/${o.deal.id}`}>
                           №{o.deal.number} {o.deal.guestName}
                         </Link>
+                      ) : o.asset ? (
+                        o.asset.name
+                      ) : (o.type === "INCOME" || o.type === "EXPENSE") ? (
+                        <span style={{ color: "var(--color-text-secondary)" }}>общий</span>
                       ) : (
-                        (o.asset?.name ?? "—")
+                        "—"
                       )}
                     </td>
                     <td style={{ ...cell, maxWidth: "18rem" }}>
-                      {o.comment ?? ""}
+                      {!o.assetId && !o.dealId && (o.type === "INCOME" || o.type === "EXPENSE") ? (
+                        <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>{o.comment ?? ""}</span>
+                      ) : (
+                        o.comment ?? ""
+                      )}
                       {o.needsReview && o.reviewNote ? (
                         <div style={{ fontSize: "var(--text-xs)", color: "var(--color-danger, #b00020)" }}>{o.reviewNote}</div>
                       ) : null}
