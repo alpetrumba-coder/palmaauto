@@ -39,6 +39,8 @@ export type DifferRow = {
   rc: RcRow;
   deal: { id: string; number: number; guestName: string; startDate: string; endDate: string; grossKop: number };
   problems: string[];
+  /** true — это не подтверждённая связь с разошедшимися данными, а подозрение на дубль: та же бронь или две разных? Решает человек. */
+  ambiguous?: boolean;
 };
 
 export type ReconcileResult = {
@@ -147,7 +149,12 @@ export function reconcile(input: { events: RcEvent[]; deals: OurDeal[]; assets: 
       const overlap = ourInRange.find((d) => d.assetId === r.assetId && !used.has(d.id) && d.rcBookingId === null && d.startDate < r.end && r.begin < d.endDate);
       if (overlap) {
         used.add(overlap.id);
-        res.differs.push({ rc: r, deal: pick4(overlap), problems: [`даты: у нас ${overlap.startDate}–${overlap.endDate}, в RC ${r.begin}–${r.end}`, ...(Math.abs(overlap.grossKop - r.amountKop) >= 100 ? [`сумма: у нас ${overlap.grossKop / 100}, в RC ${r.amountKop / 100}`] : [])] });
+        res.differs.push({
+          rc: r,
+          deal: pick4(overlap),
+          problems: [`даты: у нас ${overlap.startDate}–${overlap.endDate}, в RC ${r.begin}–${r.end}`, ...(Math.abs(overlap.grossKop - r.amountKop) >= 100 ? [`сумма: у нас ${overlap.grossKop / 100}, в RC ${r.amountKop / 100}`] : [])],
+          ambiguous: true,
+        });
         res.summary.differs++;
       } else {
         res.missing.push(r);

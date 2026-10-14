@@ -505,13 +505,16 @@ model AppSetting {
 
 /// Черновик операции в Telegram-боте, ждущий подтверждения кнопкой «Верно». Один на чат.
 model TelegramDraft {
-  id        String   @id @default(cuid())
-  chatId    BigInt   @unique @map("chat_id")
-  /// Готовые данные для createOperationAction (OperationInput в JSON).
+  id     String @id @default(cuid())
+  chatId BigInt @map("chat_id")
+  /// "expense" (черновик операции, один активный на чат) | "rcdupe" (вопрос про похожую бронь RC, их может быть несколько сразу).
+  kind   String @default("expense")
+  /// Готовые данные: для "expense" — OperationInput, для "rcdupe" — { rcId, dealId }.
   input     Json
-  /// Короткое описание для карточки подтверждения («Расход · Уборка · Рио · 3 000 ₽»).
+  /// Короткое описание для карточки подтверждения.
   summary   String
   createdAt DateTime @default(now()) @map("created_at")
 
+  @@index([chatId])
   @@map("telegram_drafts")
 }

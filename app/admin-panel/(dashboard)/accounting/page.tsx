@@ -97,8 +97,8 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
           [
             { href: "/admin-panel/accounting/new?type=INCOME", label: "+ Приход", hint: "Деньги пришли: оплата от гостя, аренда авто и т.п.", variant: "accent" as const },
             { href: "/admin-panel/accounting/new?type=EXPENSE", label: "+ Расход", hint: "Деньги ушли: уборка, зарплата, закупка и т.п.", variant: "accent" as const },
-            { href: "/admin-panel/accounting/new?type=HANDOVER", label: "Сдано в Рубин", hint: "Наличные сдали в общую кассу — спишется у сотрудника.", variant: "outline" as const },
-            { href: "/admin-panel/accounting/new?type=TRANSFER", label: "Перемещение", hint: "Переложили деньги из одной кассы в другую — не доход и не расход.", variant: "outline" as const },
+            { href: "/admin-panel/accounting/new?type=TRANSFER", label: "Перемещение", hint: "Переложили деньги из одной кассы в другую — в т.ч. сдача наличных в «Кассу Рубина».", variant: "outline" as const },
+            { href: "/admin-panel/accounting#balances", label: "Кассы", hint: "Остаток в каждой кассе прямо сейчас — список ниже на этой странице.", variant: "outline" as const },
             { href: "/admin-panel/accounting/deals/new", label: "+ Заезд / аренда", hint: "Завести карточку гостя/клиента — к ней потом привязываются оплаты и расходы.", variant: "outline" as const },
             { href: "/admin-panel/accounting/deals", label: "Все заезды и аренды", hint: "Список карточек: кто, когда, сколько должен и оплатил.", variant: "outline" as const },
             { href: "/admin-panel/accounting/reports", label: "Отчёты", hint: "Прибыль по объектам, расчёт с собственниками, премии за период.", variant: "outline" as const },
@@ -130,7 +130,9 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
         ))}
       </div>
 
-      <h2 style={{ fontSize: "var(--text-lg)", margin: "0 0 0.6rem" }}>Остатки по кассам</h2>
+      <h2 id="balances" style={{ fontSize: "var(--text-lg)", margin: "0 0 0.6rem", scrollMarginTop: "1rem" }}>
+        Остатки по кассам
+      </h2>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(13rem, 1fr))", gap: "0.6rem" }}>
         {activeBalances.map((b) => (
           <Link
@@ -149,7 +151,7 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
         ))}
       </div>
       <p style={{ margin: "0.6rem 0 0", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-        Всего в кассах: <strong style={{ color: "var(--color-text)" }}>{formatKop(totalKop)}</strong>. Сдачи в Рубин и перенесённая из старой истории (метка «импорт») в остаток не входят: остатки задаются вручную.
+        Всего в кассах: <strong style={{ color: "var(--color-text)" }}>{formatKop(totalKop)}</strong>. Перенесённая из старой истории (метка «импорт») и старые записи «Сдано в Рубин» (до объединения с кассой «Касса Рубина») в остаток не входят: остатки на дату начала учёта задаются вручную.
       </p>
 
       <h2 style={{ fontSize: "var(--text-lg)", margin: "1.75rem 0 0.6rem" }}>Журнал операций</h2>

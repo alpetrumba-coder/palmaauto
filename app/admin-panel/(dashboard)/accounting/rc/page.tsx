@@ -131,7 +131,10 @@ export default async function RcSyncPage() {
                   <td style={cell}>{d.rc.assetName}</td>
                   <td style={cell}>{rd(d.rc.begin)} – {rd(d.rc.end)} · {d.rc.guest} · {formatKop(d.rc.amountKop)}</td>
                   <td style={cell}><Link href={`/admin-panel/accounting/deals/${d.deal.id}`}>№{d.deal.number}</Link> {rd(d.deal.startDate)} – {rd(d.deal.endDate)} · {d.deal.guestName} · {formatKop(d.deal.grossKop)}</td>
-                  <td style={{ ...cell, whiteSpace: "normal", color: "var(--color-danger, #b00020)" }}>{d.problems.join("; ")}</td>
+                  <td style={{ ...cell, whiteSpace: "normal", color: "var(--color-danger, #b00020)" }}>
+                    {d.ambiguous ? <div style={{ fontWeight: 700 }}>Возможен дубль — спросили в Telegram</div> : null}
+                    {d.problems.join("; ")}
+                  </td>
                   <td style={cell}><RcRowButton kind="link" rcId={d.rc.rcId} dealId={d.deal.id} /></td>
                 </tr>
               ))}

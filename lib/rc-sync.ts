@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { getDealTotals } from "@/lib/accounting";
 import { RcError, rcFetchEvents } from "@/lib/rc-client";
 import { reconcile, type OurDeal, type ReconcileResult } from "@/lib/rc-reconcile";
+import { notifyRcAmbiguous } from "@/lib/telegram-bot";
 import { prisma } from "@/lib/prisma";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -52,6 +53,12 @@ export async function runRcSync(trigger: "cron" | "manual", startedBy: string | 
       } catch (e) {
         if ((e as { code?: string }).code !== "P2002") throw e; // эта бронь уже привязана к другому заезду — пропускаем
       }
+    }
+
+    // Сверка по расписанию — никто не смотрит на экран в этот момент: похожие (но не точные) брони
+    // спрашиваем у владельцев прямо в Telegram, вместо того чтобы ждать, пока кто-то откроет страницу.
+    if (trigger === "cron") {
+      await notifyRcAmbiguous(result).catch((e) => console.error("[rc-sync] notifyRcAmbiguous", e instanceof Error ? e.message : e));
     }
 
     const payload: RcRunSummary = { ...result, fetchedEvents: events.length, requests };

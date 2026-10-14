@@ -24,18 +24,20 @@ type Props = {
   doneHref: string;
 };
 
+// HANDOVER («Сдано в Рубин») больше не предлагается для новых операций — вместо неё «Перемещение»
+// на кассу «Касса Рубина». Тип оставлен в списке только для правки старых записей (см. visibleTypeButtons ниже).
 const TYPE_BUTTONS: { type: OperationInput["type"]; label: string }[] = [
   { type: "INCOME", label: "Приход" },
   { type: "EXPENSE", label: "Расход" },
   { type: "TRANSFER", label: "Перемещение" },
-  { type: "HANDOVER", label: "Сдано в Рубин" },
+  { type: "HANDOVER", label: "Сдано в Рубин (старое)" },
 ];
 
 const TYPE_HINT: Record<OperationInput["type"], string> = {
   INCOME: "Деньги пришли в кассу: оплата от гостя, аренда авто и т.п.",
   EXPENSE: "Деньги ушли из кассы: уборка, зарплата, закупка и т.п.",
-  TRANSFER: "Переложили деньги из одной кассы в другую — остатки касс поменяются, а общая сумма — нет.",
-  HANDOVER: "Наличные физически сдали в общую (центральную) кассу — спишется с кассы сотрудника.",
+  TRANSFER: "Переложили деньги из одной кассы в другую — остатки касс поменяются, а общая сумма — нет. Сдачу наличных в Рубин оформляйте сюда, кассой-получателем выберите «Касса Рубина».",
+  HANDOVER: "Старый вид операции (до объединения с кассой «Касса Рубина») — для новых записей используйте «Перемещение».",
 };
 
 const ACCOUNT_LABEL: Record<OperationInput["type"], string> = {
@@ -140,11 +142,13 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
   }
 
   const asset = assets.find((a) => a.id === v.assetId);
+  // HANDOVER предлагаем только если это уже сохранённая операция такого типа (правка старой записи).
+  const visibleTypeButtons = TYPE_BUTTONS.filter((b) => b.type !== "HANDOVER" || v.type === "HANDOVER");
 
   return (
     <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "34rem" }}>
       <div role="group" aria-label="Вид операции" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.5rem" }}>
-        {TYPE_BUTTONS.map((b) => (
+        {visibleTypeButtons.map((b) => (
           <button
             key={b.type}
             type="button"

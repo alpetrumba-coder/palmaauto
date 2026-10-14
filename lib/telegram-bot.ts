@@ -2,6 +2,8 @@ import { getAccountBalances } from "@/lib/accounting";
 import { formatKop, parseMoneyToKop } from "@/lib/money";
 import { buildOperationData, type OperationInput } from "@/lib/operation-build";
 import { prisma } from "@/lib/prisma";
+import { createDealFromRc, linkDealToRc } from "@/lib/rc-actions-core";
+import type { ReconcileResult } from "@/lib/rc-reconcile";
 import { answerCallbackQuery, editMessageText, sendMessage, type TgUpdate } from "@/lib/telegram";
 
 const HELP =
@@ -14,6 +16,13 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 
 async function findStaffByChat(chatId: number) {
   return prisma.staffUser.findUnique({ where: { telegramChatId: BigInt(chatId) } });
+}
+
+/** Черновик мог быть уже удалён (двойная доставка апдейта от Telegram и т.п.) — это не ошибка. */
+async function safeDeleteDraft(id: string) {
+  await prisma.telegramDraft.delete({ where: { id } }).catch((e) => {
+    if ((e as { code?: string }).code !== "P2025") throw e;
+  });
 }
 
 async function handleStart(chatId: number, code: string | undefined) {
@@ -99,11 +108,9 @@ async function handleExpense(chatId: number, staff: { id: string; name: string; 
   }
 
   const summary = `Расход · ${category.name}${asset ? ` · ${asset.name}` : ""} · ${formatKop(amountKop)}`;
-  const draft = await prisma.telegramDraft.upsert({
-    where: { chatId: BigInt(chatId) },
-    update: { input: input as unknown as object, summary },
-    create: { chatId: BigInt(chatId), input: input as unknown as object, summary },
-  });
+  // Один активный черновик-расход на чат: если был незавершённый — тихо заменяем новым.
+  await prisma.telegramDraft.deleteMany({ where: { chatId: BigInt(chatId), kind: "expense" } });
+  const draft = await prisma.telegramDraft.create({ data: { chatId: BigInt(chatId), kind: "expense", input: input as unknown as object, summary } });
   await sendMessage(chatId, `Проверьте: ${summary}`, [
     [
       { text: "✅ Верно", callback_data: `tg:yes:${draft.id}` },
@@ -149,42 +156,105 @@ async function handleText(chatId: number, text: string) {
   await sendMessage(chatId, `Не понял команду. ${HELP}`);
 }
 
-async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
-  const chatId = cb.message?.chat.id;
-  const messageId = cb.message?.message_id;
-  if (!chatId || !messageId || !cb.data) return;
-  const [, action, draftId] = cb.data.split(":");
-
+async function handleExpenseCallback(chatId: number, messageId: number, cbId: string, action: string, draftId: string) {
   const draft = await prisma.telegramDraft.findUnique({ where: { id: draftId } });
-  if (!draft || draft.chatId !== BigInt(chatId)) {
-    await answerCallbackQuery(cb.id, "Черновик устарел.");
+  if (!draft || draft.chatId !== BigInt(chatId) || draft.kind !== "expense") {
+    await answerCallbackQuery(cbId, "Черновик устарел.");
     return;
   }
 
   if (action === "no") {
-    await prisma.telegramDraft.delete({ where: { id: draft.id } });
+    await safeDeleteDraft(draft.id);
     await editMessageText(chatId, messageId, `Отменено: ${draft.summary}`);
-    await answerCallbackQuery(cb.id, "Отменено");
+    await answerCallbackQuery(cbId, "Отменено");
     return;
   }
 
   const staff = await findStaffByChat(chatId);
   if (!staff) {
-    await answerCallbackQuery(cb.id, "Сотрудник не найден.");
+    await answerCallbackQuery(cbId, "Сотрудник не найден.");
     return;
   }
   const input = draft.input as unknown as OperationInput;
   const res = await buildOperationData(input);
   if ("error" in res) {
     await editMessageText(chatId, messageId, `Не получилось: ${res.error}`);
-    await answerCallbackQuery(cb.id, "Ошибка");
-    await prisma.telegramDraft.delete({ where: { id: draft.id } });
+    await answerCallbackQuery(cbId, "Ошибка");
+    await safeDeleteDraft(draft.id);
     return;
   }
   await prisma.operation.create({ data: { ...res.data, createdBy: staff.name } });
-  await prisma.telegramDraft.delete({ where: { id: draft.id } });
+  await safeDeleteDraft(draft.id);
   await editMessageText(chatId, messageId, `Записано: ${draft.summary}`);
-  await answerCallbackQuery(cb.id, "Записано");
+  await answerCallbackQuery(cbId, "Записано");
+}
+
+/** Ответ на вопрос «эта бронь RC — та же, что заезд №X, или другая?» (см. notifyRcAmbiguous). */
+async function handleRcDupeCallback(chatId: number, messageId: number, cbId: string, action: "same" | "diff", draftId: string) {
+  const draft = await prisma.telegramDraft.findUnique({ where: { id: draftId } });
+  if (!draft || draft.chatId !== BigInt(chatId) || draft.kind !== "rcdupe") {
+    await answerCallbackQuery(cbId, "Вопрос устарел.");
+    return;
+  }
+  const { rcId, dealId } = draft.input as unknown as { rcId: number; dealId: string };
+  const staff = await findStaffByChat(chatId);
+
+  const res = action === "same" ? await linkDealToRc(dealId, rcId) : await createDealFromRc(rcId, staff?.name ?? "Telegram");
+  await safeDeleteDraft(draft.id);
+  if (!res.ok) {
+    await editMessageText(chatId, messageId, `Не получилось: ${res.error}`);
+    await answerCallbackQuery(cbId, "Ошибка");
+    return;
+  }
+  await editMessageText(chatId, messageId, action === "same" ? `Связано как одна бронь. ${draft.summary}` : `Заведены как разные брони. ${draft.summary}`);
+  await answerCallbackQuery(cbId, "Готово");
+}
+
+async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
+  const chatId = cb.message?.chat.id;
+  const messageId = cb.message?.message_id;
+  if (!chatId || !messageId || !cb.data) return;
+  const parts = cb.data.split(":");
+
+  if (parts[0] === "tgrc") {
+    const [, action, draftId] = parts;
+    await handleRcDupeCallback(chatId, messageId, cb.id, action === "same" ? "same" : "diff", draftId);
+    return;
+  }
+  const [, action, draftId] = parts;
+  await handleExpenseCallback(chatId, messageId, cb.id, action, draftId);
+}
+
+/** После сверки по расписанию: если нашлись похожие, но не идентичные брони (тот же объект, даты пересекаются),
+ * спрашиваем владельцев в Telegram, одна это бронь или две разных, вместо того чтобы молча ждать, пока кто-то
+ * откроет страницу сверки. */
+export async function notifyRcAmbiguous(result: ReconcileResult) {
+  const ambiguous = result.differs.filter((d) => d.ambiguous);
+  if (ambiguous.length === 0) return;
+
+  const owners = await prisma.staffUser.findMany({ where: { role: "OWNER", active: true, telegramChatId: { not: null } } });
+  if (owners.length === 0) return;
+
+  for (const d of ambiguous) {
+    const summary = `${d.rc.assetName ?? d.rc.address} · у нас №${d.deal.number} ${d.deal.guestName} (${d.deal.startDate}–${d.deal.endDate}), в RC «${d.rc.guest}» (${d.rc.begin}–${d.rc.end})`;
+    const text =
+      `Похоже на дубль брони.\nОбъект: ${d.rc.assetName ?? d.rc.address}\n` +
+      `У нас: заезд №${d.deal.number}, ${d.deal.guestName}, ${d.deal.startDate}–${d.deal.endDate}\n` +
+      `В RealtyCalendar: ${d.rc.guest || "гость не указан"}, ${d.rc.begin}–${d.rc.end}${d.rc.source ? `, ${d.rc.source}` : ""}\n\n` +
+      `Это одна и та же бронь (даты просто разошлись) или две разных?`;
+    for (const owner of owners) {
+      if (!owner.telegramChatId) continue;
+      const draft = await prisma.telegramDraft.create({
+        data: { chatId: owner.telegramChatId, kind: "rcdupe", input: { rcId: d.rc.rcId, dealId: d.deal.id }, summary },
+      });
+      await sendMessage(owner.telegramChatId, text, [
+        [
+          { text: "Это та же бронь", callback_data: `tgrc:same:${draft.id}` },
+          { text: "Это другая", callback_data: `tgrc:diff:${draft.id}` },
+        ],
+      ]).catch((e) => console.error("[rc-dupe-notify]", e instanceof Error ? e.message : e));
+    }
+  }
 }
 
 export async function handleTelegramUpdate(update: TgUpdate) {
