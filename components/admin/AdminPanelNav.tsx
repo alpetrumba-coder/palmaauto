@@ -20,7 +20,7 @@ export function AdminPanelNav({ isOwner = false }: { isOwner?: boolean }) {
         Пользователи
       </Link>
       <Link href="/admin-panel/bookings" className="nav-tap-target" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
-        Календарь
+        Шахматка
       </Link>
       <Link href="/admin-panel/orders" className="nav-tap-target" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
         Заказы

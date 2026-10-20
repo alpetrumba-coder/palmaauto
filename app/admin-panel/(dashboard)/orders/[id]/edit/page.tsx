@@ -82,7 +82,7 @@ export default async function AdminOrderEditPage({ params, searchParams }: PageP
         </Link>
         {" · "}
         <Link href={cancelHref} style={{ textDecoration: "none" }}>
-          ← Календарь
+          ← Шахматка
         </Link>
       </p>
       <h1 style={{ fontSize: "var(--text-2xl)", marginTop: 0 }}>Редактирование заказа</h1>

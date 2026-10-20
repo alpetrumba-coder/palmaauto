@@ -77,7 +77,7 @@ export default function AdminPanelHomePage() {
               maxWidth: "22rem",
             }}
           >
-            Календарь
+            Шахматка
           </Link>
           <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
             Шахматка и{" "}
