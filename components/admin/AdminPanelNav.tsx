@@ -6,9 +6,6 @@ export function AdminPanelNav({ isOwner = false }: { isOwner?: boolean }) {
       <Link href="/admin-panel" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
         Обзор
       </Link>
-      <Link href="/admin-panel/accounting" className="nav-tap-target" style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>
-        Учёт
-      </Link>
       <Link
         href="/admin-panel/cars"
         className="nav-tap-target"
@@ -39,6 +36,24 @@ export function AdminPanelNav({ isOwner = false }: { isOwner?: boolean }) {
       ) : null}
       <Link href="/" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
         Сайт
+      </Link>
+      <Link
+        href="/admin-panel/accounting"
+        className="nav-tap-target"
+        style={{
+          marginLeft: "0.25rem",
+          padding: "0.55rem 1.1rem",
+          borderRadius: "999px",
+          background: "var(--color-accent)",
+          color: "#fff",
+          fontSize: "var(--text-base)",
+          fontWeight: 700,
+          textDecoration: "none",
+          letterSpacing: "0.01em",
+          boxShadow: "0 2px 8px color-mix(in srgb, var(--color-accent) 35%, transparent)",
+        }}
+      >
+        УЧЕТ Пальма и Пальмаавто
       </Link>
     </nav>
   );
