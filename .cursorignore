@@ -1,0 +1,9 @@
+# Не отправлять в ИИ и не индексировать: секреты и персональные данные
+.env
+.env.*
+!.env.example
+.twc-secrets/
+SECRETS-HANDOFF/
+payments/учетные  данные.txt
+*.pem
+*.key
