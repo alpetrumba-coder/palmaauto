@@ -41,15 +41,16 @@ const CARS: A[] = [
 const CASH: { name: string; kind: "CARD" | "CASH" | "ONLINE"; responsible?: string; active?: boolean }[] = [
   // Рабочие кассы с 01.11.2026.
   { name: "Касса Ева", kind: "CASH", responsible: "Ева" },
-  { name: "Карта Х", kind: "CARD" },
-  { name: "Карта Амра-Банк", kind: "CARD" },
+  { name: "Карта Х", kind: "CARD", responsible: "Ева" },
+  { name: "Карта Амра-Банк", kind: "CARD", responsible: "Ева" },
   { name: "Касса Рубина", kind: "CASH" },
+  // Онлайн-оплаты с сайта проката (A-Mobile); при выводе на карту — «Перемещение».
+  { name: "Монета", kind: "ONLINE" },
   // Использовались в старой истории (УК.xlsx); в формах ввода не показываются.
   { name: "Т-банк", kind: "CARD", active: false },
   { name: "Карта Евы", kind: "CARD", responsible: "Ева", active: false },
   { name: "Карта Дмитрия Л.", kind: "CARD", responsible: "Дмитрий", active: false },
   { name: "Карта Анны Нестеровой", kind: "CARD", responsible: "Анна Нестерова", active: false },
-  { name: "Монета", kind: "ONLINE", active: false },
   // Служебная касса для перенесённой истории, где реальную кассу определить нельзя; в формах ввода не показывается.
   { name: "Перенесённая история (не распознано)", kind: "CASH", active: false },
 ];
