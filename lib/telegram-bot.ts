@@ -1,16 +1,24 @@
 import { getAccountBalances } from "@/lib/accounting";
+import { fmtDate } from "@/lib/accounting-options";
 import { formatKop, parseMoneyToKop } from "@/lib/money";
 import { buildOperationData, type OperationInput } from "@/lib/operation-build";
 import { prisma } from "@/lib/prisma";
 import { createDealFromRc, linkDealToRc } from "@/lib/rc-actions-core";
 import type { ReconcileResult } from "@/lib/rc-reconcile";
-import { answerCallbackQuery, editMessageText, sendMessage, type TgUpdate } from "@/lib/telegram";
+import { recognizeOggOpus, speechConfigured, VOICE_MAX_SECONDS } from "@/lib/speech-to-text";
+import { answerCallbackQuery, downloadFile, editMessageText, getFile, sendMessage, type TgUpdate, type TgVoice } from "@/lib/telegram";
+import { findAccounts, matchAsset, matchCategory, parseAmount, parseDealNumber, stripDealNumber } from "@/lib/telegram-parse";
 
 const HELP =
-  "Команды:\n" +
-  "• расход 3000 уборка рио — записать расход\n" +
-  "• остаток — остаток моей кассы\n" +
-  "Если бот не понял фразу — попробуйте короче, например «расход 1500 моющие средства».";
+  "Пишите обычной фразой:\n" +
+  "• расход 500 стирка заезд 23 — расход к заезду\n" +
+  "• расход 1200 бензин приус карта х — расход по машине, с карты Х\n" +
+  "• расход 3000 реклама — общий расход (без объекта)\n" +
+  "• оплата 15000 заезд 23 амра — оплата гостя к заезду, на карту Амра-Банк\n" +
+  "• передал 5000 в рубин — из вашей кассы в «Кассу Рубина»\n" +
+  "• перемещение 3000 карта х касса ева — из одной кассы в другую\n" +
+  "• остаток — остатки касс · статьи — список статей расходов\n" +
+  "Касса не указана — берётся ваша касса по умолчанию. Перед записью бот покажет карточку: «Верно» / «Отмена».";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -46,9 +54,9 @@ async function handleStart(chatId: number, code: string | undefined) {
   await sendMessage(chatId, `Готово, ${staff.name}! Чат привязан. Наберите «остаток» или «помощь».`);
 }
 
-async function handleBalance(chatId: number, staff: { id: string; name: string; defaultCashAccountId: string | null }) {
+async function handleBalance(chatId: number, staff: Staff) {
   const balances = await getAccountBalances();
-  const mine = balances.filter((b) => b.id === staff.defaultCashAccountId || b.responsible === staff.name);
+  const mine = balances.filter((b) => b.active && (staff.role === "OWNER" || b.id === staff.defaultCashAccountId || b.responsible === staff.name));
   if (mine.length === 0) {
     await sendMessage(chatId, "За вами не закреплена касса. Попросите владельца указать её на странице «Сотрудники».");
     return;
@@ -57,67 +65,154 @@ async function handleBalance(chatId: number, staff: { id: string; name: string; 
   await sendMessage(chatId, lines.join("\n"));
 }
 
-const AMOUNT_RE = /(\d[\d\s]*(?:[.,]\d{1,2})?)/;
+type Staff = { id: string; name: string; role: "OWNER" | "OPERATOR"; defaultCashAccountId: string | null };
 
-/** Разбор фразы «расход 3000 уборка рио»: сумма — первое число, остаток — текст для поиска статьи/объекта. */
-async function handleExpense(chatId: number, staff: { id: string; name: string; defaultCashAccountId: string | null }, rest: string) {
-  if (!staff.defaultCashAccountId) {
-    await sendMessage(chatId, "За вами не закреплена касса по умолчанию. Попросите владельца указать её на странице «Сотрудники».");
-    return;
-  }
-  const m = rest.match(AMOUNT_RE);
-  if (!m) {
-    await sendMessage(chatId, "Не нашёл сумму. Например: «расход 3000 уборка рио».");
-    return;
-  }
-  const amountKop = parseMoneyToKop(m[1].replace(/\s/g, ""));
-  if (amountKop === null || amountKop <= 0) {
-    await sendMessage(chatId, "Сумма не распознана. Укажите число больше нуля.");
-    return;
-  }
-  const words = rest.slice(m.index! + m[0].length).trim();
-
-  const [categories, assets] = await Promise.all([
-    prisma.category.findMany({ where: { kind: "EXPENSE", active: true } }),
-    prisma.asset.findMany({ where: { active: true } }),
+async function loadRefs() {
+  const [accounts, categories, assets] = await Promise.all([
+    prisma.cashAccount.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
+    prisma.category.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, kind: true, aliases: true } }),
+    prisma.asset.findMany({ where: { active: true }, select: { id: true, name: true, kind: true, aliases: true } }),
   ]);
-  const lower = words.toLowerCase();
-  const category = categories.find((c) => lower.includes(c.name.toLowerCase()));
-  const asset = assets.find((a) => lower.includes(a.name.toLowerCase()));
+  return { accounts, categories, assets };
+}
 
-  if (!category) {
-    await sendMessage(chatId, `Не нашёл статью расхода в фразе «${words || rest}». Назовите её точнее (как в справочнике статей).`);
-    return;
-  }
+const opComment = (text: string) => `Из Telegram: «${text.trim()}»`;
 
-  const input: OperationInput = {
-    date: todayIso(),
-    type: "EXPENSE",
-    amount: (amountKop / 100).toFixed(2),
-    accountId: staff.defaultCashAccountId,
-    toAccountId: "",
-    categoryId: category.id,
-    assetId: asset?.id ?? "",
-    dealId: "",
-    comment: `Из Telegram: «${rest}»`,
-  };
+/** Проверяет операцию и присылает карточку с кнопками «Верно / Отмена». Один незавершённый черновик на чат. */
+async function sendDraft(chatId: number, input: OperationInput, summary: string) {
   const check = await buildOperationData(input);
   if ("error" in check) {
     await sendMessage(chatId, `Не получилось: ${check.error}`);
     return;
   }
-
-  const summary = `Расход · ${category.name}${asset ? ` · ${asset.name}` : ""} · ${formatKop(amountKop)}`;
-  // Один активный черновик-расход на чат: если был незавершённый — тихо заменяем новым.
   await prisma.telegramDraft.deleteMany({ where: { chatId: BigInt(chatId), kind: "expense" } });
   const draft = await prisma.telegramDraft.create({ data: { chatId: BigInt(chatId), kind: "expense", input: input as unknown as object, summary } });
-  await sendMessage(chatId, `Проверьте: ${summary}`, [
+  await sendMessage(chatId, `Проверьте:\n${summary}`, [
     [
       { text: "✅ Верно", callback_data: `tg:yes:${draft.id}` },
       { text: "✖ Отмена", callback_data: `tg:no:${draft.id}` },
     ],
   ]);
 }
+
+/** «расход 500 стирка заезд 23 карта х» и «оплата 15000 заезд 23 амра». */
+async function handleMoney(chatId: number, staff: Staff, kind: "INCOME" | "EXPENSE", text: string) {
+  const example = kind === "INCOME" ? "оплата 15000 заезд 23" : "расход 500 стирка заезд 23";
+  // «оплата за аренду 5000» — тут 5000 сумма, а не номер аренды: номер берём, только если осталась ещё и сумма.
+  let dealNo = parseDealNumber(text);
+  let parsed = parseAmount(stripDealNumber(text));
+  if (dealNo !== null && !parsed) {
+    dealNo = null;
+    parsed = parseAmount(text);
+  }
+  if (!parsed) {
+    await sendMessage(chatId, `Не нашёл сумму. Например: «${example}».`);
+    return;
+  }
+  const refs = await loadRefs();
+
+  let deal: { id: string; number: number; guestName: string; startDate: Date; endDate: Date; asset: { id: string; name: string; kind: "APARTMENT" | "CAR" } } | null = null;
+  if (dealNo !== null) {
+    deal = await prisma.deal.findFirst({ where: { number: dealNo, status: "ACTIVE" }, include: { asset: { select: { id: true, name: true, kind: true } } } });
+    if (!deal) {
+      await sendMessage(chatId, `Заезд/аренда №${dealNo} не найдены (или отменены). Проверьте номер в карточке заезда.`);
+      return;
+    }
+  }
+  const asset = deal ? deal.asset : matchAsset(parsed.rest, refs.assets);
+
+  const accountId = findAccounts(parsed.rest, refs.accounts)[0]?.id ?? staff.defaultCashAccountId;
+  if (!accountId) {
+    await sendMessage(chatId, "Укажите кассу во фразе (например «карта х», «амра», «касса ева») — касса по умолчанию за вами не закреплена.");
+    return;
+  }
+
+  const category =
+    kind === "INCOME"
+      ? (matchCategory(parsed.rest, refs.categories, "INCOME", asset?.kind) ?? refs.categories.find((c) => c.name === "Доходы от сдачи имущества в аренду") ?? null)
+      : matchCategory(parsed.rest, refs.categories, "EXPENSE", asset?.kind);
+  if (!category) {
+    await sendMessage(chatId, `Не понял статью расхода в «${parsed.rest || text}». Напишите одно слово: стирка, уборка, бензин, ремонт, хоз, реклама… Список — «статьи».`);
+    return;
+  }
+
+  const input: OperationInput = {
+    date: todayIso(),
+    type: kind,
+    amount: parsed.amount,
+    accountId,
+    toAccountId: "",
+    categoryId: category.id,
+    assetId: deal ? "" : (asset?.id ?? ""),
+    dealId: deal?.id ?? "",
+    comment: opComment(`${kind === "INCOME" ? "оплата" : "расход"} ${text}`),
+  };
+  const kop = parseMoneyToKop(parsed.amount) ?? 0;
+  const summary = [
+    `${kind === "INCOME" ? "Приход" : "Расход"} · ${formatKop(kop)}`,
+    `Статья: ${category.name}`,
+    deal
+      ? `Заезд №${deal.number} · ${deal.asset.name} · ${deal.guestName} (${fmtDate(deal.startDate)}–${fmtDate(deal.endDate)})`
+      : asset
+        ? `Объект: ${asset.name}`
+        : "Объект: общий (без объекта)",
+    `Касса: ${refs.accounts.find((a) => a.id === accountId)?.name ?? "—"}`,
+  ].join("\n");
+  await sendDraft(chatId, input, summary);
+}
+
+/** «передал 5000 в рубин», «перемещение 3000 карта х касса ева». */
+async function handleTransfer(chatId: number, staff: Staff, text: string) {
+  const parsed = parseAmount(text);
+  if (!parsed) {
+    await sendMessage(chatId, "Не нашёл сумму. Например: «передал 5000 в рубин».");
+    return;
+  }
+  const refs = await loadRefs();
+  const accs = findAccounts(parsed.rest, refs.accounts);
+  let fromId: string | null = null;
+  let toId: string | null = null;
+  if (accs.length >= 2) {
+    fromId = accs[0].id;
+    toId = accs[1].id;
+  } else if (accs.length === 1) {
+    fromId = staff.defaultCashAccountId;
+    toId = accs[0].id;
+  }
+  if (!toId) {
+    await sendMessage(chatId, "Укажите, в какую кассу: например «передал 5000 в рубин» или «перемещение 3000 карта х касса ева».");
+    return;
+  }
+  if (!fromId) {
+    await sendMessage(chatId, "Укажите и кассу-источник: «перемещение 3000 карта х касса ева» (первая — откуда, вторая — куда).");
+    return;
+  }
+  if (fromId === toId) {
+    await sendMessage(chatId, "Касса «откуда» и «куда» совпадают. Назовите обе: первая — откуда, вторая — куда.");
+    return;
+  }
+  const input: OperationInput = {
+    date: todayIso(),
+    type: "TRANSFER",
+    amount: parsed.amount,
+    accountId: fromId,
+    toAccountId: toId,
+    categoryId: "",
+    assetId: "",
+    dealId: "",
+    comment: opComment(`перемещение ${text}`),
+  };
+  const name = (id: string) => refs.accounts.find((a) => a.id === id)?.name ?? "—";
+  const summary = `Перемещение · ${formatKop(parseMoneyToKop(parsed.amount) ?? 0)}\nИз: ${name(fromId)}\nВ: ${name(toId)}`;
+  await sendDraft(chatId, input, summary);
+}
+
+async function handleCategoriesList(chatId: number) {
+  const cats = await prisma.category.findMany({ where: { active: true, kind: "EXPENSE" }, orderBy: { sortOrder: "asc" }, select: { name: true } });
+  await sendMessage(chatId, `Статьи расходов:\n${cats.map((c) => `• ${c.name}`).join("\n")}\n\nМожно писать коротко: стирка, уборка, бензин, ремонт, хоз, реклама, связь, коммуналка.`);
+}
+
+const firstWordRest = (text: string) => text.replace(/^\S+\s*/, "");
 
 async function handleText(chatId: number, text: string) {
   const trimmed = text.trim();
@@ -136,24 +231,37 @@ async function handleText(chatId: number, text: string) {
     return;
   }
 
-  const lower = trimmed.toLowerCase();
+  const lower = trimmed.toLowerCase().replace(/ё/g, "е");
+  const first = lower.split(/\s+/)[0];
   if (lower === "/start") {
     await sendMessage(chatId, `Чат уже привязан к ${staff.name}.`);
     return;
   }
-  if (lower === "остаток" || lower === "/balance") {
+  if (first === "остаток" || first === "остатки" || lower === "/balance") {
     await handleBalance(chatId, staff);
     return;
   }
-  if (lower.startsWith("расход")) {
-    await handleExpense(chatId, staff, trimmed.replace(/^расход\s*/i, ""));
+  if (first === "статьи" || lower === "/categories") {
+    await handleCategoriesList(chatId);
     return;
   }
-  if (lower === "помощь" || lower === "/help") {
+  if (first.startsWith("расход")) {
+    await handleMoney(chatId, staff, "EXPENSE", firstWordRest(trimmed));
+    return;
+  }
+  if (first.startsWith("оплат") || first.startsWith("приход")) {
+    await handleMoney(chatId, staff, "INCOME", firstWordRest(trimmed));
+    return;
+  }
+  if (["передал", "передала", "перевел", "перевела", "сдал", "сдала"].includes(first) || first.startsWith("перемещ")) {
+    await handleTransfer(chatId, staff, firstWordRest(trimmed));
+    return;
+  }
+  if (first === "помощь" || lower === "/help") {
     await sendMessage(chatId, HELP);
     return;
   }
-  await sendMessage(chatId, `Не понял команду. ${HELP}`);
+  await sendMessage(chatId, `Не понял. ${HELP}`);
 }
 
 async function handleExpenseCallback(chatId: number, messageId: number, cbId: string, action: string, draftId: string) {
@@ -257,11 +365,42 @@ export async function notifyRcAmbiguous(result: ReconcileResult) {
   }
 }
 
+/** Голос → текст (SpeechKit) → тот же разбор, что у текстовых команд. */
+async function handleVoice(chatId: number, voice: TgVoice) {
+  if (!speechConfigured()) {
+    await sendMessage(
+      chatId,
+      "Голосовые пока не подключены (нет ключа распознавания). Напишите текстом, например «расход 3000 уборка рио».",
+    );
+    return;
+  }
+  if (voice.duration != null && voice.duration > VOICE_MAX_SECONDS) {
+    await sendMessage(chatId, `Слишком длинное голосовое (больше ${VOICE_MAX_SECONDS} сек). Скажите короче или напишите текстом.`);
+    return;
+  }
+
+  await sendMessage(chatId, "Слушаю…");
+  try {
+    const { file_path } = await getFile(voice.file_id);
+    const audio = await downloadFile(file_path);
+    const stt = await recognizeOggOpus(audio);
+    if (!stt.ok) {
+      await sendMessage(chatId, `${stt.error} Можно повторить голосом или написать текстом.`);
+      return;
+    }
+    await sendMessage(chatId, `Распознал: «${stt.text}»`);
+    await handleText(chatId, stt.text);
+  } catch (e) {
+    console.error("[telegram-voice]", e instanceof Error ? e.message : e);
+    await sendMessage(chatId, "Не удалось обработать голосовое. Напишите текстом, например «расход 3000 уборка рио».");
+  }
+}
+
 export async function handleTelegramUpdate(update: TgUpdate) {
   if (update.message) {
     const chatId = update.message.chat.id;
     if (update.message.voice) {
-      await sendMessage(chatId, "Голосовые сообщения пока не распознаются — скоро добавим. Напишите текстом, например «расход 3000 уборка рио».");
+      await handleVoice(chatId, update.message.voice);
       return;
     }
     if (update.message.text) await handleText(chatId, update.message.text);

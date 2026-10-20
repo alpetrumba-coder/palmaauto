@@ -68,8 +68,40 @@ export function telegramConfigured(): boolean {
   return !!token();
 }
 
+/** Путь к файлу в Telegram (нужен, чтобы скачать голосовое). */
+export async function getFile(fileId: string): Promise<{ file_path: string; file_size?: number }> {
+  const r = await call<{ file_id: string; file_unique_id: string; file_size?: number; file_path?: string }>("getFile", {
+    file_id: fileId,
+  });
+  if (!r.file_path) throw new Error("Telegram getFile: нет file_path");
+  return { file_path: r.file_path, file_size: r.file_size };
+}
+
+/** Скачать файл бота (голос — Ogg Opus). Идёт через тот же relay, что и остальные вызовы API. */
+export async function downloadFile(filePath: string): Promise<Buffer> {
+  const t = token();
+  if (!t) throw new Error("TELEGRAM_BOT_TOKEN не задан");
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 20_000);
+  try {
+    const headers: Record<string, string> = {};
+    const relaySecret = process.env.TELEGRAM_RELAY_SECRET;
+    if (relaySecret) headers["X-Relay-Secret"] = relaySecret;
+    const res = await fetch(`${apiBase()}/file/bot${t}/${filePath}`, { headers, signal: ac.signal });
+    if (!res.ok) throw new Error(`Telegram downloadFile: HTTP ${res.status}`);
+    const ab = await res.arrayBuffer();
+    return Buffer.from(ab);
+  } catch (e) {
+    throw new Error(`Telegram downloadFile: ${e instanceof Error ? e.message : String(e)}`);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // --- типы входящих апдейтов (только то, что используем) ---
+export type TgVoice = { file_id: string; duration?: number; mime_type?: string; file_size?: number };
+
 export type TgUpdate = {
-  message?: { message_id: number; chat: { id: number }; text?: string; voice?: { file_id: string } };
+  message?: { message_id: number; chat: { id: number }; text?: string; voice?: TgVoice };
   callback_query?: { id: string; data?: string; message?: { message_id: number; chat: { id: number } } };
 };
