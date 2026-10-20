@@ -98,13 +98,10 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
         {(
           [
             { href: "/admin-panel/accounting/new?type=INCOME", label: "+ Приход", hint: "Деньги пришли: оплата от гостя, аренда авто и т.п.", variant: "accent" as const },
-            { href: "/admin-panel/accounting/new?type=EXPENSE", label: "+ Расход", hint: "Деньги ушли: уборка, зарплата, закупка и т.п.", variant: "accent" as const },
-            { href: "/admin-panel/accounting/new?type=TRANSFER", label: "Перемещение", hint: "Переложили деньги из одной кассы в другую — в т.ч. сдача наличных в «Кассу Рубина».", variant: "outline" as const },
-            { href: "/admin-panel/accounting#balances", label: "Кассы", hint: "Остаток в каждой кассе прямо сейчас — список ниже на этой странице.", variant: "outline" as const },
-            { href: "/admin-panel/accounting/deals/new", label: "+ Заезд / аренда", hint: "Завести карточку гостя/клиента — к ней потом привязываются оплаты и расходы.", variant: "outline" as const },
-            { href: "/admin-panel/accounting/deals", label: "Все заезды и аренды", hint: "Список карточек: кто, когда, сколько должен и оплатил.", variant: "outline" as const },
+            { href: "/admin-panel/accounting/new?type=EXPENSE", label: "+ Расход", hint: "Деньги ушли: уборка, зарплата, закупка. Перемещение между кассами — галочка в форме.", variant: "accent" as const },
+            { href: "/admin-panel/bookings?tab=apts", label: "Шахматка", hint: "Заезды и аренды: смотрите занятость и заводите новые здесь — из RealtyCalendar или Пальма-Авто.", variant: "outline" as const },
             { href: "/admin-panel/accounting/reports", label: "Отчёты", hint: "Прибыль по объектам, расчёт с собственниками, премии за период.", variant: "outline" as const },
-            { href: "/admin-panel/accounting/rc", label: "Сверка с RealtyCalendar", hint: "Проверка, все ли брони из RealtyCalendar заведены как заезды.", variant: "outline" as const },
+            { href: "/admin-panel/accounting/rc", label: "Сверка RC и PA", hint: "Сверка RealtyCalendar (RC) и Пальма-Авто (PA): все ли брони заведены как заезды.", variant: "outline" as const },
             ...(session.role === "OWNER"
               ? [
                   { href: "/admin-panel/dictionaries", label: "Справочники", hint: "Объекты, кассы, статьи, каналы продаж — настройки для операций.", variant: "outline" as const },

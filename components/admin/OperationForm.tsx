@@ -24,19 +24,20 @@ type Props = {
   doneHref: string;
 };
 
-// HANDOVER («Сдано в Рубин») больше не предлагается для новых операций — вместо неё «Перемещение»
-// на кассу «Касса Рубина». Тип оставлен в списке только для правки старых записей (см. visibleTypeButtons ниже).
+// Перемещение между кассами оформляется из «Расхода» галочкой (внутри — тип TRANSFER), отдельной кнопки нет.
+// HANDOVER («Сдано в Рубин») — старый тип, показывается только при правке старых записей (см. visibleTypeButtons ниже).
 const TYPE_BUTTONS: { type: OperationInput["type"]; label: string }[] = [
   { type: "INCOME", label: "Приход" },
   { type: "EXPENSE", label: "Расход" },
-  { type: "TRANSFER", label: "Перемещение" },
   { type: "HANDOVER", label: "Сдано в Рубин (старое)" },
 ];
+
+const MOVE_NOTE = "(перемещение из кассы в кассу)";
 
 const TYPE_HINT: Record<OperationInput["type"], string> = {
   INCOME: "Деньги пришли в кассу: оплата от гостя, аренда авто и т.п.",
   EXPENSE: "Деньги ушли из кассы: уборка, зарплата, закупка и т.п.",
-  TRANSFER: "Переложили деньги из одной кассы в другую — остатки касс поменяются, а общая сумма — нет. Сдачу наличных в Рубин оформляйте сюда, кассой-получателем выберите «Касса Рубина».",
+  TRANSFER: "Переложили деньги из одной кассы в другую: из первой спишется, во вторую придёт; в отчётах это не расход. Сдача наличных в Рубин — кассой-получателем выберите «Касса Рубина».",
   HANDOVER: "Старый вид операции (до объединения с кассой «Касса Рубина») — для новых записей используйте «Перемещение».",
 };
 
@@ -126,7 +127,9 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
     e.preventDefault();
     setError(null);
     setPending(true);
-    const res = operationId ? await updateOperationAction(operationId, v) : await createOperationAction(v);
+    const payload: OperationInput =
+      v.type === "TRANSFER" && !v.comment.includes(MOVE_NOTE) ? { ...v, comment: `${MOVE_NOTE} ${v.comment}`.trim() } : v;
+    const res = operationId ? await updateOperationAction(operationId, payload) : await createOperationAction(payload);
     setPending(false);
     if (!res.ok) {
       setError(res.error);
@@ -144,6 +147,7 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
   const asset = assets.find((a) => a.id === v.assetId);
   // HANDOVER предлагаем только если это уже сохранённая операция такого типа (правка старой записи).
   const visibleTypeButtons = TYPE_BUTTONS.filter((b) => b.type !== "HANDOVER" || v.type === "HANDOVER");
+  const isSelected = (t: OperationInput["type"]) => v.type === t || (t === "EXPENSE" && v.type === "TRANSFER");
 
   return (
     <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "34rem" }}>
@@ -153,14 +157,14 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
             key={b.type}
             type="button"
             onClick={() => changeType(b.type)}
-            aria-pressed={v.type === b.type}
+            aria-pressed={isSelected(b.type)}
             style={{
               padding: "0.8rem 0.5rem",
               borderRadius: "var(--radius-md)",
-              border: v.type === b.type ? "2px solid var(--color-accent)" : "1px solid var(--color-border)",
-              background: v.type === b.type ? "var(--color-surface)" : "transparent",
+              border: isSelected(b.type) ? "2px solid var(--color-accent)" : "1px solid var(--color-border)",
+              background: isSelected(b.type) ? "var(--color-surface)" : "transparent",
               color: "var(--color-text)",
-              fontWeight: v.type === b.type ? 700 : 400,
+              fontWeight: isSelected(b.type) ? 700 : 400,
               fontSize: "var(--text-base)",
               cursor: "pointer",
             }}
@@ -170,6 +174,12 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
         ))}
       </div>
       <p style={{ margin: "-0.6rem 0 0", fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>{TYPE_HINT[v.type]}</p>
+      {v.type === "EXPENSE" || v.type === "TRANSFER" ? (
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)" }}>
+          <input type="checkbox" checked={v.type === "TRANSFER"} onChange={(e) => changeType(e.target.checked ? "TRANSFER" : "EXPENSE")} />
+          Это перемещение из кассы в кассу (не расход)
+        </label>
+      ) : null}
 
       <label style={labelStyle}>
         Сумма, ₽ *
