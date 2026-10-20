@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 /**
  * Общая шахматка «объекты × дни» в стиле RealtyCalendar: узкие строки, выходные подкрашены, сегодня выделено.
@@ -16,8 +19,22 @@ export type ChessBar = {
   label: string;
   title: string;
   href: string;
-  /** Пунктирная рамка: бронь есть только в RealtyCalendar, заезда у нас нет. */
+  /** Пунктирная рамка: бронь пропала из RealtyCalendar (или есть только там). */
   dashed?: boolean;
+  /** Карточка брони: открывается по клику во всплывающем окне, как в RealtyCalendar. */
+  info?: BarInfo;
+};
+
+export type BarInfo = {
+  title: string;
+  /** Подпись под заголовком, например «Заезд №12». */
+  subtitle?: string;
+  lines: [string, string][];
+  /** Предупреждение (красным): например, «брони нет в RealtyCalendar». */
+  warning?: string;
+  /** История изменений, новые сверху. */
+  history?: string[];
+  link?: { href: string; label: string };
 };
 
 export type ChessRow = {
@@ -42,6 +59,13 @@ const BORDER = "color-mix(in srgb, var(--color-border) 70%, transparent)";
 const dow = (iso: string) => new Date(`${iso}T00:00:00Z`).getUTCDay();
 
 export function Chessboard({ days, today, rows }: { days: string[]; today: string; rows: ChessRow[] }) {
+  const [open, setOpen] = useState<BarInfo | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
   const n = days.length;
   const minWidth = `calc(${LABEL_W} + ${n} * ${COL_W}rem)`;
 
@@ -127,31 +151,34 @@ export function Chessboard({ days, today, rows }: { days: string[]; today: strin
               {row.bars.map((b) => {
                 const g = geometry(b);
                 if (!g) return null;
-                return (
-                  <Link
-                    key={b.id}
-                    href={b.href}
-                    title={b.title}
-                    style={{
-                      position: "absolute",
-                      left: `${g.left}%`,
-                      width: `${g.width}%`,
-                      top: "3px",
-                      bottom: "3px",
-                      background: b.color,
-                      color: b.textColor ?? "#fff",
-                      border: b.dashed ? "1.5px dashed color-mix(in srgb, var(--color-text) 45%, transparent)" : undefined,
-                      borderRadius: "5px",
-                      padding: "0 4px",
-                      overflow: "hidden",
-                      whiteSpace: "nowrap",
-                      textOverflow: "ellipsis",
-                      textDecoration: "none",
-                      fontSize: "10px",
-                      lineHeight: "calc(2rem - 6px)",
-                      zIndex: 2,
-                    }}
-                  >
+                const barStyle: React.CSSProperties = {
+                  position: "absolute",
+                  left: `${g.left}%`,
+                  width: `${g.width}%`,
+                  top: "3px",
+                  bottom: "3px",
+                  background: b.color,
+                  color: b.textColor ?? "#fff",
+                  border: b.dashed ? "1.5px dashed color-mix(in srgb, var(--color-text) 55%, transparent)" : "none",
+                  borderRadius: "5px",
+                  padding: "0 4px",
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                  textOverflow: "ellipsis",
+                  textDecoration: "none",
+                  lineHeight: "calc(2rem - 6px)",
+                  zIndex: 2,
+                  textAlign: "left",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  fontSize: "10px",
+                };
+                return b.info ? (
+                  <button key={b.id} type="button" title={b.title} onClick={() => setOpen(b.info as BarInfo)} style={barStyle}>
+                    {b.label}
+                  </button>
+                ) : (
+                  <Link key={b.id} href={b.href} title={b.title} style={barStyle}>
                     {b.label}
                   </Link>
                 );
@@ -160,6 +187,58 @@ export function Chessboard({ days, today, rows }: { days: string[]; today: strin
           </div>
         ))}
       </div>
+
+      {open ? (
+        <div
+          onClick={() => setOpen(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 50, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "6vh 1rem 1rem", overflowY: "auto" }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "var(--color-bg, #fff)", color: "var(--color-text)", borderRadius: "var(--radius-md, 10px)", boxShadow: "0 12px 40px rgba(0,0,0,0.3)", width: "min(30rem, 100%)", padding: "1.1rem 1.25rem", fontSize: "var(--text-sm, 14px)" }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+              <div style={{ flex: 1 }}>
+                {open.subtitle ? <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{open.subtitle}</div> : null}
+                <div style={{ fontSize: "1.15rem", fontWeight: 700 }}>{open.title}</div>
+              </div>
+              <button type="button" onClick={() => setOpen(null)} aria-label="Закрыть" style={{ border: "none", background: "transparent", fontSize: "1.4rem", lineHeight: 1, cursor: "pointer", color: "var(--color-text-secondary)" }}>
+                ×
+              </button>
+            </div>
+            {open.warning ? (
+              <p style={{ margin: "0.6rem 0 0", padding: "0.45rem 0.6rem", borderRadius: "6px", background: "color-mix(in srgb, var(--color-danger, #b00020) 10%, transparent)", color: "var(--color-danger, #b00020)", fontWeight: 600 }}>{open.warning}</p>
+            ) : null}
+            <dl style={{ margin: "0.8rem 0 0", display: "grid", gridTemplateColumns: "auto 1fr", gap: "0.3rem 0.9rem" }}>
+              {open.lines.map(([k, v], i) => (
+                <div key={i} style={{ display: "contents" }}>
+                  <dt style={{ color: "var(--color-text-secondary)" }}>{k}</dt>
+                  <dd style={{ margin: 0, fontWeight: 600, wordBreak: "break-word" }}>{v}</dd>
+                </div>
+              ))}
+            </dl>
+            {open.history && open.history.length > 0 ? (
+              <div style={{ marginTop: "0.9rem" }}>
+                <div style={{ fontWeight: 700, marginBottom: "0.25rem" }}>История изменений</div>
+                <ul style={{ margin: 0, paddingLeft: "1.1rem", color: "var(--color-text-secondary)", fontSize: "12px" }}>
+                  {open.history.map((h, i) => (
+                    <li key={i}>{h}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {open.link ? (
+              <p style={{ margin: "1rem 0 0" }}>
+                <Link href={open.link.href} style={{ display: "inline-flex", padding: "0.55rem 1rem", borderRadius: "999px", background: "var(--color-accent)", color: "#fff", fontWeight: 700, textDecoration: "none" }}>
+                  {open.link.label}
+                </Link>
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

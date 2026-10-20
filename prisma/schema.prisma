@@ -410,16 +410,35 @@ model Deal {
   siteBookingId  String?     @unique @map("site_booking_id")
   /// Номер брони в RealtyCalendar: по нему сверка находит заезд (ставится автоматически при точном совпадении).
   rcBookingId    Int?        @unique @map("rc_booking_id")
+  /// Когда сверка впервые не нашла связанную бронь в RealtyCalendar (null — бронь на месте или связи нет).
+  rcMissingSince DateTime?   @map("rc_missing_since")
+  /// Последние значения из RC, которые мы применили (даты, гость, сумма): по ним видно, что в RC изменилось.
+  rcSnapshot     Json?       @map("rc_snapshot")
   createdBy      String      @map("created_by")
   createdAt      DateTime    @default(now()) @map("created_at")
   updatedAt      DateTime    @updatedAt @map("updated_at")
   asset          Asset       @relation(fields: [assetId], references: [id])
   channel        Channel?    @relation(fields: [channelId], references: [id], onDelete: SetNull)
   operations     Operation[]
+  changes        DealChange[]
 
   @@index([assetId, startDate])
   @@index([startDate])
   @@map("deals")
+}
+
+/// История изменений заезда: что поменялось в RealtyCalendar, и когда.
+model DealChange {
+  id     String   @id @default(cuid())
+  dealId String   @map("deal_id")
+  at     DateTime @default(now())
+  /// "rc" — изменение пришло из RealtyCalendar, "system" — служебная запись.
+  source String
+  text   String   @db.Text
+  deal   Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, at])
+  @@map("deal_changes")
 }
 
 enum OperationType {

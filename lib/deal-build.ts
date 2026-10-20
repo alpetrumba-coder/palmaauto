@@ -32,7 +32,7 @@ export type BuiltDeal =
     };
 
 /** Проверяет ввод заезда/аренды и приводит к данным для записи. Общее для формы в админке и Telegram-бота. */
-export async function buildDealData(input: DealInput, selfId?: string): Promise<BuiltDeal> {
+export async function buildDealData(input: DealInput, selfId?: string, opts: { allowZeroGross?: boolean } = {}): Promise<BuiltDeal> {
   const guestName = input.guestName.trim();
   if (!guestName) return { error: "Укажите имя гостя / арендатора." };
   if (guestName.length > 200) return { error: "Имя слишком длинное." };
@@ -51,7 +51,7 @@ export async function buildDealData(input: DealInput, selfId?: string): Promise<
   if ((endDate.getTime() - startDate.getTime()) / 86400000 > 400) return { error: "Срок не может быть больше 400 суток." };
 
   const grossKop = parseMoneyToKop(input.gross);
-  if (grossKop === null || grossKop <= 0) return { error: "Сумма заезда — число больше нуля." };
+  if (grossKop === null || grossKop < 0 || (grossKop === 0 && !opts.allowZeroGross)) return { error: "Сумма заезда — число больше нуля." };
 
   const commissionKop = input.commission.trim() === "" ? 0 : parseMoneyToKop(input.commission);
   if (commissionKop === null) return { error: "Комиссия — число, например 3150 или 0." };

@@ -100,6 +100,17 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
             label: `${label}${phone}`,
             title: `${label}${phone} · ${rd(iso(b.startDate))}–${rd(iso(b.endDate))}`,
             href: `/admin-panel/orders/${b.id}/edit?back=${encodeURIComponent(back)}`,
+            info: {
+              subtitle: `Заказ на сайте · ${car.make} ${car.model}`,
+              title: label,
+              lines: [
+                ["Даты", `${rd(iso(b.startDate))}.${iso(b.startDate).slice(0, 4)} – ${rd(iso(b.endDate))}.${iso(b.endDate).slice(0, 4)}`],
+                ["Телефон", b.user.phone ?? "—"],
+                ["Почта", b.user.email ?? "—"],
+                ["Статус оплаты", b.status === "PAID" ? "оплачен" : b.status === "PARTIALLY_PAID" ? "оплачен частично" : b.status === "PENDING_PAYMENT" ? "не оплачен" : String(b.status)],
+              ],
+              link: { href: `/admin-panel/orders/${b.id}/edit?back=${encodeURIComponent(back)}`, label: "Открыть заказ" },
+            },
           };
         }),
     }));
@@ -108,7 +119,11 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
       prisma.asset.findMany({ where: { kind: "APARTMENT", active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }),
       prisma.deal.findMany({
         where: { status: "ACTIVE", startDate: { lte: viewEnd }, endDate: { gte: viewStart }, asset: { kind: "APARTMENT" } },
-        select: { id: true, number: true, assetId: true, guestName: true, startDate: true, endDate: true, grossKop: true, channel: { select: { name: true } } },
+        select: {
+          id: true, number: true, assetId: true, guestName: true, phone: true, startDate: true, endDate: true, grossKop: true, commissionKop: true,
+          comment: true, rcBookingId: true, rcMissingSince: true, channel: { select: { name: true } },
+          changes: { orderBy: { at: "desc" }, take: 6, select: { at: true, text: true } },
+        },
         orderBy: { startDate: "asc" },
       }),
       prisma.rcSyncRun.findFirst({ where: { status: "ok" }, orderBy: { startedAt: "desc" } }),
@@ -117,7 +132,7 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
     const rc = (lastRun?.result as RcRunSummary | null | undefined) ?? null;
     const rcOnly = (rc?.missing ?? []).filter((m) => m.assetId && m.end >= days[0] && m.begin <= days[days.length - 1]);
     if (lastRun) {
-      rcInfo = `${rcOnly.length} броней только в RealtyCalendar (пунктир) · данные RC на ${lastRun.startedAt.toLocaleString("ru-RU", { timeZone: "Europe/Moscow", dateStyle: "short", timeStyle: "short" })}`;
+      rcInfo = `${rcOnly.length ? `${rcOnly.length} броней только в RealtyCalendar · ` : ""}данные RC на ${lastRun.startedAt.toLocaleString("ru-RU", { timeZone: "Europe/Moscow", dateStyle: "short", timeStyle: "short" })}`;
     }
 
     rows = assets.map((a) => ({
@@ -131,13 +146,34 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
             const color = paid >= d.grossKop ? GREEN : paid > 0 ? BLUE : ORANGE;
             const s = iso(d.startDate);
             const e = iso(d.endDate);
+            const nights = Math.round((d.endDate.getTime() - d.startDate.getTime()) / 86400000);
+            const lost = !!d.rcMissingSince;
+            const stamp = (t: Date) => t.toLocaleString("ru-RU", { timeZone: "Europe/Moscow", dateStyle: "short", timeStyle: "short" });
             return {
               id: d.id,
               start: s,
               end: e,
               halfDay: true,
               color,
-              label: `№${d.number} ${d.guestName}`,
+              dashed: lost,
+              info: {
+                subtitle: `Бронь №${d.number}${d.rcBookingId ? ` · RealtyCalendar №${d.rcBookingId}` : " · внесена вручную"}`,
+                title: d.guestName,
+                warning: lost ? `Брони нет в RealtyCalendar (пропала ${stamp(d.rcMissingSince as Date)}). Проверьте, не отменена ли она.` : undefined,
+                lines: [
+                  ["Объект", a.name],
+                  ["Даты", `${rd(s)}.${s.slice(0, 4)} – ${rd(e)}.${e.slice(0, 4)} (${nights} ноч.)`],
+                  ["Телефон", d.phone ?? "—"],
+                  ["Площадка", d.channel?.name ?? "напрямую"],
+                  ["Сумма", `${Math.round(d.grossKop / 100).toLocaleString("ru-RU")} ₽`],
+                  ["Комиссия", `${Math.round(d.commissionKop / 100).toLocaleString("ru-RU")} ₽`],
+                  ["Оплачено", `${Math.round(paid / 100).toLocaleString("ru-RU")} ₽ (осталось ${Math.round(Math.max(d.grossKop - paid, 0) / 100).toLocaleString("ru-RU")} ₽)`],
+                  ...(d.comment ? ([["Комментарий", d.comment]] as [string, string][]) : []),
+                ],
+                history: d.changes.map((c) => `${stamp(c.at)} — ${c.text}`),
+                link: { href: `/admin-panel/accounting/deals/${d.id}`, label: "Открыть полную карточку" },
+              },
+              label: `№${d.number} ${d.guestName}${lost ? " ⚠" : ""}`,
               title: `Заезд №${d.number} · ${d.guestName} · ${rd(s)}–${rd(e)}${d.channel ? ` · ${d.channel.name}` : ""} · оплачено ${Math.round(paid / 100)} из ${Math.round(d.grossKop / 100)} ₽`,
               href: `/admin-panel/accounting/deals/${d.id}`,
             };
@@ -146,6 +182,20 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
           .filter((m) => m.assetId === a.id)
           .map<ChessBar>((m) => ({
             id: `rc${m.rcId}`,
+            info: {
+              subtitle: `Бронь только в RealtyCalendar №${m.rcId}`,
+              title: m.guest || "Гость не указан",
+              warning: "В Пальме по этой брони нет заезда (например, пересекается с другим заездом). Решите на странице сверки.",
+              lines: [
+                ["Объект", a.name],
+                ["Даты", `${rd(m.begin)}.${m.begin.slice(0, 4)} – ${rd(m.end)}.${m.end.slice(0, 4)}`],
+                ["Телефон", m.phone || "—"],
+                ["Источник", m.source || "—"],
+                ["Сумма", `${Math.round(m.amountKop / 100).toLocaleString("ru-RU")} ₽`],
+                ["Оплачено в RC", `${Math.round(m.paidKop / 100).toLocaleString("ru-RU")} ₽`],
+              ],
+              link: { href: "/admin-panel/accounting/rc", label: "Перейти к сверке" },
+            },
             start: m.begin,
             end: m.end,
             halfDay: true,
@@ -153,7 +203,7 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
             textColor: "var(--color-text)",
             dashed: true,
             label: `RC · ${m.guest || "гость"}`,
-            title: `Только в RealtyCalendar: ${m.guest || "гость не указан"} · ${rd(m.begin)}–${rd(m.end)}${m.source ? ` · ${m.source}` : ""}. Заезда у нас нет — создайте на странице сверки.`,
+            title: `Только в RealtyCalendar: ${m.guest || "гость не указан"} · ${rd(m.begin)}–${rd(m.end)}${m.source ? ` · ${m.source}` : ""}`,
             href: "/admin-panel/accounting/rc",
           })),
       ],
@@ -207,7 +257,7 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
         </span>
         <span>
           <b style={{ color: GREEN }}>■</b> оплачено · <b style={{ color: BLUE }}>■</b> частично · <b style={{ color: ORANGE }}>■</b> не оплачено
-          {tab === "apts" ? " · пунктир — бронь только в RealtyCalendar" : ""}. Нажмите на полоску — откроется {tab === "cars" ? "заказ" : "карточка заезда"}.
+          {tab === "apts" ? " · пунктир — брони уже нет в RealtyCalendar (или она есть только там)" : ""}. Нажмите на полоску — откроется карточка брони.
         </span>
         {tab === "cars" ? (
           <Link

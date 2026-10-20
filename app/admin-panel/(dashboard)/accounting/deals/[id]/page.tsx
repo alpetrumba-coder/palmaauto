@@ -39,6 +39,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
     include: {
       asset: { select: { name: true, kind: true } },
       channel: { select: { name: true } },
+      changes: { orderBy: { at: "desc" }, take: 30 },
       operations: {
         include: { account: { select: { name: true } }, category: { select: { name: true } } },
         orderBy: [{ date: "asc" }, { number: "asc" }],
@@ -106,6 +107,13 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
         )}
       </div>
 
+      {deal.rcBookingId ? (
+        <p style={{ margin: "0 0 1rem", fontSize: "var(--text-sm)", color: deal.rcMissingSince ? "var(--color-danger, #b00020)" : "var(--color-text-secondary)" }}>
+          RealtyCalendar №{deal.rcBookingId}
+          {deal.rcMissingSince ? " · брони там больше нет, проверьте, не отменена ли она" : " · данные брони подтягиваются из RealtyCalendar при ежедневной сверке"}
+        </p>
+      ) : null}
+
       <h2 style={{ fontSize: "var(--text-lg)", margin: "1.5rem 0 0.5rem" }}>Оплаты и расходы</h2>
       {deal.operations.length === 0 ? (
         <p style={{ color: "var(--color-text-secondary)" }}>Пока нет операций. Нажмите «+ Оплата», когда придут деньги.</p>
@@ -143,6 +151,18 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
           </table>
         </div>
       )}
+      {deal.changes.length > 0 ? (
+        <>
+          <h2 style={{ fontSize: "var(--text-lg)", margin: "1.5rem 0 0.5rem" }}>История изменений</h2>
+          <ul style={{ margin: 0, paddingLeft: "1.1rem", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+            {deal.changes.map((c) => (
+              <li key={c.id}>
+                {c.at.toLocaleString("ru-RU", { timeZone: "Europe/Moscow", dateStyle: "short", timeStyle: "short" })} — {c.text}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
     </>
   );
 }

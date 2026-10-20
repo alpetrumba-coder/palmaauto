@@ -89,6 +89,9 @@ export default async function RcSyncPage() {
           <p style={{ margin: "0 0 0.6rem", fontSize: "var(--text-sm)" }}>
             {fmtDt(last.startedAt)} ({TRIG[last.trigger] ?? last.trigger}) · период {last.periodFrom?.toISOString().slice(0, 10)} — {last.periodTo?.toISOString().slice(0, 10)} · броней в RealtyCalendar: {res.summary.rcEvents}, заездов у нас: {res.summary.ourDeals}
           </p>
+          <p style={{ margin: "0 0 0.6rem", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+            Автоматически за этот запуск: создано заездов из RC — {res.autoCreated?.length ?? 0}{res.autoCreated?.length ? ` (№${res.autoCreated.join(", №")})` : ""}, обновлено по изменениям в RC — {res.updatedFromRc ?? 0}, пропало из RC — {res.missingInRc ?? 0}. Изменения пишутся в историю заезда.
+          </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(11rem, 1fr))", gap: "0.6rem" }}>
             {[
               ["Совпало", res.summary.matched, "var(--color-success, #1a7f37)"],

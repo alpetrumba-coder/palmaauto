@@ -80,15 +80,14 @@ export function mapSource(name: string | null | undefined): string | null {
   return null;
 }
 
-export function reconcile(input: { events: RcEvent[]; deals: OurDeal[]; assets: OurAsset[]; channels: OurChannel[]; from: string; to: string }): ReconcileResult {
-  const { events, deals, assets, channels, from, to } = input;
-
+/** Брони RC в нашем виде: объект и площадка сопоставлены, суммы в копейках. */
+export function buildRcRows(events: RcEvent[], assets: OurAsset[], channels: OurChannel[], from: string, to: string): RcRow[] {
   // RC-имена объектов -> наш объект (rcName может содержать несколько названий, по одному в строке)
   const assetByRc = new Map<string, OurAsset>();
   for (const a of assets) for (const n of (a.rcName ?? "").split("\n")) if (norm(n)) assetByRc.set(norm(n), a);
   const channelByName = new Map(channels.map((c) => [norm(c.name), c.id]));
 
-  const rows: RcRow[] = events
+  return events
     .filter((e) => e.end_date >= from && e.begin_date <= to)
     .map((e) => {
       const a = assetByRc.get(norm(e.address)) ?? null;
@@ -108,6 +107,11 @@ export function reconcile(input: { events: RcEvent[]; deals: OurDeal[]; assets: 
         paidKop: toKop(e.prepayment),
       };
     });
+}
+
+export function reconcile(input: { events: RcEvent[]; deals: OurDeal[]; assets: OurAsset[]; channels: OurChannel[]; from: string; to: string }): ReconcileResult {
+  const { events, deals, assets, channels, from, to } = input;
+  const rows = buildRcRows(events, assets, channels, from, to);
 
   const mappedAssetIds = new Set(assets.filter((a) => a.rcName && norm(a.rcName)).map((a) => a.id));
   const ourInRange = deals.filter((d) => d.endDate >= from && d.startDate <= to && mappedAssetIds.has(d.assetId));
