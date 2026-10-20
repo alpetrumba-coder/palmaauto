@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
+import { START_DATE_KEY } from "@/lib/accounting";
+import { deleteSetting, setSetting } from "@/lib/app-settings";
 import { buildOperationData, type OperationInput } from "@/lib/operation-build";
 import { prisma } from "@/lib/prisma";
-import { requireAdminPanelSession } from "@/lib/require-admin-panel";
+import { requireAdminPanelSession, requireOwner } from "@/lib/require-admin-panel";
 
 export type AccountingResult = { ok: true } | { ok: false; error: string };
 export type { OperationInput };
@@ -44,5 +46,16 @@ export async function voidOperationAction(id: string): Promise<AccountingResult>
   if (existing.voidedAt) return { ok: false, error: "Операция уже аннулирована." };
   await prisma.operation.update({ where: { id }, data: { voidedAt: new Date(), voidedBy: me.name } });
   revalidate(existing.dealId);
+  return { ok: true };
+}
+
+/** Дата начала учёта: с неё считаются остатки касс. Только владелец. Пусто — считать все операции. */
+export async function setAccountingStartDateAction(date: string): Promise<AccountingResult> {
+  const me = await requireOwner();
+  const v = date.trim();
+  if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return { ok: false, error: "Дата в формате ГГГГ-ММ-ДД." };
+  if (v) await setSetting(START_DATE_KEY, v, { by: me.name });
+  else await deleteSetting(START_DATE_KEY);
+  revalidatePath("/admin-panel/accounting");
   return { ok: true };
 }

@@ -1,3 +1,4 @@
+import { getSetting } from "@/lib/app-settings";
 import { prisma } from "@/lib/prisma";
 
 export type AccountBalance = {
@@ -15,21 +16,32 @@ export type AccountBalance = {
   balanceKop: number;
 };
 
+/** Дата начала учёта (YYYY-MM-DD): остатки касс = начальный остаток на эту дату + операции с неё. Задаёт владелец. */
+export const START_DATE_KEY = "accounting.startDate";
+
+export async function getAccountingStartDate(): Promise<string | null> {
+  const v = await getSetting(START_DATE_KEY);
+  return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+}
+
 /**
  * Остатки по кассам: начальный остаток + приходы − расходы − сдачи в Рубин − перемещения наружу + перемещения внутрь.
- * Аннулированные и перенесённые из старой истории (isImported) операции не учитываются: остатки задаются вручную.
+ * Учитываются только операции с даты начала учёта (если задана). Аннулированные и перенесённые из старой
+ * истории (isImported) операции не учитываются: остаток на дату начала задаётся вручную.
  */
 export async function getAccountBalances(): Promise<AccountBalance[]> {
+  const start = await getAccountingStartDate();
+  const fromStart = start ? { date: { gte: new Date(`${start}T00:00:00.000Z`) } } : {};
   const [accounts, byAccount, transfersIn] = await Promise.all([
     prisma.cashAccount.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     prisma.operation.groupBy({
       by: ["accountId", "type"],
-      where: { voidedAt: null, isImported: false },
+      where: { voidedAt: null, isImported: false, ...fromStart },
       _sum: { amountKop: true },
     }),
     prisma.operation.groupBy({
       by: ["toAccountId"],
-      where: { voidedAt: null, isImported: false, type: "TRANSFER", toAccountId: { not: null } },
+      where: { voidedAt: null, isImported: false, type: "TRANSFER", toAccountId: { not: null }, ...fromStart },
       _sum: { amountKop: true },
     }),
   ]);

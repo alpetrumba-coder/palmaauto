@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AccountingStartForm } from "@/components/admin/AccountingStartForm";
 import { OperationRowActions } from "@/components/admin/OperationRowActions";
-import { getAccountBalances, OPERATION_TYPE_LABEL } from "@/lib/accounting";
+import { getAccountBalances, getAccountingStartDate, OPERATION_TYPE_LABEL } from "@/lib/accounting";
 import { fmtDate } from "@/lib/accounting-options";
 import { formatKop } from "@/lib/money";
 import { parseDateInput } from "@/lib/rental-dates";
@@ -60,7 +61,8 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
     ...(onlyReview ? { needsReview: true } : {}),
   };
 
-  const [balances, rows, totals, accounts, assets] = await Promise.all([
+  const [startDate, balances, rows, totals, accounts, assets] = await Promise.all([
+    getAccountingStartDate(),
     getAccountBalances(),
     prisma.operation.findMany({
       where,
@@ -151,8 +153,11 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
         ))}
       </div>
       <p style={{ margin: "0.6rem 0 0", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-        Всего в кассах: <strong style={{ color: "var(--color-text)" }}>{formatKop(totalKop)}</strong>. Перенесённая из старой истории (метка «импорт») и старые записи «Сдано в Рубин» (до объединения с кассой «Касса Рубина») в остаток не входят: остатки на дату начала учёта задаются вручную.
+        Всего в кассах: <strong style={{ color: "var(--color-text)" }}>{formatKop(totalKop)}</strong>.{" "}
+        {startDate ? `Остатки считаются с ${fmtDate(new Date(`${startDate}T00:00:00Z`))}: начальный остаток на эту дату + операции с неё.` : "Дата начала учёта не задана — в остатки входят все операции."}{" "}
+        Перенесённая из старой истории (метка «импорт») в остаток не входит.
       </p>
+      {session.role === "OWNER" ? <AccountingStartForm current={startDate} /> : null}
 
       <h2 style={{ fontSize: "var(--text-lg)", margin: "1.75rem 0 0.6rem" }}>Журнал операций</h2>
       <form method="get" style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", alignItems: "end", marginBottom: "0.9rem", fontSize: "var(--text-sm)" }}>
