@@ -12,14 +12,54 @@ const STT_URL = "https://stt.api.cloud.yandex.net/speech/v1/stt:recognize";
 /** Лимит синхронного SpeechKit: 30 сек / ~1 МБ. Голосовые учёта обычно короче. */
 export const VOICE_MAX_SECONDS = 30;
 
+/** Запасной распознаватель на нашем прокси (Нидерланды): POST {TELEGRAM_RELAY_URL}/stt, тот же секрет, ответ {"text": "..."}. */
+const relayStt = () => {
+  const url = process.env.TELEGRAM_RELAY_URL?.trim();
+  const secret = process.env.TELEGRAM_RELAY_SECRET?.trim();
+  return url && secret && process.env.STT_RELAY === "1" ? { url: url.replace(/\/$/, "") + "/stt", secret } : null;
+};
+
 export function speechConfigured(): boolean {
-  return !!process.env.YANDEX_SPEECHKIT_API_KEY?.trim();
+  return !!process.env.YANDEX_SPEECHKIT_API_KEY?.trim() || !!relayStt();
 }
 
 export type SpeechResult = { ok: true; text: string } | { ok: false; error: string };
 
 /** Распознать Ogg Opus (как присылает Telegram voice). Язык — русский. */
 export async function recognizeOggOpus(audio: Buffer): Promise<SpeechResult> {
+  const relay = relayStt();
+  const first = await recognizeYandex(audio);
+  // «Не разобрал речь» — ответ самого распознавателя, второй раз спрашивать смысла нет; сбои доступа и сети — спрашиваем запасной
+  if (first.ok || !relay || first.error.startsWith("Не разобрал")) return first;
+  console.error("[stt] Яндекс не сработал, пробуем запасной:", first.error.slice(0, 160));
+  const second = await recognizeViaRelay(audio, relay);
+  return second.ok ? second : first;
+}
+
+async function recognizeViaRelay(audio: Buffer, relay: { url: string; secret: string }): Promise<SpeechResult> {
+  if (audio.length === 0) return { ok: false, error: "Пустой аудиофайл." };
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 25_000);
+  try {
+    const res = await fetch(relay.url, {
+      method: "POST",
+      headers: { "X-Relay-Secret": relay.secret, "Content-Type": "application/octet-stream" },
+      body: new Uint8Array(audio),
+      signal: ac.signal,
+    });
+    const json = (await res.json().catch(() => null)) as { text?: string; error?: string } | null;
+    if (!res.ok) return { ok: false, error: `Запасное распознавание: ${json?.error ?? `HTTP ${res.status}`}` };
+    const text = (json?.text ?? "").trim();
+    if (!text) return { ok: false, error: "Не разобрал речь. Повторите чётче или напишите текстом." };
+    return { ok: true, text };
+  } catch (e) {
+    return { ok: false, error: `Запасное распознавание: ${e instanceof Error ? e.message : String(e)}` };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function recognizeYandex(audio: Buffer): Promise<SpeechResult> {
   const apiKey = process.env.YANDEX_SPEECHKIT_API_KEY?.trim();
   if (!apiKey) {
     return { ok: false, error: "Голос ещё не настроен: нет ключа YANDEX_SPEECHKIT_API_KEY." };

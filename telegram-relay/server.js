@@ -22,9 +22,44 @@ const server = http.createServer((req, res) => {
   }
 
   const chunks = [];
-  req.on("data", (c) => chunks.push(c));
-  req.on("end", () => {
+  let size = 0;
+  req.on("data", (c) => {
+    size += c.length;
+    if (size <= 8_000_000) chunks.push(c);
+  });
+  req.on("end", async () => {
     const body = Buffer.concat(chunks);
+
+    // POST /stt: тело — голосовое Telegram (Ogg Opus), ответ {"text": "..."} — распознавание через OpenAI.
+    // Ключ OPENAI_API_KEY хранится только на этом сервере; модель — STT_MODEL (по умолчанию whisper-1).
+    if (req.url === "/stt" && req.method === "POST") {
+      const json = (code, obj) => {
+        res.writeHead(code, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(obj));
+      };
+      const key = process.env.OPENAI_API_KEY;
+      if (!key) return json(500, { error: "на прокси не задан OPENAI_API_KEY" });
+      if (size > 8_000_000 || body.length === 0) return json(400, { error: "пустое или слишком большое аудио" });
+      try {
+        const form = new FormData();
+        form.append("file", new Blob([body], { type: "audio/ogg" }), "voice.ogg");
+        form.append("model", process.env.STT_MODEL || "whisper-1");
+        form.append("language", "ru");
+        form.append("temperature", "0");
+        form.append("prompt", "Учёт квартир и машин: расход, приход, оплата, перемещение, уборка, стирка, ремонт, Рио, Мансарда, Африка, Муха, Домик, Матисс, Полёт, Маркиза, Дольче Вита, Эшерская, Касса Ева, Карта Х, Рубин.");
+        const r = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + key },
+          body: form,
+          signal: AbortSignal.timeout(22000),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) return json(502, { error: "OpenAI " + r.status + ": " + String((j.error && j.error.message) || "").slice(0, 150) });
+        return json(200, { text: j.text || "" });
+      } catch (e) {
+        return json(502, { error: String(e && e.message ? e.message : e) });
+      }
+    }
     const headers = { ...req.headers, host: "api.telegram.org" };
     delete headers["x-relay-secret"];
 
