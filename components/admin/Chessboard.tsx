@@ -38,6 +38,9 @@ export type BarInfo = {
 };
 
 export type ChessRow = {
+  /** Заголовок группы в общей сетке дат. */
+  section?: boolean;
+  gapBefore?: boolean;
   id: string;
   title: string;
   subtitle?: string;
@@ -126,7 +129,11 @@ export function Chessboard({ days, today, rows }: { days: string[]; today: strin
         </div>
 
         {rows.length === 0 ? <p style={{ margin: "1rem 0", color: "var(--color-text-secondary)" }}>Нет объектов для показа.</p> : null}
-        {rows.map((row) => (
+        {rows.map((row) => row.section ? (
+          <div key={row.id} style={{ padding: "0.4rem 0", marginTop: row.gapBefore ? "1rem" : 0, fontSize: "12px", fontWeight: 700, borderBottom: `1px solid ${BORDER}` }}>
+            {row.title}
+          </div>
+        ) : (
           <div key={row.id} style={{ display: "flex", borderBottom: `1px solid ${BORDER}` }}>
             <div style={{ width: LABEL_W, flexShrink: 0, height: ROW_H, display: "flex", flexDirection: "column", justifyContent: "center", paddingRight: "0.4rem", borderRight: "1px solid var(--color-border)", lineHeight: 1.15, overflow: "hidden" }}>
               <span style={{ fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: row.muted ? 0.65 : 1 }} title={row.title}>

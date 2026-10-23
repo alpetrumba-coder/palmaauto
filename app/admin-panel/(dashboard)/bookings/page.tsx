@@ -35,11 +35,10 @@ function compactRub(p: number): string {
 const iso = (d: Date) => formatDateInputUTC(d);
 const rd = (s: string) => `${s.slice(8, 10)}.${s.slice(5, 7)}`;
 
-type SP = { from?: string; tab?: string; hidden?: string };
+type SP = { from?: string; hidden?: string };
 
 export default async function ChessboardPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  const tab: "cars" | "apts" = sp.tab === "apts" ? "apts" : "cars";
   const showHidden = sp.hidden === "1";
 
   const parsed = sp.from ? parseDateInput(sp.from) : null;
@@ -52,9 +51,8 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
 
   const href = (over: Partial<SP>) => {
     const q = new URLSearchParams();
-    const v: SP = { from: fromStr, tab, hidden: showHidden ? "1" : undefined, ...over };
+    const v: SP = { from: fromStr, hidden: showHidden ? "1" : undefined, ...over };
     if (v.from) q.set("from", v.from);
-    if (v.tab && v.tab !== "cars") q.set("tab", v.tab);
     if (v.hidden === "1") q.set("hidden", "1");
     const s = q.toString();
     return `/admin-panel/bookings${s ? `?${s}` : ""}`;
@@ -62,11 +60,12 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
   const prevHref = href({ from: iso(addUtcDays(viewStart, -NUM_DAYS)) });
   const nextHref = href({ from: iso(addUtcDays(viewStart, NUM_DAYS)) });
 
-  let rows: ChessRow[] = [];
+  let carRows: ChessRow[] = [];
+  let apartmentRows: ChessRow[] = [];
   let hiddenCount = 0;
   let rcInfo: string | null = null;
 
-  if (tab === "cars") {
+  {
     const [allCars, bookingsRaw] = await Promise.all([
       prisma.car.findMany({ orderBy: [{ make: "asc" }, { model: "asc" }], select: { id: true, make: true, model: true, slug: true, active: true, isTest: true, pricePerDayRub: true } }),
       prisma.booking.findMany({
@@ -83,7 +82,7 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
     const isHidden = (c: { active: boolean; isTest: boolean }) => !c.active || c.isTest;
     hiddenCount = allCars.filter(isHidden).length;
     const cars = showHidden ? allCars : allCars.filter((c) => !isHidden(c));
-    rows = cars.map((car) => ({
+    carRows = cars.map((car) => ({
       id: car.id,
       title: `${car.make} ${car.model}${car.isTest ? " (тест)" : !car.active ? " (скрыт)" : ""}`,
       subtitle: "На сайте",
@@ -124,7 +123,8 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
           };
         }),
     }));
-  } else {
+  }
+  {
     const [assets, deals, lastRun] = await Promise.all([
       prisma.asset.findMany({ where: { kind: "APARTMENT", active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }),
       prisma.deal.findMany({
@@ -145,7 +145,7 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
       rcInfo = `${rcOnly.length ? `${rcOnly.length} броней только в RealtyCalendar · ` : ""}данные RC на ${lastRun.startedAt.toLocaleString("ru-RU", { timeZone: "Europe/Moscow", dateStyle: "short", timeStyle: "short" })}`;
     }
 
-    rows = assets.map((a) => ({
+    apartmentRows = assets.map((a) => ({
       id: a.id,
       title: a.name,
       bars: [
@@ -240,22 +240,13 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
     <div style={{ width: "100%" }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.6rem", marginBottom: "0.5rem" }}>
         <h1 style={{ fontSize: "var(--text-2xl)", margin: "0 0.5rem 0 0" }}>Шахматка</h1>
-        <Link href={href({ tab: "cars" })} style={pill(tab === "cars")}>
-          Машины
-        </Link>
-        <Link href={href({ tab: "apts" })} style={pill(tab === "apts")}>
-          Квартиры
-        </Link>
         <span style={{ flex: 1 }} />
-        {tab === "cars" ? (
-          <Link href="/admin-panel/bookings/new" style={primary}>
-            Новая бронь
-          </Link>
-        ) : (
-          <Link href="/admin-panel/accounting/deals/new" style={primary}>
-            Новый заезд
-          </Link>
-        )}
+        <Link href="/admin-panel/accounting/deals/new" style={primary}>
+          Новый заезд
+        </Link>
+        <Link href="/admin-panel/bookings/new" style={primary}>
+          Новая бронь машины
+        </Link>
         <Link href={prevHref} style={navBtn}>
           ← Назад
         </Link>
@@ -270,25 +261,30 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
         </span>
         <span>
           <b style={{ color: GREEN }}>■</b> оплачено · <b style={{ color: BLUE }}>■</b> частично · <b style={{ color: ORANGE }}>■</b> не оплачено
-          {tab === "apts" ? " · пунктир — брони уже нет в RealtyCalendar (или она есть только там)" : ""}. Нажмите на полоску — откроется карточка брони.
+          {" · пунктир — брони уже нет в RealtyCalendar (или она есть только там)"}. Нажмите на полоску — откроется карточка брони.
         </span>
-        {tab === "cars" ? (
-          <Link
+        <Link
             href={href({ hidden: showHidden ? undefined : "1" })}
             style={{ ...pill(showHidden), fontSize: "var(--text-xs)", padding: "0.25rem 0.7rem" }}
             title="Скрытые на сайте и тестовые (демо) машины по умолчанию не показываются"
           >
             {showHidden ? "☑" : "☐"} Показывать скрытые и тестовые машины{hiddenCount ? ` (${hiddenCount})` : ""}
           </Link>
-        ) : null}
-        {tab === "apts" && rcInfo ? (
+        {rcInfo ? (
           <Link href="/admin-panel/accounting/rc" style={{ color: "var(--color-text-secondary)" }}>
             {rcInfo}
           </Link>
         ) : null}
       </div>
 
-      <Chessboard days={days} today={iso(today)} rows={rows} />
+      <Chessboard days={days} today={iso(today)} rows={[
+        { id: "section-apartments", title: "Квартиры", section: true, bars: [] },
+        ...apartmentRows.map((row) => ({ ...row, id: `apartment-${row.id}` })),
+        ...(apartmentRows.length ? [] : [{ id: "empty-apartments", title: "Нет квартир для показа", bars: [] }]),
+        { id: "section-cars", title: "Машины", section: true, gapBefore: true, bars: [] },
+        ...carRows.map((row) => ({ ...row, id: `car-${row.id}` })),
+        ...(carRows.length ? [] : [{ id: "empty-cars", title: "Нет машин для показа", bars: [] }]),
+      ]} />
     </div>
   );
 }
