@@ -11,6 +11,11 @@ const compat = new FlatCompat({ baseDirectory: __dirname });
 const eslintConfig = [
   { ignores: [".next/**", "out/**", "node_modules/**", "next-env.d.ts", "scripts/**"] },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    files: ["telegram-relay/server.js"],
+    languageOptions: { sourceType: "commonjs" },
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
 ];
 
 export default eslintConfig;
