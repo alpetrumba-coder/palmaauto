@@ -57,10 +57,7 @@ export default async function HomePage({
       >
         Прокат автомобилей в Абхазии
       </h1>
-      <HomeHeroIntro />
-
       <section
-        style={{ marginTop: "calc(var(--space-unit) * 2)" }}
         aria-labelledby="home-book-by-dates-heading"
       >
         <h2
@@ -76,6 +73,10 @@ export default async function HomePage({
         </h2>
         <BookByDatesSection action="/" fromStr={sp.from ?? ""} toStr={sp.to ?? ""} resultsLayout="list" />
       </section>
+
+      <div style={{ marginTop: "calc(var(--space-unit) * 2)" }}>
+        <HomeHeroIntro />
+      </div>
 
       <section style={{ marginTop: "calc(var(--space-unit) * 4)" }}>
         <h2 style={{ fontSize: "var(--text-3xl)", margin: "0 0 0.75rem" }}>Автомобили</h2>
