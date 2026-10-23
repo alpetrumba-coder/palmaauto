@@ -53,7 +53,7 @@ export function PalmaAutoLogo({
         <span>ПАЛЬМА АВТО</span>
         <span
           style={{
-            fontSize: "0.45em",
+            fontSize: "max(12px, 0.45em)",
             fontWeight: 500,
             letterSpacing: "0.025em",
             lineHeight: 1.2,
