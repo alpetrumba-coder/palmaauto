@@ -46,7 +46,7 @@ export default async function HomePage({
     <div className="page-shell" style={{ paddingBlock: "clamp(3rem, 10vw, 5rem)" }}>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: jsonLd.map((j) => jsonLdScriptTag(j)).join("\n") }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScriptTag(jsonLd) }}
       />
       <h1
         style={{
