@@ -49,7 +49,7 @@ export function CarCatalogGrid({ cars, variant = "default" }: CarCatalogGridProp
           pricePerDayRub: car.pricePerDayRub,
           modelYear: car.modelYear,
           color: car.color,
-          coverUrl: car.slug === "toyota-prius" && (!cover?.url || cover.url === "/cars/placeholder.svg")
+          coverUrl: car.slug === "toyota-prius"
             ? "/cars/toyota-prius-2004-generated.webp"
             : cover?.url ?? null,
           coverAlt: cover?.alt ?? null,
