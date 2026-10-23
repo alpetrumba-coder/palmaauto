@@ -2,22 +2,30 @@
 
 import { useState } from "react";
 
+import { nextCarPhotoSrc } from "@/lib/carImageSrc";
+
 type CarPhotoImageProps = {
   src: string;
   alt: string;
+  fallbackSrc?: string;
   /** Первое фото на странице машины — без lazy. */
   priority?: boolean;
 };
-
-const FALLBACK_PLACEHOLDER_SRC = "/cars/placeholder.svg";
 
 /**
  * Нативный img вместо next/image: стабильная отдача файлов из `public/` (в т.ч. SVG) и внешних URL на Vercel;
  * при 404 или ошибке — заглушка «Фото скоро».
  */
-export function CarPhotoImage({ src, alt, priority }: CarPhotoImageProps) {
+export function CarPhotoImage({ src, fallbackSrc, alt, priority }: CarPhotoImageProps) {
   const [currentSrc, setCurrentSrc] = useState(src);
   const [broken, setBroken] = useState(false);
+  const [previous, setPrevious] = useState({ src, fallbackSrc });
+
+  if (previous.src !== src || previous.fallbackSrc !== fallbackSrc) {
+    setPrevious({ src, fallbackSrc });
+    setCurrentSrc(src);
+    setBroken(false);
+  }
 
   if (broken) {
     return (
@@ -46,11 +54,12 @@ export function CarPhotoImage({ src, alt, priority }: CarPhotoImageProps) {
       loading={priority ? "eager" : "lazy"}
       decoding="async"
       onError={() => {
-        if (currentSrc !== FALLBACK_PLACEHOLDER_SRC) {
-          setCurrentSrc(FALLBACK_PLACEHOLDER_SRC);
-          return;
+        const nextSrc = nextCarPhotoSrc(currentSrc, fallbackSrc);
+        if (nextSrc === null) {
+          setBroken(true);
+        } else {
+          setCurrentSrc(nextSrc);
         }
-        setBroken(true);
       }}
       style={{
         position: "absolute",

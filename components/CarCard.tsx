@@ -10,12 +10,13 @@ type CarCardProps = {
   pricePerDayRub: number;
   coverUrl: string | null;
   coverAlt: string | null;
+  fallbackSrc?: string;
 };
 
 /**
  * Карточка автомобиля в сетке каталога: обложка, название, цена за сутки.
  */
-export function CarCard({ slug, make, model, pricePerDayRub, coverUrl, coverAlt }: CarCardProps) {
+export function CarCard({ slug, make, model, pricePerDayRub, coverUrl, coverAlt, fallbackSrc }: CarCardProps) {
   const title = `${make} ${model}`;
   return (
     <article
@@ -50,7 +51,7 @@ export function CarCard({ slug, make, model, pricePerDayRub, coverUrl, coverAlt 
           }}
         >
           {coverUrl ? (
-            <CarPhotoImage src={coverUrl} alt={coverAlt ?? title} priority={false} />
+            <CarPhotoImage src={coverUrl} fallbackSrc={fallbackSrc} alt={coverAlt ?? title} priority={false} />
           ) : (
             <div
               style={{

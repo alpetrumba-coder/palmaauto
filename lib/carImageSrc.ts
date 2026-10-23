@@ -47,3 +47,12 @@ function isSafeCarsPublicPath(p: string): boolean {
   const rest = p.slice(1);
   return /^[a-zA-Z0-9._\-/]+$/.test(rest);
 }
+/** Следующий источник после ошибки загрузки; null завершает цепочку. */
+export function nextCarPhotoSrc(currentSrc: string, fallbackSrc?: string): string | null {
+  const placeholder = "/cars/placeholder.svg";
+  if (currentSrc === placeholder) return null;
+  if (fallbackSrc && fallbackSrc !== currentSrc && isValidCarImageSrc(fallbackSrc)) {
+    return fallbackSrc;
+  }
+  return placeholder;
+}

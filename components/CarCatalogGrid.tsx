@@ -53,6 +53,9 @@ export function CarCatalogGrid({ cars, variant = "default" }: CarCatalogGridProp
             ? "/cars/toyota-prius-2004-generated.webp"
             : cover?.url ?? null,
           coverAlt: cover?.alt ?? null,
+          ...(car.slug === "toyota-prius"
+            ? { fallbackSrc: "/cars/toyota-prius-2004-generated.webp" }
+            : {}),
         };
 
         return (

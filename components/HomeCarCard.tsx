@@ -12,10 +12,11 @@ type HomeCarCardProps = {
   pricePerDayRub: number;
   coverUrl: string | null;
   coverAlt: string | null;
+  fallbackSrc?: string;
   spec: HomeCarCardSpec;
 };
 
-export function HomeCarCard({ slug, make, model, pricePerDayRub, coverUrl, coverAlt, spec }: HomeCarCardProps) {
+export function HomeCarCard({ slug, make, model, pricePerDayRub, coverUrl, coverAlt, fallbackSrc, spec }: HomeCarCardProps) {
   const title = `${make} ${model}`;
   const priceFrom = resolveHomeCarPriceFrom(slug, pricePerDayRub);
 
@@ -52,7 +53,7 @@ export function HomeCarCard({ slug, make, model, pricePerDayRub, coverUrl, cover
           }}
         >
           {coverUrl ? (
-            <CarPhotoImage src={coverUrl} alt={coverAlt ?? title} priority={false} />
+            <CarPhotoImage src={coverUrl} fallbackSrc={fallbackSrc} alt={coverAlt ?? title} priority={false} />
           ) : (
             <div
               style={{
@@ -121,6 +122,7 @@ export function toHomeCarCardProps(car: {
   color: string | null;
   coverUrl: string | null;
   coverAlt: string | null;
+  fallbackSrc?: string;
 }): HomeCarCardProps {
   const spec = resolveHomeCarCardSpec(car.slug, {
     modelYear: car.modelYear,
