@@ -86,3 +86,51 @@ test('voice cancels failed provider response streams before releasing its concur
   }})(post());
   assert.equal(response.status,502);assert.equal(cancelled,true);assert.equal(signal.aborted,true);
 });
+
+test('voice accepts the exact public host when Next exposes an internal HTTP request URL',async()=>{
+  const internal='http://0.0.0.0:3000/admin-panel/ai-editor/voice';
+  for(const headers of [{host:'palmaauto.ru'},{'x-forwarded-host':'palmaauto.ru'},
+    {host:'0.0.0.0:3000','x-forwarded-host':'palmaauto.ru'}]){
+    const capability=await setup({fetch:async()=>assert.fail('Provider called by capability')})(new Request(internal,{headers}));
+    assert.equal(capability.status,200);assert.deepEqual(await capability.json(),{enabled:true,maxSeconds:30});
+    let calls=0;
+    const response=await setup({fetch:async()=>{calls++;return Response.json({result:'Proxy recording'});}})(new Request(internal,
+      {method:'POST',headers:{...headers,origin:'https://palmaauto.ru','content-type':'audio/pcm','x-factory-voice':'1'},body:Buffer.alloc(32000)}));
+    assert.equal(response.status,200);assert.deepEqual(await response.json(),{text:'Proxy recording'});assert.equal(calls,1);
+  }
+});
+
+test('voice proxy host support preserves OWNER and exact public POST origin checks',async()=>{
+  const internal='http://next-container:3000/admin-panel/ai-editor/voice';
+  const headers={host:'next-container:3000','x-forwarded-host':'palmaauto.ru','content-type':'audio/pcm','x-factory-voice':'1'};
+  for(const session of [null,{role:'MANAGER',staffId:'staff'}])
+    assert.equal((await setup({getSession:async()=>session})(new Request(internal,{headers}))).status,session?403:401);
+  for(const origin of [undefined,'http://palmaauto.ru','https://other.invalid','null']){
+    const response=await setup({fetch:async()=>assert.fail('Provider called without exact public origin')})(new Request(internal,
+      {method:'POST',headers:{...headers,...(origin?{origin}:{})},body:Buffer.alloc(32000)}));
+    assert.equal(response.status,403);
+  }
+  for(const value of [{'x-factory-voice':'0'},{'content-type':'application/json'}])
+    assert.equal((await setup({fetch:async()=>assert.fail('Provider called without explicit recording request')})(new Request(internal,
+      {method:'POST',headers:{...headers,origin:'https://palmaauto.ru',...value},body:Buffer.alloc(32000)}))).status,403);
+});
+
+test('voice rejects absent, foreign, conflicting and list-valued proxy authority before session access',async()=>{
+  const internal='http://0.0.0.0:3000/admin-panel/ai-editor/voice';
+  const handle=setup({getSession:async()=>assert.fail('Unapproved authority reached session lookup')});
+  for(const [target,headers] of [[internal,{}],[internal,{host:'0.0.0.0:3000'}],
+    ['https://foreign.invalid/admin-panel/ai-editor/voice',{}],
+    [internal,{host:'foreign.invalid','x-forwarded-host':'palmaauto.ru'}],
+    [internal,{host:'palmaauto.ru','x-forwarded-host':'foreign.invalid'}],
+    [url,{host:'foreign.invalid'}],[url,{'x-forwarded-host':'foreign.invalid'}],
+    [internal,{'x-forwarded-host':'palmaauto.ru, foreign.invalid'}],
+    [internal,{host:'palmaauto.ru, foreign.invalid'}],
+    [internal,{'x-forwarded-host':'palmaauto.ru:443'}],
+    ['ftp://0.0.0.0/admin-panel/ai-editor/voice',{host:'palmaauto.ru'}],
+    ['http://user:pass@0.0.0.0:3000/admin-panel/ai-editor/voice',{host:'palmaauto.ru'}]]){
+    const request=target.includes('user:pass@')?{url:target,headers:new Headers(headers),method:'GET'}:new Request(target,{headers});
+    assert.equal((await handle(request)).status,404,JSON.stringify([target,headers]));
+  }
+  for(const suffix of ['?extra=1','#fragment','/extra'])
+    assert.equal((await handle(new Request(internal+suffix,{headers:{host:'palmaauto.ru'}}))).status,404);
+});

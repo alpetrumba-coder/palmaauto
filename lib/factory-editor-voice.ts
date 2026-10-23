@@ -2,6 +2,7 @@
 type Options=Readonly<{getSession:()=>Promise<Readonly<{role:string;staffId:string}>|null>;
   apiKey?:()=>string|undefined;fetch?:typeof fetch;bodyTimeoutMs?:number;providerTimeoutMs?:number;now?:()=>number}>;
 const ORIGIN='https://palmaauto.ru';
+const HOST='palmaauto.ru';
 const PATH='/admin-panel/ai-editor/voice';
 const TARGET='https://stt.api.cloud.yandex.net/speech/v1/stt:recognize?lang=ru-RU&topic=general&format=lpcm&sampleRateHertz=16000';
 const HEADERS={'cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer',
@@ -9,6 +10,12 @@ const HEADERS={'cache-control':'no-store','x-content-type-options':'nosniff','re
 class VoiceError extends Error {readonly status:number;constructor(status:number){super('Voice unavailable');this.status=status;}}
 function fail(status:number):never{throw new VoiceError(status);}
 function reply(status:number,value:unknown){return Response.json(value,{status,headers:HEADERS});}
+function publicAuthority(request:Request,url:URL):boolean{
+  // Next can expose its internal URL after TLS termination; POST Origin is checked separately.
+  const host=request.headers.get('host'),forwarded=request.headers.get('x-forwarded-host');
+  return (forwarded===null||forwarded===HOST)&&(host===null||host===HOST||host===url.host)
+    &&(host===HOST||forwarded===HOST||url.origin===ORIGIN);
+}
 async function bounded(stream:ReadableStream<Uint8Array>|null,limit:number,timeout:number,signal?:AbortSignal):Promise<Buffer>{
   if(!stream||signal?.aborted)fail(408);
   const reader=stream.getReader();let timer:ReturnType<typeof setTimeout>|undefined;let abort:(()=>void)|undefined;
@@ -28,7 +35,8 @@ export function createFactoryVoiceHandler(options:Options){
     let entered=false;
     try{
       const url=new URL(request.url);
-      if(url.origin!==ORIGIN||url.pathname!==PATH||url.search||url.hash)fail(404);
+      if(url.pathname!==PATH||url.search||url.hash||!['http:','https:'].includes(url.protocol)
+        ||url.username||url.password||!publicAuthority(request,url))fail(404);
       if(!['GET','POST'].includes(request.method))fail(405);
       const session=await options.getSession();if(!session)fail(401);
       if(session.role!=='OWNER'||!session.staffId||session.staffId.length>128)fail(403);
