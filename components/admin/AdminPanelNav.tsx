@@ -74,6 +74,23 @@ export function AdminPanelNav({ isOwner = false }: { isOwner?: boolean }) {
       >
         УЧЕТ Пальма и Пальмаавто
       </Link>
+      <Link
+        href="/admin-panel/remont-akirtava"
+        className="nav-tap-target"
+        style={{
+          padding: "0.55rem 1.1rem",
+          borderRadius: "999px",
+          background: "var(--color-accent)",
+          color: "#fff",
+          fontSize: "var(--text-base)",
+          fontWeight: 700,
+          textDecoration: "none",
+          letterSpacing: "0.01em",
+          boxShadow: "0 2px 8px color-mix(in srgb, var(--color-accent) 35%, transparent)",
+        }}
+      >
+        Ремонт Акиртава
+      </Link>
     </nav>
   );
 }
