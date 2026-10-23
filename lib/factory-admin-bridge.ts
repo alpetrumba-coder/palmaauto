@@ -7,13 +7,17 @@ const SITE_ORIGIN = "https://palmaauto.ru";
 const COOKIE_NAME = "factory_editor_session";
 const MAX_REQUEST = 65536;
 const MAX_RESPONSE = 2097152;
+const MAX_PREVIEW_RESPONSE = 40 * 1024 * 1024;
 const MAX_UPLOAD_REQUEST = 16 * 1024 * 1024;
 const MAX_ATTACHMENT_RESPONSE = 10 * 1024 * 1024;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 const CHAT = FACTORY_EDITOR_PREFIX + '/chat/';
 const uploadRequest = (method: string, path: string) => method === 'POST' && new RegExp('^' + CHAT + UUID + '/attachments$').test(path);
 const attachmentRequest = (method: string, path: string) => method === 'GET' && new RegExp('^' + CHAT + UUID + '/attachments/' + UUID + '$').test(path);
-const responseLimit = (method: string, path: string) => attachmentRequest(method, path) ? MAX_ATTACHMENT_RESPONSE : MAX_RESPONSE;
+const previewRequest = (method: string, path: string) => method === 'GET' && canonicalPath(path)
+  && new RegExp('^' + FACTORY_EDITOR_PREFIX + '/preview/' + UUID + '/' + UUID + '/(?:[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*/?)?$').test(path);
+const responseLimit = (method: string, path: string) => attachmentRequest(method, path) ? MAX_ATTACHMENT_RESPONSE
+  : previewRequest(method, path) ? MAX_PREVIEW_RESPONSE : MAX_RESPONSE;
 function requestLimit(method: string, path: string): number {
   if (uploadRequest(method, path)) return MAX_UPLOAD_REQUEST;
   return method === 'POST' && new RegExp('^' + CHAT + UUID + '/messages$').test(path) ? 256 * 1024 : MAX_REQUEST;

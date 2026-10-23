@@ -306,3 +306,48 @@ test('bridge permits preparation JSON only on an exact POST cursor',async()=>{
   assert.equal((await run(request(route))).status,503);
   assert.equal((await run(request(route+'/extra',post('csrf=x')))).status,503);
 });
+
+test('large HTML previews require GET and exactly two UUID namespaces with a safe tail', async () => {
+  const preview = '/preview/' + chatId + '/' + attachmentId + '/';
+  const policy = "default-src 'none'; script-src 'none'; form-action 'none'; sandbox";
+  const body = Buffer.from('<!doctype html><html><body>' + 'x'.repeat(2 * 1024 * 1024) + '</body></html>');
+  const run = handler({ transport: async () => response({ body, headers: {
+    'content-type': 'text/html; charset=utf-8', 'content-security-policy': policy,
+  } }) });
+  for (const suffix of [preview, preview + 'cars/prius.html']) {
+    const result = await run(request(suffix));
+    assert.equal(result.status, 200);
+    assert.equal(await result.text(), body.toString());
+    assert.equal(result.headers.get('content-security-policy'), policy);
+  }
+  for (const suffix of ['/', '/audit', '/preview/mission/run/',
+    '/preview/' + chatId + '/bad/', '/preview/' + chatId + '/',
+    '/preview-extra/' + chatId + '/' + attachmentId + '/', preview.slice(0, -1)]) {
+    assert.equal((await run(request(suffix))).status, 503);
+  }
+  assert.equal((await run(request(preview, post('csrf=x')))).status, 503);
+  for (const suffix of [preview + 'cars//prius', preview + '%2e%2e%2fsecret', preview + 'https://evil.test']) {
+    assert.equal((await run(request(suffix))).status, 400);
+  }
+  const unsafe = handler({ transport: async () => response({ body }) });
+  assert.equal((await unsafe(request(preview))).status, 503);
+});
+
+test('transport scopes the forty MiB preview limit and rejects overflow and traversal', async () => {
+  const path = prefix + '/preview/' + chatId + '/' + attachmentId + '/';
+  const input = { method: 'GET', path, body: Buffer.alloc(0), ownerCookie: '', staffId: 'env', authSecret: secret };
+  let size = 40 * 1024 * 1024;
+  const fake = fakeTransport(callback => {
+    const stream = Readable.from([Buffer.alloc(size)]);
+    stream.statusCode = 200; stream.headers = {}; callback(stream);
+  });
+  const send = value => sendGatewayRequest(signGatewayRequest(value), { ca: 'CA', request: fake.request, timeoutMs: 1000 });
+  assert.equal((await send(input)).body.length, size);
+  size++;
+  await assert.rejects(send(input));
+  size = 2 * 1024 * 1024 + 1;
+  await assert.rejects(send({ ...input, path: prefix + '/audit' }));
+  await assert.rejects(send({ ...input, method: 'POST' }));
+  await assert.rejects(send({ ...input, path: prefix + '/preview/mission/run/' }));
+  assert.throws(() => signGatewayRequest({ ...input, path: path + '../secret' }));
+});
