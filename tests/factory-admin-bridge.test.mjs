@@ -306,3 +306,78 @@ test('bridge permits preparation JSON only on an exact POST cursor',async()=>{
   assert.equal((await run(request(route))).status,503);
   assert.equal((await run(request(route+'/extra',post('csrf=x')))).status,503);
 });
+
+const previewRoute = '/preview/' + chatId + '/' + attachmentId + '/';
+const previewPolicy = "default-src 'none'; script-src 'none'; form-action 'none'; sandbox";
+
+test('large previews require GET, two exact UUIDs and a canonical safe tail', async () => {
+  const body = Buffer.alloc(3 * 1024 * 1024);
+  const run = handler({ transport: async () => response({
+    headers: { 'content-type': 'text/html', 'content-security-policy': previewPolicy }, body,
+  }) });
+  for (const route of [previewRoute, previewRoute + 'cars/toyota-prius', previewRoute + '_next/static/main.css']) {
+    const result = await run(request(route));
+    assert.equal(result.status, 200, route);
+    assert.equal((await result.arrayBuffer()).byteLength, body.length);
+    assert.equal(result.headers.get('content-security-policy'), previewPolicy);
+  }
+  for (const route of ['/audit', '/preview/mission/run/', '/preview/bad/' + attachmentId + '/',
+    '/preview/' + chatId + '/bad/', '/preview/' + chatId + '/', previewRoute.slice(0, -1),
+    '/preview/' + chatId.replace('4111', '0111') + '/' + attachmentId + '/']) {
+    assert.equal((await run(request(route))).status, 503, route);
+  }
+  assert.equal((await run(request(previewRoute, post('csrf=x')))).status, 503);
+  for (const tail of ['bad//file', 'file%2fname', 'file?query=x', 'file%5cname']) {
+    assert.equal((await run(request(previewRoute + tail))).status, 400, tail);
+  }
+  const unsafe = handler({ transport: async () => response({ body }) });
+  assert.equal((await unsafe(request(previewRoute))).status, 503);
+});
+
+test('preview and ordinary response boundaries apply in handler and transport', async () => {
+  for (const [route, limit] of [[previewRoute, 40 * 1024 * 1024], ['/audit', 2 * 1024 * 1024]]) {
+    for (const excess of [0, 1]) {
+      const body = Buffer.alloc(limit + excess);
+      const run = handler({ transport: async () => response({
+        headers: { 'content-type': 'text/html', 'content-security-policy': previewPolicy }, body,
+      }) });
+      assert.equal((await run(request(route))).status, excess ? 503 : 200);
+      const input = signGatewayRequest({ method: 'GET', path: prefix + route,
+        body: Buffer.alloc(0), ownerCookie: '', staffId: 'env', authSecret: secret });
+      const fake = fakeTransport(callback => {
+        const stream = Readable.from([body]); stream.statusCode = 200; stream.headers = {}; callback(stream);
+      });
+      const pending = sendGatewayRequest(input, { ca: 'CA', request: fake.request, timeoutMs: 1000 });
+      if (excess) await assert.rejects(pending);
+      else assert.equal((await pending).body.length, limit);
+    }
+  }
+  for (const path of [prefix + previewRoute + '../file', prefix + previewRoute + './file',
+    prefix + previewRoute + 'https://evil.test/file']) {
+    assert.throws(() => signGatewayRequest({ method: 'GET', path,
+      body: Buffer.alloc(0), ownerCookie: '', staffId: 'env', authSecret: secret }));
+  }
+});
+
+test('release JSON is permitted only for exact POST apply and rollback UUID routes', async () => {
+  const payload = '{"ok":true}';
+  const run = handler({ transport: async () => response({
+    headers: { 'content-type': 'application/json; charset=utf-8' }, body: Buffer.from(payload),
+  }) });
+  for (const action of ['apply', 'rollback']) {
+    const route = '/chat/' + chatId + '/release/' + attachmentId + '/' + action;
+    const result = await run(request(route, post('csrf=x')));
+    assert.equal(result.status, 200);
+    assert.equal(await result.text(), payload);
+    assert.equal((await run(request(route))).status, 503);
+    for (const invalid of [route + '/extra', route + '/', route.replace(chatId, 'bad'),
+      route.replace(attachmentId, 'bad'), route.replace('/release/', '/releases/'),
+      route.replace(attachmentId, attachmentId.replace('8222', '7222'))]) {
+      assert.equal((await run(request(invalid, post('csrf=x')))).status, 503, invalid);
+    }
+  }
+  for (const route of ['/chat/' + chatId + '/release/' + attachmentId + '/delete',
+    '/chat/' + chatId + '/release/' + attachmentId, '/release/' + attachmentId + '/apply', '/arbitrary-json']) {
+    assert.equal((await run(request(route, post('csrf=x')))).status, 503, route);
+  }
+});
