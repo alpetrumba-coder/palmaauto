@@ -7,6 +7,21 @@ const SITE_ORIGIN = "https://palmaauto.ru";
 const COOKIE_NAME = "factory_editor_session";
 const MAX_REQUEST = 65536;
 const MAX_RESPONSE = 2097152;
+const MAX_UPLOAD_REQUEST = 16 * 1024 * 1024;
+const MAX_ATTACHMENT_RESPONSE = 10 * 1024 * 1024;
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+const CHAT = FACTORY_EDITOR_PREFIX + '/chat/';
+const uploadRequest = (method: string, path: string) => method === 'POST' && new RegExp('^' + CHAT + UUID + '/attachments$').test(path);
+const attachmentRequest = (method: string, path: string) => method === 'GET' && new RegExp('^' + CHAT + UUID + '/attachments/' + UUID + '$').test(path);
+const responseLimit = (method: string, path: string) => attachmentRequest(method, path) ? MAX_ATTACHMENT_RESPONSE : MAX_RESPONSE;
+function requestLimit(method: string, path: string): number {
+  if (uploadRequest(method, path)) return MAX_UPLOAD_REQUEST;
+  return method === 'POST' && new RegExp('^' + CHAT + UUID + '/messages$').test(path) ? 256 * 1024 : MAX_REQUEST;
+}
+function chatJsonRequest(method: string, path: string): boolean {
+  return method === 'GET' ? new RegExp('^' + CHAT + UUID + '/(?:state|history/' + UUID + ')$').test(path)
+    : method === 'POST' && (path === CHAT + 'new' || new RegExp('^' + CHAT + UUID + '/(?:messages|attachments|prepare/' + UUID + ')$').test(path));
+}
 const HEX_SESSION = /^[a-f0-9]{64}$/;
 const FORM_TYPE = /^application\/x-www-form-urlencoded(?:;\s*charset=utf-8)?$/i;
 const SECURITY = { "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer" };
@@ -60,32 +75,33 @@ function requestLength(request: Request): number | undefined {
   if (!/^\d{1,10}$/.test(raw)) fail(400);
   return Number(raw);
 }
-async function readBody(reader: ReadableStreamDefaultReader<Uint8Array>, length?: number): Promise<Buffer> {
+async function readBody(reader: ReadableStreamDefaultReader<Uint8Array>, limit: number, length?: number): Promise<Buffer> {
   let size = 0; let chunks: Uint8Array[] = [];
   while (true) {
     const part = await reader.read();
     if (part.done) break;
     size += part.value.byteLength;
-    if (size > MAX_REQUEST) fail(413);
+    if (size > limit) fail(413);
     chunks = [...chunks, part.value];
   }
   if (length !== undefined && length !== size) fail(400);
   return Buffer.concat(chunks);
 }
-async function bodyBytes(request: Request, timeoutMs: number): Promise<Buffer> {
+async function bodyBytes(request: Request, path: string, timeoutMs: number): Promise<Buffer> {
   const length = requestLength(request);
   if (request.method === "GET") {
     if ((length !== undefined && length !== 0) || request.body) fail(400);
     return Buffer.alloc(0);
   }
   if (request.headers.get("origin") !== SITE_ORIGIN || !FORM_TYPE.test(request.headers.get("content-type") ?? "")) fail(403);
-  if (length !== undefined && length > MAX_REQUEST) fail(413);
+  const limit = requestLimit(request.method, path);
+  if (length !== undefined && length > limit) fail(413);
   const reader = request.body?.getReader();
   if (!reader) return Buffer.alloc(0);
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const deadline = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new BridgeFailure(408)), timeoutMs); });
-    return await Promise.race([readBody(reader, length), deadline]);
+    return await Promise.race([readBody(reader, limit, length), deadline]);
   } finally { clearTimeout(timer); void reader.cancel().catch(() => {}); }
 }
 
@@ -94,7 +110,7 @@ export function signGatewayRequest(input: SigningInput): GatewayRequest {
   if (input.authSecret.length < 16 || input.authSecret.length > 4096
     || !/^[A-Za-z0-9_-]{1,128}$/.test(input.staffId) || !canonicalPath(input.path)
     || (input.ownerCookie !== "" && !HEX_SESSION.test(input.ownerCookie))
-    || !["GET", "POST"].includes(input.method) || input.body.length > MAX_REQUEST) fail(403);
+    || !["GET", "POST"].includes(input.method) || input.body.length > requestLimit(input.method, input.path)) fail(403);
   const time = String(input.now ?? Date.now());
   const nonce = input.nonce ?? randomBytes(24).toString("base64url");
   if (!/^\d{13}$/.test(time) || !/^[A-Za-z0-9_-]{32}$/.test(nonce)) fail(403);
@@ -115,12 +131,12 @@ export function gatewayRequestOptions(input: GatewayRequest, ca: string): Reques
     ca, rejectUnauthorized: true, agent: false, maxHeaderSize: 16384,
     headers: { ...input.headers, accept: "*/*", "content-length": String(input.body.length) } };
 }
-function readResponse(response: IncomingMessage): Promise<GatewayResponse> {
+function readResponse(response: IncomingMessage, limit: number): Promise<GatewayResponse> {
   return new Promise((resolve, reject) => {
     let size = 0; let chunks: Buffer[] = [];
     response.on("data", (value: Buffer) => {
       size += value.length;
-      if (size > MAX_RESPONSE) { response.destroy(); reject(new Error("Factory response unavailable")); return; }
+      if (size > limit) { response.destroy(); reject(new Error("Factory response unavailable")); return; }
       chunks = [...chunks, value];
     });
     response.once("end", () => resolve({ status: response.statusCode ?? 503, headers: response.headers, body: Buffer.concat(chunks) }));
@@ -139,7 +155,7 @@ export async function sendGatewayRequest(input: GatewayRequest, options: Transpo
       if (error) reject(new Error("Factory connection unavailable")); else resolve(result!);
     };
     const outgoing = request(gatewayRequestOptions(input, ca), (response) => {
-      void readResponse(response).then((result) => done(undefined, result), done);
+      void readResponse(response, responseLimit(input.method, input.path)).then((result) => done(undefined, result), done);
     });
     outgoing.once("error", done);
     const timer = setTimeout(() => outgoing.destroy(new Error("Factory deadline exceeded")), timeout);
@@ -153,8 +169,13 @@ function singleHeader(headers: RawHeaders, key: string): string | undefined {
   if (Array.isArray(value)) { if (value.length !== 1) fail(503); return value[0]; }
   return value;
 }
-function responseHeaders(response: GatewayResponse, preview: boolean): Headers {
+function responseHeaders(response: GatewayResponse, preview: boolean, method: string, path: string): Headers {
   const result = new Headers(SECURITY);
+  const download = attachmentRequest(method, path);
+  const permissions = `microphone=${preview || download ? '()' : '(self)'}, camera=(), geolocation=()`;
+  const suppliedPermissions = singleHeader(response.headers, 'permissions-policy');
+  if (suppliedPermissions !== undefined && suppliedPermissions !== permissions) fail(503);
+  result.set('permissions-policy', permissions);
   for (const key of ["content-type", "content-security-policy"]) {
     const value = singleHeader(response.headers, key);
     if (value !== undefined) {
@@ -166,6 +187,20 @@ function responseHeaders(response: GatewayResponse, preview: boolean): Headers {
   if (preview && (!/(?:^|;)\s*sandbox\s*(?:;|$)/.test(policy)
     || !policy.includes("script-src 'none'") || !policy.includes("form-action 'none'") || policy.includes("allow-same-origin"))) fail(503);
   result.set("content-security-policy", policy);
+  const type = (result.get('content-type') ?? '').toLowerCase();
+  if (download && response.status === 200) {
+    const disposition = singleHeader(response.headers, 'content-disposition');
+    if (type !== 'application/octet-stream' || !disposition || disposition.length > 2048
+      || !/^attachment; filename="[A-Za-z0-9._ -]{1,180}"(?:; filename\*=UTF-8''(?:[A-Za-z0-9!#$&+.^_`|~-]|%[0-9A-Fa-f]{2}){1,1800})?$/.test(disposition)) fail(503);
+    result.set('content-disposition', disposition);
+    result.set('content-security-policy', "default-src 'none'; script-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'; sandbox");
+  } else {
+    if (/^(?:application|text)\/(?:javascript|ecmascript)(?:;|$)/.test(type)
+      && !(method === 'GET' && path === FACTORY_EDITOR_PREFIX + '/chat-client.js' && /^(?:application\/javascript)(?:; charset=utf-8)?$/.test(type))) fail(503);
+    if (/^application\/json(?:;|$)/.test(type) && !chatJsonRequest(method, path)) fail(503);
+    if (/^text\/css(?:;|$)/.test(type) && !preview
+      && !(method === 'GET' && [FACTORY_EDITOR_PREFIX + '/style.css', FACTORY_EDITOR_PREFIX + '/chat-style.css'].includes(path))) fail(503);
+  }
   const location = singleHeader(response.headers, "location");
   if (location !== undefined) { if (!canonicalPath(location)) fail(503); result.set("location", location); }
   const cookie = singleHeader(response.headers, "set-cookie");
@@ -194,15 +229,15 @@ export function createFactoryAdminHandler(options: HandlerOptions): (request: Re
       if (Date.now() - rateStarted >= 60000) { rateStarted = Date.now(); rateCount = 0; }
       if (++rateCount > 120) return errorResponse(429);
       const path = requestPath(request);
-      const body = await bodyBytes(request, options.bodyTimeoutMs ?? 5000);
+      const body = await bodyBytes(request, path, options.bodyTimeoutMs ?? (uploadRequest(request.method, path) ? 30000 : 5000));
       const authSecret = (options.authSecret ?? (() => process.env.AUTH_SECRET))();
       if (!authSecret) return errorResponse(503);
       const signed = signGatewayRequest({ method: request.method, path, body, ownerCookie: ownerCookie(request), staffId: session.staffId, authSecret });
       const response = await (options.transport ?? sendGatewayRequest)(signed);
-      if (![200, 303, 400, 401, 403, 404, 409, 429, 500, 503].includes(response.status)
-        || !Buffer.isBuffer(response.body) || response.body.length > MAX_RESPONSE) fail(503);
+      if (![200, 202, 303, 400, 401, 403, 404, 408, 409, 413, 415, 429, 500, 503].includes(response.status)
+        || !Buffer.isBuffer(response.body) || response.body.length > responseLimit(request.method, path)) fail(503);
       return new Response(new Uint8Array(response.body), { status: response.status,
-        headers: responseHeaders(response, path.startsWith(FACTORY_EDITOR_PREFIX + "/preview/")) });
+        headers: responseHeaders(response, path.startsWith(FACTORY_EDITOR_PREFIX + "/preview/"), request.method, path) });
     } catch (error) { return errorResponse(error instanceof BridgeFailure ? error.status : 503); }
   };
 }

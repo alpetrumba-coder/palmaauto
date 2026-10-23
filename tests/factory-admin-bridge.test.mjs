@@ -18,6 +18,78 @@ const request = (suffix = "/", init) => new Request("https://palmaauto.ru" + pre
 const response = (overrides = {}) => ({ status: 200, headers: { "content-type": "text/html; charset=utf-8" }, body: Buffer.from("editor"), ...overrides });
 const handler = (options = {}) => createFactoryAdminHandler({ getSession: async () => owner, authSecret: () => secret, transport: async () => response(), ...options });
 
+const chatId = '11111111-1111-4111-8111-111111111111';
+const attachmentId = '22222222-2222-4222-8222-222222222222';
+const post = body => ({ method: 'POST', headers: { origin: 'https://palmaauto.ru', 'content-type': 'application/x-www-form-urlencoded' }, body });
+test('chat request sizes apply only to exact upload and message routes', async () => {
+  let calls=0;
+  const run=handler({transport:async()=>{calls++;return response({status:202,headers:{'content-type':'application/json'},body:Buffer.from('{}')});}});
+  assert.equal((await run(request('/chat/'+chatId+'/attachments',post('x'.repeat(65537))))).status,202);
+  assert.equal((await run(request('/chat/'+chatId+'/messages',post('x'.repeat(256*1024))))).status,202);
+  assert.equal((await run(request('/chat/'+chatId+'/messages',post('x'.repeat(256*1024+1))))).status,413);
+  assert.equal((await run(request('/chat/bad/attachments',post('x'.repeat(65537))))).status,413);
+  assert.equal((await run(request('/audit',post('x'.repeat(65537))))).status,413);
+  assert.equal(calls,2);
+});
+
+test('bridge preserves inert attachment disposition and owner microphone policy only', async () => {
+  const attachment='/chat/'+chatId+'/attachments/'+attachmentId;
+  const headers={'content-type':'application/octet-stream','content-disposition':'attachment; filename="report.pdf"',
+    'permissions-policy':'microphone=(), camera=(), geolocation=()','x-private':'secret'};
+  const run=handler({transport:async()=>response({headers,body:Buffer.alloc(3*1024*1024)})});
+  const result=await run(request(attachment));
+  assert.equal(result.status,200);assert.equal(result.headers.get('content-disposition'),headers['content-disposition']);
+  assert.equal(result.headers.get('permissions-policy'),headers['permissions-policy']);
+  assert.equal(result.headers.get('x-private'),null);
+  assert.equal((await run(request('/'))).status,503);
+  const microphone=await handler({transport:async()=>response({headers:{'permissions-policy':'microphone=(self), camera=(), geolocation=()'}})})(request());
+  assert.equal(microphone.headers.get('permissions-policy'),'microphone=(self), camera=(), geolocation=()');
+  assert.equal((await handler({transport:async()=>response({headers:{...headers,'content-disposition':'inline'}})})(request(attachment))).status,503);
+});
+
+test('upstream upload validation statuses remain explicit',async()=>{
+  for(const status of [413,415])assert.equal((await handler({transport:async()=>response({status})})(request('/chat/'+chatId+'/attachments',post('csrf=x')))).status,status);
+});
+
+test('signed uploads and transport retain exact sixteen and ten MiB scoped limits',async()=>{
+  const input={method:'POST',path:prefix+'/chat/'+chatId+'/attachments',body:Buffer.alloc(16*1024*1024),ownerCookie:'',staffId:'env',authSecret:secret};
+  assert.doesNotThrow(()=>signGatewayRequest(input));
+  assert.throws(()=>signGatewayRequest({...input,body:Buffer.alloc(16*1024*1024+1)}));
+  assert.throws(()=>signGatewayRequest({...input,path:input.path+'/extra'}));
+  const download={...input,method:'GET',path:input.path+'/'+attachmentId,body:Buffer.alloc(0)};
+  let size=10*1024*1024;
+  const fake=fakeTransport(callback=>{const stream=Readable.from([Buffer.alloc(size)]);stream.statusCode=200;stream.headers={};callback(stream);});
+  assert.equal((await sendGatewayRequest(signGatewayRequest(download),{ca:'CA',request:fake.request,timeoutMs:1000})).body.length,size);
+  size++;await assert.rejects(sendGatewayRequest(signGatewayRequest(download),{ca:'CA',request:fake.request,timeoutMs:1000}));
+  size=3*1024*1024;await assert.rejects(sendGatewayRequest(signGatewayRequest({...download,path:prefix+'/chat/'+chatId+'/state'}),{ca:'CA',request:fake.request,timeoutMs:1000}));
+});
+
+test('bridge rejects executable MIME and permissions outside their exact chat owner routes',async()=>{
+  for(const [suffix,type] of [['/audit','application/javascript'],['/audit','application/json'],['/chat/bad/state','application/json'],['/audit','text/css']]){
+    assert.equal((await handler({transport:async()=>response({headers:{'content-type':type}})})(request(suffix))).status,503);
+  }
+  for(const [suffix,type] of [['/chat-client.js','application/javascript; charset=utf-8'],['/chat-style.css','text/css; charset=utf-8'],['/chat/'+chatId+'/state','application/json; charset=utf-8']]){
+    assert.equal((await handler({transport:async()=>response({headers:{'content-type':type}})})(request(suffix))).status,200);
+  }
+  const policy="default-src 'none'; script-src 'none'; form-action 'none'; sandbox";
+  assert.equal((await handler({transport:async()=>response({headers:{'content-security-policy':policy,'permissions-policy':'microphone=(self), camera=(), geolocation=()'}})})(request('/preview/mission/run/'))).status,503);
+  const disposition='attachment; filename="attachment"; filename*=UTF-8\'\'%D1%84%D0%B0%D0%B9%D0%BB.pdf';
+  const result=await handler({transport:async()=>response({headers:{'content-type':'application/octet-stream','content-disposition':disposition}})})(request('/chat/'+chatId+'/attachments/'+attachmentId));
+  assert.equal(result.status,200);assert.equal(result.headers.get('content-disposition'),disposition);assert.match(result.headers.get('content-security-policy'),/sandbox/);
+});
+
+test('bridge upload bodies get thirty seconds while ordinary bodies keep five',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  for(const [suffix,deadline] of [['/audit',5000],['/chat/'+chatId+'/attachments',30000]]){
+    let cancelled=false;let settled=false;
+    const stream=new ReadableStream({cancel(){cancelled=true;}});
+    const pending=handler()(request(suffix,{...post(stream),duplex:'half'})).then(value=>{settled=true;return value;});
+    await Promise.resolve();await Promise.resolve();
+    t.mock.timers.tick(deadline-1);await Promise.resolve();assert.equal(settled,false);
+    t.mock.timers.tick(1);assert.equal((await pending).status,408);assert.equal(cancelled,true);
+  }
+});
+
 test("route binds the existing active staff session check and runtime", async () => {
   const { readFile } = await import("node:fs/promises");
   const route = await readFile(new URL("../app/admin-panel/ai-editor/[[...path]]/route.ts", import.meta.url), "utf8");
@@ -219,4 +291,18 @@ test("nav keeps editor entry OWNER-only and uses a full-page same-origin link", 
   assert.equal(FACTORY_EDITOR_PREFIX, prefix);
   assert.match(nav, /isOwner\s*\?\s*\([\s\S]*?<a[\s\S]*?href="\/admin-panel\/ai-editor\/"/);
   assert.match(nav, /ИИ-редактор/);
+});
+test('bridge allows exact read-only chat history cursor JSON',async()=>{
+  const route='/chat/'+chatId+'/history/'+attachmentId;
+  const run=handler({transport:async()=>response({headers:{'content-type':'application/json'},body:Buffer.from('{"messages":[]}')})});
+  assert.equal((await run(request(route))).status,200);
+  assert.equal((await run(request(route+'/extra'))).status,503);
+  assert.equal((await run(request(route,post('csrf=x')))).status,503);
+});
+test('bridge permits preparation JSON only on an exact POST cursor',async()=>{
+  const route='/chat/'+chatId+'/prepare/'+attachmentId;
+  const run=handler({transport:async()=>response({headers:{'content-type':'application/json'},body:Buffer.from('{}')})});
+  assert.equal((await run(request(route,post('csrf=x')))).status,200);
+  assert.equal((await run(request(route))).status,503);
+  assert.equal((await run(request(route+'/extra',post('csrf=x')))).status,503);
 });
