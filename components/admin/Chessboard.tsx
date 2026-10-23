@@ -53,7 +53,7 @@ const MONTHS = ["январь", "февраль", "март", "апрель", "�
 
 const LABEL_W = "11rem";
 const COL_W = 1.75; // rem
-const ROW_H = "2rem";
+const ROW_H = "1.3rem";
 const BORDER = "color-mix(in srgb, var(--color-border) 70%, transparent)";
 
 const dow = (iso: string) => new Date(`${iso}T00:00:00Z`).getUTCDay();
@@ -166,7 +166,7 @@ export function Chessboard({ days, today, rows }: { days: string[]; today: strin
                   whiteSpace: "nowrap",
                   textOverflow: "ellipsis",
                   textDecoration: "none",
-                  lineHeight: "calc(2rem - 6px)",
+                  lineHeight: `calc(${ROW_H} - 6px)`,
                   zIndex: 2,
                   textAlign: "left",
                   cursor: "pointer",
