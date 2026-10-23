@@ -1,9 +1,9 @@
-/** Путь к фирменному логотипу (пальма + дом) в `public/`. */
-export const PALMA_AUTO_LOGO_SRC = "/logo-brand.png";
+/** Векторный фирменный знак: пальма, переходящая в дорогу. */
+export const PALMA_AUTO_LOGO_SRC = "/logo-palm-road.svg";
 
 export function PalmaAutoLogo({
   size = "var(--text-lg)",
-  color = "currentColor",
+  color = "#29332F",
   showImage = true,
 }: {
   size?: string;
@@ -12,7 +12,7 @@ export function PalmaAutoLogo({
 }) {
   return (
     <span
-      aria-label="ПАЛЬМААВТО"
+      aria-label="Пальма Авто — аренда авто в Абхазии"
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -28,9 +28,9 @@ export function PalmaAutoLogo({
           alt=""
           aria-hidden
           style={{
-            height: `calc(${size} * 1.55)`,
+            height: `calc(${size} * 2.1)`,
             width: "auto",
-            maxWidth: `calc(${size} * 1.55)`,
+            maxWidth: `calc(${size} * 2.1)`,
             objectFit: "contain",
             flex: "0 0 auto",
             display: "block",
@@ -40,6 +40,9 @@ export function PalmaAutoLogo({
       <span
         aria-hidden
         style={{
+          display: "inline-flex",
+          flexDirection: "column",
+          gap: "0.3em",
           fontSize: size,
           fontWeight: 800,
           letterSpacing: "0.04em",
@@ -47,9 +50,18 @@ export function PalmaAutoLogo({
           lineHeight: 1,
         }}
       >
-        ПАЛЬМААВТО
+        <span>ПАЛЬМА АВТО</span>
+        <span
+          style={{
+            fontSize: "0.45em",
+            fontWeight: 500,
+            letterSpacing: "0.025em",
+            lineHeight: 1.2,
+          }}
+        >
+          Аренда авто в Абхазии
+        </span>
       </span>
     </span>
   );
 }
-

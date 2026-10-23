@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Пальма Авто — пальма и дорога</title>
+  <path d="M41 29C40 42 46 49 43 57C40 65 29 69 18 75H49C60 65 59 56 53 48C48 41 46 35 45 29Z" fill="#175C46"/>
+  <path d="M43 32C31 14 17 17 6 31C19 25 30 25 43 32Z" fill="#175C46"/>
+  <path d="M43 30C30 9 19 7 10 12C23 14 33 20 43 30Z" fill="#175C46"/>
+  <path d="M43 29C37 12 41 5 48 3C45 13 45 20 43 29Z" fill="#175C46"/>
+  <path d="M44 30C51 11 64 10 73 17C60 17 52 22 44 30Z" fill="#175C46"/>
+  <path d="M44 31C59 20 71 26 77 39C64 32 55 30 44 31Z" fill="#175C46"/>
+  <path d="M44 31C60 30 66 39 65 49C59 40 53 35 44 31Z" fill="#175C46"/>
+  <path d="M45 47L47 52M46 59L42 64M35 69L29 73" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+</svg>
