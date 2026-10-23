@@ -37,6 +37,25 @@ export function AdminPanelNav({ isOwner = false }: { isOwner?: boolean }) {
       <Link href="/" className="nav-tap-target" style={{ fontSize: "var(--text-sm)" }}>
         Сайт
       </Link>
+      {isOwner ? (
+        // eslint-disable-next-line @next/next/no-html-link-for-pages -- The editor returns a complete HTML document.
+        <a
+          href="/admin-panel/ai-editor/"
+          className="nav-tap-target"
+          style={{
+            padding: "0.45rem 0.9rem",
+            borderRadius: "999px",
+            border: "1px solid color-mix(in srgb, var(--color-accent) 35%, transparent)",
+            background: "color-mix(in srgb, var(--color-accent) 9%, transparent)",
+            color: "var(--color-accent)",
+            fontSize: "var(--text-sm)",
+            fontWeight: 700,
+            textDecoration: "none",
+          }}
+        >
+          ИИ-редактор
+        </a>
+      ) : null}
       <Link
         href="/admin-panel/accounting"
         className="nav-tap-target"
