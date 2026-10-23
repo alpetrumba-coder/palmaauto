@@ -60,6 +60,7 @@ export default async function HomePage({
       <section
         style={{ marginTop: "calc(var(--space-unit) * 2)" }}
         aria-labelledby="home-book-by-dates-heading"
+        data-factory-section="booking-by-dates"
       >
         <h2
           id="home-book-by-dates-heading"
@@ -75,7 +76,7 @@ export default async function HomePage({
         <BookByDatesSection action="/" fromStr={sp.from ?? ""} toStr={sp.to ?? ""} resultsLayout="list" />
       </section>
 
-      <div style={{ marginTop: "calc(var(--space-unit) * 2)" }}>
+      <div style={{ marginTop: "calc(var(--space-unit) * 2)" }} data-factory-section="rental-benefits">
         <HomeHeroIntro />
       </div>
 
