@@ -356,6 +356,8 @@ model Category {
   nature    CategoryNature @default(VARIABLE)
   sortOrder Int            @default(0) @map("sort_order")
   active    Boolean        @default(true)
+  /// К чему обязательно привязывать операцию по статье: "deal" — к заезду, "object" — к объекту, "general" — общий (с комментарием); null — без требования.
+  binding   String?
   /// Названия статьи в УК.xlsx (для импорта истории), по одному названию в строке.
   aliases   String?        @db.Text
   createdAt DateTime       @default(now()) @map("created_at")

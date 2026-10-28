@@ -1,7 +1,7 @@
 import Link from "next/link";
 
-/** Переключатель вкладок «Правила» / «Договорённости» — общий для обеих страниц. */
-export function AccountingDocTabs({ active }: { active: "rules" | "agreements" }) {
+/** Переключатель вкладок «Правила» / «Договорённости» / «Инструкция по боту» — общий для всех трёх страниц. */
+export function AccountingDocTabs({ active }: { active: "rules" | "agreements" | "bot" }) {
   const tab = (isActive: boolean): React.CSSProperties => ({
     padding: "0.4rem 0.9rem",
     borderRadius: "999px",
@@ -19,6 +19,9 @@ export function AccountingDocTabs({ active }: { active: "rules" | "agreements" }
       </Link>
       <Link href="/admin-panel/accounting/agreements" style={tab(active === "agreements")}>
         Договорённости
+      </Link>
+      <Link href="/admin-panel/accounting/bot" style={tab(active === "bot")}>
+        Инструкция по боту
       </Link>
     </div>
   );

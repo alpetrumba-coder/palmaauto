@@ -6,19 +6,19 @@ import { prisma } from "@/lib/prisma";
 import { createDealFromRc, linkDealToRc } from "@/lib/rc-actions-core";
 import type { ReconcileResult } from "@/lib/rc-reconcile";
 import { recognizeOggOpus, speechConfigured, VOICE_MAX_SECONDS } from "@/lib/speech-to-text";
-import { answerCallbackQuery, downloadFile, editMessageText, getFile, sendMessage, type TgUpdate, type TgVoice } from "@/lib/telegram";
-import { findAccounts, matchAsset, matchCategory, parseAmount, parseDealNumber, stripDealNumber } from "@/lib/telegram-parse";
+import { answerCallbackQuery, downloadFile, editMessageText, getFile, sendMessage, type InlineButton, type TgUpdate, type TgVoice } from "@/lib/telegram";
+import { applyText, detectIntent, dropIntentWord, missingFields, QUESTION, renderCard, type CardDeal, type OpDraft, type OpType, type Refs } from "@/lib/telegram-draft";
+import { matchCategory } from "@/lib/telegram-parse";
 
 const HELP =
-  "Пишите обычной фразой:\n" +
-  "• расход 500 стирка заезд 23 — расход к заезду\n" +
-  "• расход 1200 бензин приус карта х — расход по машине, с карты Х\n" +
-  "• расход 3000 реклама — общий расход (без объекта)\n" +
-  "• оплата 15000 заезд 23 амра — оплата гостя к заезду, на карту Амра-Банк\n" +
-  "• передал 5000 в рубин — из вашей кассы в «Кассу Рубина»\n" +
-  "• перемещение 3000 карта х касса ева — из одной кассы в другую\n" +
-  "• остаток — остатки касс · статьи — список статей расходов\n" +
-  "Касса не указана — берётся ваша касса по умолчанию. Перед записью бот покажет карточку: «Верно» / «Отмена».";
+  "Скажите голосом или напишите, что случилось — в любом порядке:\n" +
+  "• расход уборка Рио 1500 заезд 34\n" +
+  "• оплата 15000 заезд 34 амра\n" +
+  "• сдала 5000 в Рубин\n" +
+  "Бот покажет карточку и спросит, чего не хватает (сумма, статья, заезд или объект, касса). Отвечайте коротко — " +
+  "«34», «Иванов», «с карты х» — фразу целиком повторять не нужно. Исправить: «не 1500, а 1800». " +
+  "В учёт попадает только после кнопки «Записать».\n" +
+  "• остаток — остатки касс · статьи — список статей · отмена — сбросить карточку";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -67,152 +67,156 @@ async function handleBalance(chatId: number, staff: Staff) {
 
 type Staff = { id: string; name: string; role: "OWNER" | "OPERATOR"; defaultCashAccountId: string | null };
 
-async function loadRefs() {
+async function loadRefs(): Promise<Refs> {
   const [accounts, categories, assets] = await Promise.all([
     prisma.cashAccount.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
-    prisma.category.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, kind: true, aliases: true } }),
+    prisma.category.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, kind: true, aliases: true, binding: true } }),
     prisma.asset.findMany({ where: { active: true }, select: { id: true, name: true, kind: true, aliases: true } }),
   ]);
   return { accounts, categories, assets };
 }
 
-const opComment = (text: string) => `Из Telegram: «${text.trim()}»`;
+/** Незаконченная карточка живёт 30 минут: после этого новая фраза без «расход/оплата…» не дописывается в старую. */
+const OP_DRAFT_TTL_MS = 30 * 60 * 1000;
+const money = (rub: string) => formatKop(parseMoneyToKop(rub) ?? 0);
+const ddmm = (d: Date) => fmtDate(d).slice(0, 5);
 
-/** Проверяет операцию и присылает карточку с кнопками «Верно / Отмена». Один незавершённый черновик на чат. */
-async function sendDraft(chatId: number, input: OperationInput, summary: string) {
-  const check = await buildOperationData(input);
-  if ("error" in check) {
-    await sendMessage(chatId, `Не получилось: ${check.error}`);
-    return;
+async function activeOpDraft(chatId: number) {
+  const row = await prisma.telegramDraft.findFirst({ where: { chatId: BigInt(chatId), kind: "op" }, orderBy: { createdAt: "desc" } });
+  if (!row) return null;
+  if (Date.now() - row.createdAt.getTime() > OP_DRAFT_TTL_MS) {
+    await safeDeleteDraft(row.id);
+    return null;
   }
-  await prisma.telegramDraft.deleteMany({ where: { chatId: BigInt(chatId), kind: "expense" } });
-  const draft = await prisma.telegramDraft.create({ data: { chatId: BigInt(chatId), kind: "expense", input: input as unknown as object, summary } });
-  await sendMessage(chatId, `Проверьте:\n${summary}`, [
-    [
-      { text: "✅ Верно", callback_data: `tg:yes:${draft.id}` },
-      { text: "✖ Отмена", callback_data: `tg:no:${draft.id}` },
-    ],
-  ]);
+  return row;
 }
 
-/** «расход 500 стирка заезд 23 карта х» и «оплата 15000 заезд 23 амра». */
-async function handleMoney(chatId: number, staff: Staff, kind: "INCOME" | "EXPENSE", text: string) {
-  const example = kind === "INCOME" ? "оплата 15000 заезд 23" : "расход 500 стирка заезд 23";
-  // «оплата за аренду 5000» — тут 5000 сумма, а не номер аренды: номер берём, только если осталась ещё и сумма.
-  let dealNo = parseDealNumber(text);
-  let parsed = parseAmount(stripDealNumber(text));
-  if (dealNo !== null && !parsed) {
-    dealNo = null;
-    parsed = parseAmount(text);
-  }
-  if (!parsed) {
-    await sendMessage(chatId, `Не нашёл сумму. Например: «${example}».`);
-    return;
-  }
-  const refs = await loadRefs();
+type DealRow = { id: string; number: number; guestName: string; startDate: Date; endDate: Date; assetId: string; asset: { name: string; kind: "APARTMENT" | "CAR" } };
+const dealInclude = { asset: { select: { name: true, kind: true } } } as const;
+const toCardDeal = (d: DealRow): CardDeal => ({ number: d.number, guestName: d.guestName, assetName: d.asset.name, start: ddmm(d.startDate), end: ddmm(d.endDate) });
+const dealButton = (draftId: string, d: DealRow): InlineButton => ({
+  text: `№${d.number} ${d.asset.name} · ${d.guestName.slice(0, 16)} · ${ddmm(d.startDate)}`,
+  callback_data: `op:d:${draftId}:${d.id}`,
+});
 
-  let deal: { id: string; number: number; guestName: string; startDate: Date; endDate: Date; asset: { id: string; name: string; kind: "APARTMENT" | "CAR" } } | null = null;
-  if (dealNo !== null) {
-    deal = await prisma.deal.findFirst({ where: { number: dealNo, status: "ACTIVE" }, include: { asset: { select: { id: true, name: true, kind: true } } } });
-    if (!deal) {
-      await sendMessage(chatId, `Заезд/аренда №${dealNo} не найдены (или отменены). Проверьте номер в карточке заезда.`);
-      return;
+/** Брони-подсказки для кнопок: по объекту — ближайшие к сегодняшнему дню, без объекта — те, что идут сейчас. */
+async function dealSuggestions(d: OpDraft): Promise<DealRow[]> {
+  const today = new Date(`${todayIso()}T00:00:00Z`);
+  const day = 86400000;
+  const where = d.assetId
+    ? { status: "ACTIVE" as const, assetId: d.assetId, endDate: { gte: new Date(today.getTime() - 30 * day) }, startDate: { lte: new Date(today.getTime() + 60 * day) } }
+    : { status: "ACTIVE" as const, endDate: { gte: new Date(today.getTime() - 5 * day) }, startDate: { lte: new Date(today.getTime() + 3 * day) } };
+  const rows = (await prisma.deal.findMany({ where, include: dealInclude, take: 40 })) as DealRow[];
+  return rows.sort((a, b) => Math.abs(a.startDate.getTime() - today.getTime()) - Math.abs(b.startDate.getTime() - today.getTime())).slice(0, 6);
+}
+
+/** Статья прихода по брони: машина — аренда машин; квартира от 28 ночей — долгосрочно; иначе — посуточно. */
+function incomeCategoryFor(deal: DealRow, refs: Refs): string | undefined {
+  const nights = Math.round((deal.endDate.getTime() - deal.startDate.getTime()) / 86400000);
+  const names =
+    deal.asset.kind === "CAR"
+      ? ["Доходы от сдачи машин в аренду посуточно", "Доходы от сдачи имущества в аренду"]
+      : nights >= 28
+        ? ["Доходы от сдачи недвижимости в аренду долгосрочно", "Оплата за жилье (долгосрочные жильцы)"]
+        : ["Доходы от сдачи недвижимости в аренду посуточно", "Доходы от сдачи имущества в аренду"];
+  for (const n of names) {
+    const c = refs.categories.find((x) => x.kind === "INCOME" && x.name === n);
+    if (c) return c.id;
+  }
+  return undefined;
+}
+
+/**
+ * Один шаг карточки: дописать фразу (или выбор кнопкой), найти бронь, подставить кассу сотрудника,
+ * сохранить и показать карточку с одним вопросом — или с кнопкой «Записать», если всё заполнено.
+ */
+async function stepOp(chatId: number, staff: Staff, base: OpDraft, text: string | null, oldId: string | null, patch?: Partial<OpDraft>) {
+  const refs = await loadRefs();
+  const notes: string[] = [];
+  let d: OpDraft = { ...base, ...patch };
+  let guestMatches: DealRow[] = [];
+
+  if (text !== null && text.trim()) {
+    const curDeal = d.dealId ? ((await prisma.deal.findUnique({ where: { id: d.dealId }, include: dealInclude })) as DealRow | null) : null;
+    const r = applyText(d, text, refs, todayIso(), curDeal?.asset.kind);
+    d = r.draft;
+    if (r.dealNo !== undefined) {
+      const found = (await prisma.deal.findFirst({ where: { number: r.dealNo, status: "ACTIVE" }, include: dealInclude })) as DealRow | null;
+      if (found) {
+        d.dealId = found.id;
+        d.assetId = found.assetId;
+      } else notes.push(`Бронь №${r.dealNo} не найдена (или отменена).`);
+    } else if (r.guestQuery) {
+      const words = r.guestQuery.split(" ").slice(0, 3);
+      guestMatches = (await prisma.deal.findMany({
+        where: {
+          status: "ACTIVE",
+          endDate: { gte: new Date(Date.now() - 90 * 86400000) },
+          OR: words.map((w) => ({ guestName: { contains: w, mode: "insensitive" as const } })),
+          ...(d.assetId ? { assetId: d.assetId } : {}),
+        },
+        include: dealInclude,
+        orderBy: { startDate: "desc" },
+        take: 6,
+      })) as DealRow[];
+      if (guestMatches.length === 1) {
+        d.dealId = guestMatches[0].id;
+        d.assetId = guestMatches[0].assetId;
+        guestMatches = [];
+      } else if (guestMatches.length === 0) notes.push(`Не нашёл бронь по «${r.guestQuery}».`);
     }
   }
-  const asset = deal ? deal.asset : matchAsset(parsed.rest, refs.assets);
 
-  const accountId = findAccounts(parsed.rest, refs.accounts)[0]?.id ?? staff.defaultCashAccountId;
-  if (!accountId) {
-    await sendMessage(chatId, "Укажите кассу во фразе (например «карта х», «амра», «касса ева») — касса по умолчанию за вами не закреплена.");
+  if (patch?.dealId) {
+    const pd = await prisma.deal.findUnique({ where: { id: patch.dealId }, select: { assetId: true } });
+    if (pd) d.assetId = pd.assetId;
+  }
+  const deal = d.dealId ? ((await prisma.deal.findUnique({ where: { id: d.dealId }, include: dealInclude })) as DealRow | null) : null;
+  if (d.type === "INCOME" && deal && !d.categoryId) d.categoryId = incomeCategoryFor(deal, refs);
+  if (!d.accountId && staff.defaultCashAccountId) d.accountId = staff.defaultCashAccountId;
+
+  const missing = missingFields(d, refs);
+  d.awaiting = missing[0];
+
+  if (oldId) await safeDeleteDraft(oldId);
+  const card = renderCard(d, refs, deal ? toCardDeal(deal) : null, money);
+  const row = await prisma.telegramDraft.create({ data: { chatId: BigInt(chatId), kind: "op", input: d as unknown as object, summary: card } });
+
+  const cancel: InlineButton = { text: "✖ Отмена", callback_data: `op:no:${row.id}` };
+  const head = notes.length ? `${notes.join("\n")}\n\n` : "";
+  if (missing.length === 0) {
+    await sendMessage(chatId, `${head}${card}\n\nВсё заполнено. Чтобы исправить — просто скажите исправление.`, [
+      [{ text: "✅ Записать", callback_data: `op:yes:${row.id}` }, cancel],
+    ]);
     return;
   }
 
-  const category =
-    kind === "INCOME"
-      ? (matchCategory(parsed.rest, refs.categories, "INCOME", asset?.kind) ?? refs.categories.find((c) => c.name === "Доходы от сдачи имущества в аренду") ?? null)
-      : matchCategory(parsed.rest, refs.categories, "EXPENSE", asset?.kind);
-  if (!category) {
-    await sendMessage(chatId, `Не понял статью расхода в «${parsed.rest || text}». Напишите одно слово: стирка, уборка, бензин, ремонт, хоз, реклама… Список — «статьи».`);
-    return;
+  const field = missing[0];
+  const buttons: InlineButton[][] = [];
+  if (field === "deal") {
+    const list = guestMatches.length > 0 ? guestMatches : await dealSuggestions(d);
+    for (const x of list) buttons.push([dealButton(row.id, x)]);
+  } else if (field === "category") {
+    const cats = refs.categories.filter((c) => c.kind === (d.type === "INCOME" ? "INCOME" : "EXPENSE") && (d.type === "INCOME" || c.binding)).slice(0, 10);
+    for (let i = 0; i < cats.length; i += 2) buttons.push(cats.slice(i, i + 2).map((c) => ({ text: c.name.slice(0, 30), callback_data: `op:c:${row.id}:${c.id}` })));
+  } else if (field === "account" || field === "to") {
+    const accs = refs.accounts.filter((a) => field !== "to" || a.id !== d.accountId);
+    for (let i = 0; i < accs.length; i += 2) buttons.push(accs.slice(i, i + 2).map((a) => ({ text: a.name, callback_data: `op:${field === "to" ? "t" : "a"}:${row.id}:${a.id}` })));
   }
-
-  const input: OperationInput = {
-    date: todayIso(),
-    type: kind,
-    amount: parsed.amount,
-    accountId,
-    toAccountId: "",
-    categoryId: category.id,
-    assetId: deal ? "" : (asset?.id ?? ""),
-    dealId: deal?.id ?? "",
-    comment: opComment(`${kind === "INCOME" ? "оплата" : "расход"} ${text}`),
-  };
-  const kop = parseMoneyToKop(parsed.amount) ?? 0;
-  const summary = [
-    `${kind === "INCOME" ? "Приход" : "Расход"} · ${formatKop(kop)}`,
-    `Статья: ${category.name}`,
-    deal
-      ? `Заезд №${deal.number} · ${deal.asset.name} · ${deal.guestName} (${fmtDate(deal.startDate)}–${fmtDate(deal.endDate)})`
-      : asset
-        ? `Объект: ${asset.name}`
-        : "Объект: общий (без объекта)",
-    `Касса: ${refs.accounts.find((a) => a.id === accountId)?.name ?? "—"}`,
-  ].join("\n");
-  await sendDraft(chatId, input, summary);
+  buttons.push([cancel]);
+  await sendMessage(chatId, `${head}${card}\n\n${QUESTION[field]}`, buttons);
 }
 
-/** «передал 5000 в рубин», «перемещение 3000 карта х касса ева». */
-async function handleTransfer(chatId: number, staff: Staff, text: string) {
-  const parsed = parseAmount(text);
-  if (!parsed) {
-    await sendMessage(chatId, "Не нашёл сумму. Например: «передал 5000 в рубин».");
-    return;
-  }
-  const refs = await loadRefs();
-  const accs = findAccounts(parsed.rest, refs.accounts);
-  let fromId: string | null = null;
-  let toId: string | null = null;
-  if (accs.length >= 2) {
-    fromId = accs[0].id;
-    toId = accs[1].id;
-  } else if (accs.length === 1) {
-    fromId = staff.defaultCashAccountId;
-    toId = accs[0].id;
-  }
-  if (!toId) {
-    await sendMessage(chatId, "Укажите, в какую кассу: например «передал 5000 в рубин» или «перемещение 3000 карта х касса ева».");
-    return;
-  }
-  if (!fromId) {
-    await sendMessage(chatId, "Укажите и кассу-источник: «перемещение 3000 карта х касса ева» (первая — откуда, вторая — куда).");
-    return;
-  }
-  if (fromId === toId) {
-    await sendMessage(chatId, "Касса «откуда» и «куда» совпадают. Назовите обе: первая — откуда, вторая — куда.");
-    return;
-  }
-  const input: OperationInput = {
-    date: todayIso(),
-    type: "TRANSFER",
-    amount: parsed.amount,
-    accountId: fromId,
-    toAccountId: toId,
-    categoryId: "",
-    assetId: "",
-    dealId: "",
-    comment: opComment(`перемещение ${text}`),
-  };
-  const name = (id: string) => refs.accounts.find((a) => a.id === id)?.name ?? "—";
-  const summary = `Перемещение · ${formatKop(parseMoneyToKop(parsed.amount) ?? 0)}\nИз: ${name(fromId)}\nВ: ${name(toId)}`;
-  await sendDraft(chatId, input, summary);
+async function startOp(chatId: number, staff: Staff, type: OpType, text: string) {
+  const old = await prisma.telegramDraft.findFirst({ where: { chatId: BigInt(chatId), kind: "op" } });
+  await stepOp(chatId, staff, { type, date: todayIso(), texts: [] }, text, old?.id ?? null);
 }
 
 async function handleCategoriesList(chatId: number) {
-  const cats = await prisma.category.findMany({ where: { active: true, kind: "EXPENSE" }, orderBy: { sortOrder: "asc" }, select: { name: true } });
-  await sendMessage(chatId, `Статьи расходов:\n${cats.map((c) => `• ${c.name}`).join("\n")}\n\nМожно писать коротко: стирка, уборка, бензин, ремонт, хоз, реклама, связь, коммуналка.`);
+  const cats = await prisma.category.findMany({ where: { active: true, kind: "EXPENSE" }, orderBy: { sortOrder: "asc" }, select: { name: true, binding: true } });
+  const tag = (b: string | null) => (b === "deal" ? " — к заезду" : b === "object" ? " — к объекту" : b === "general" ? " — общий" : "");
+  await sendMessage(chatId, `Статьи расходов:\n${cats.map((c) => `• ${c.name}${tag(c.binding)}`).join("\n")}\n\nМожно говорить коротко: стирка, уборка, бензин, ремонт, реклама, связь, коммуналка.`);
 }
-
-const firstWordRest = (text: string) => text.replace(/^\S+\s*/, "");
 
 async function handleText(chatId: number, text: string) {
   const trimmed = text.trim();
@@ -245,23 +249,98 @@ async function handleText(chatId: number, text: string) {
     await handleCategoriesList(chatId);
     return;
   }
-  if (first.startsWith("расход")) {
-    await handleMoney(chatId, staff, "EXPENSE", firstWordRest(trimmed));
-    return;
-  }
-  if (first.startsWith("оплат") || first.startsWith("приход")) {
-    await handleMoney(chatId, staff, "INCOME", firstWordRest(trimmed));
-    return;
-  }
-  if (["передал", "передала", "перевел", "перевела", "сдал", "сдала"].includes(first) || first.startsWith("перемещ")) {
-    await handleTransfer(chatId, staff, firstWordRest(trimmed));
-    return;
-  }
   if (first === "помощь" || lower === "/help") {
     await sendMessage(chatId, HELP);
     return;
   }
+  if (first === "отмена") {
+    const cur = await activeOpDraft(chatId);
+    if (cur) await safeDeleteDraft(cur.id);
+    await sendMessage(chatId, cur ? "Карточка отменена." : "Нечего отменять.");
+    return;
+  }
+
+  const intent = detectIntent(trimmed);
+  if (intent) {
+    await startOp(chatId, staff, intent, dropIntentWord(trimmed));
+    return;
+  }
+  // без слова «расход/оплата…» — это ответ на вопрос открытой карточки
+  const cur = await activeOpDraft(chatId);
+  if (cur) {
+    await stepOp(chatId, staff, cur.input as unknown as OpDraft, trimmed, cur.id);
+    return;
+  }
+  // «уборка рио 1500» без слова «расход» — тоже расход, если узнали статью и есть сумма
+  const refs = await loadRefs();
+  if (/\d/.test(trimmed) && matchCategory(trimmed, refs.categories, "EXPENSE")) {
+    await startOp(chatId, staff, "EXPENSE", trimmed);
+    return;
+  }
   await sendMessage(chatId, `Не понял. ${HELP}`);
+}
+
+/** Кнопки карточки: выбор брони / статьи / кассы, «Записать», «Отмена». */
+async function handleOpCallback(chatId: number, messageId: number, cbId: string, action: string, draftId: string, value: string | undefined) {
+  const row = await prisma.telegramDraft.findUnique({ where: { id: draftId } });
+  if (!row || row.chatId !== BigInt(chatId) || row.kind !== "op") {
+    await answerCallbackQuery(cbId, "Карточка устарела — начните заново.");
+    return;
+  }
+  const staff = await findStaffByChat(chatId);
+  if (!staff || !staff.active) {
+    await answerCallbackQuery(cbId, "Сотрудник не найден.");
+    return;
+  }
+  const d = row.input as unknown as OpDraft;
+
+  if (action === "no") {
+    await safeDeleteDraft(row.id);
+    await editMessageText(chatId, messageId, `Отменено.\n${row.summary}`);
+    await answerCallbackQuery(cbId, "Отменено");
+    return;
+  }
+
+  if (action === "yes") {
+    const refs = await loadRefs();
+    if (missingFields(d, refs).length > 0) {
+      await answerCallbackQuery(cbId, "Карточка заполнена не полностью.");
+      return;
+    }
+    const said = `Из Telegram: «${d.texts.filter(Boolean).join(" / ")}»`;
+    const input: OperationInput = {
+      date: d.date,
+      type: d.type,
+      amount: d.amount ?? "",
+      accountId: d.accountId ?? "",
+      toAccountId: d.toAccountId ?? "",
+      categoryId: d.type === "TRANSFER" ? "" : (d.categoryId ?? ""),
+      assetId: d.dealId ? "" : (d.assetId ?? ""),
+      dealId: d.dealId ?? "",
+      comment: (d.note ? `${d.note} · ${said}` : said).slice(0, 1000),
+    };
+    const res = await buildOperationData(input);
+    if ("error" in res) {
+      await answerCallbackQuery(cbId, "Ошибка");
+      await sendMessage(chatId, `Не получилось записать: ${res.error}`);
+      return;
+    }
+    const op = await prisma.operation.create({ data: { ...res.data, createdBy: staff.name } });
+    await safeDeleteDraft(row.id);
+    await editMessageText(chatId, messageId, `Записано, операция №${op.number}.\n${row.summary}`);
+    await answerCallbackQuery(cbId, "Записано");
+    return;
+  }
+
+  if (!value) {
+    await answerCallbackQuery(cbId);
+    return;
+  }
+  const patch: Partial<OpDraft> =
+    action === "d" ? { dealId: value } : action === "c" ? { categoryId: value } : action === "a" ? { accountId: value } : action === "t" ? { toAccountId: value } : {};
+  await answerCallbackQuery(cbId, "Принято");
+  await editMessageText(chatId, messageId, row.summary).catch(() => undefined); // убрать кнопки со старой карточки
+  await stepOp(chatId, staff, d, null, row.id, patch);
 }
 
 async function handleExpenseCallback(chatId: number, messageId: number, cbId: string, action: string, draftId: string) {
@@ -327,6 +406,11 @@ async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
   if (parts[0] === "tgrc") {
     const [, action, draftId] = parts;
     await handleRcDupeCallback(chatId, messageId, cb.id, action === "same" ? "same" : "diff", draftId);
+    return;
+  }
+  if (parts[0] === "op") {
+    const [, action, draftId, value] = parts;
+    await handleOpCallback(chatId, messageId, cb.id, action, draftId, value);
     return;
   }
   const [, action, draftId] = parts;
