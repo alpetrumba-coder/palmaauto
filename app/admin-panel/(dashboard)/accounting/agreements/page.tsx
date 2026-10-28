@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { AccountingDocTabs } from "@/components/admin/AccountingDocTabs";
-import { AGREEMENT_RULES, COMMISSIONS, DEFINITIONS, OWNER_SETTLEMENTS } from "@/lib/accounting-agreements";
+import { AGREEMENT_RULES, COMMISSIONS, DEFINITIONS, OWNER_SETTLEMENTS, PURCHASE_RULES } from "@/lib/accounting-agreements";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
 
 export const metadata: Metadata = {
@@ -64,6 +64,13 @@ export default async function AccountingAgreementsPage() {
       <h2 style={h2}>Когда выплачиваем</h2>
       <ul style={{ margin: 0, paddingLeft: "1.2rem", maxWidth: "46rem", fontSize: "var(--text-sm)", lineHeight: 1.5 }}>
         {AGREEMENT_RULES.map((t) => (
+          <li key={t}>{t}</li>
+        ))}
+      </ul>
+
+      <h2 style={h2}>Закупки для нужд Пальмы</h2>
+      <ul style={{ margin: 0, paddingLeft: "1.2rem", maxWidth: "46rem", fontSize: "var(--text-sm)", lineHeight: 1.5 }}>
+        {PURCHASE_RULES.map((t) => (
           <li key={t}>{t}</li>
         ))}
       </ul>
