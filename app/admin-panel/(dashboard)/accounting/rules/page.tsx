@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AccountingDocTabs } from "@/components/admin/AccountingDocTabs";
 import { BINDING_LABEL, EXPENSE_RULES, GENERAL_RULES, INCOME_RULES, OPEN_QUESTIONS, type Binding } from "@/lib/accounting-rules";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
 
@@ -33,7 +34,8 @@ export default async function AccountingRulesPage() {
       <p style={{ margin: "0 0 0.5rem", fontSize: "var(--text-sm)" }}>
         <Link href="/admin-panel/accounting">← К остаткам и журналу</Link>
       </p>
-      <h1 style={{ fontSize: "var(--text-2xl)", margin: "0 0 0.5rem" }}>Правила учёта</h1>
+      <h1 style={{ fontSize: "var(--text-2xl)", margin: "0 0 0.75rem" }}>Правила учёта</h1>
+      <AccountingDocTabs active="rules" />
       <p style={{ margin: 0, maxWidth: "46rem", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
         Свод правил на 28.10.2026: к чему привязывать каждый расход и какие статьи используем. Названия статей в «Справочниках» пока старые — переименуем после
         подтверждения владельца.
@@ -70,7 +72,7 @@ export default async function AccountingRulesPage() {
 
       <h2 style={h2}>Статьи расхода: к чему привязывать</h2>
       <p style={{ margin: "0 0 0.6rem", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-        К заезду: {count("deal")} · распределяются по броням: {count("distributed")} · к объекту: {count("object")} · общие: {count("general")} · не расход: {count("adjust")} · не
+        К заезду: {count("deal")} · распределяются по броням: {count("distributed")} · к объекту: {count("object")} · общие: {count("general")} · возврат клиенту: {count("adjust")} · не
         используем: {count("off")}.
       </p>
       <div style={{ overflowX: "auto" }}>
@@ -103,7 +105,7 @@ export default async function AccountingRulesPage() {
         </table>
       </div>
 
-      <h2 style={h2}>Что ещё нужно уточнить</h2>
+      <h2 style={h2}>Что осталось сделать в программе</h2>
       <ul style={{ margin: 0, paddingLeft: "1.2rem", maxWidth: "46rem", fontSize: "var(--text-sm)", lineHeight: 1.5 }}>
         {OPEN_QUESTIONS.map((t) => (
           <li key={t} style={{ marginBottom: "0.3rem" }}>
