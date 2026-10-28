@@ -108,6 +108,7 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
                   { href: "/admin-panel/accounting/import", label: "Импорт истории", hint: "Разовая загрузка старых данных из Excel — не для повседневной работы.", variant: "dashed" as const },
                 ]
               : []),
+            { href: "/admin-panel/accounting/rules", label: "Правила учёта", hint: "К чему привязывать расходы, какие статьи используем: короткая памятка для всех.", variant: "outline" as const },
           ] as const
         ).map((b) => (
           <div key={b.href} style={{ display: "flex", flexDirection: "column", gap: "0.3rem", maxWidth: "13rem" }}>
