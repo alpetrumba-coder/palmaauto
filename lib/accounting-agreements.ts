@@ -21,7 +21,7 @@ export const COMMISSIONS: CommissionAgreement[] = [
 ];
 
 export const OWNER_SETTLEMENTS: { owner: string; split: string; base: string; note?: string }[] = [
-  { owner: "Кошман (сторонний собственник квартиры)", split: "65 / 35", base: "от цены нетто", note: "65% отдаём собственнику, 35% остаётся нам" },
+  { owner: "Виктор Кошман (сторонний собственник квартиры)", split: "65 / 35", base: "от цены нетто", note: "65% отдаём собственнику, 35% остаётся нам" },
 ];
 
 export const AGREEMENT_RULES: string[] = [
