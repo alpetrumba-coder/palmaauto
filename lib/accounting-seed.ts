@@ -41,6 +41,7 @@ const CARS: A[] = [
 const CASH: { name: string; kind: "CARD" | "CASH" | "ONLINE"; responsible?: string; active?: boolean }[] = [
   // Рабочие кассы с 01.11.2026.
   { name: "Касса Ева", kind: "CASH", responsible: "Ева" },
+  { name: "Касса Татьяна", kind: "CASH", responsible: "Татьяна" },
   { name: "Карта Х", kind: "CARD", responsible: "Ева" },
   { name: "Карта Амра-Банк", kind: "CARD", responsible: "Ева" },
   { name: "Касса Рубина", kind: "CASH" },
