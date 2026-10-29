@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { syncCarDealSafe } from "@/lib/car-deals";
 import crypto from "node:crypto";
 
 import { auth } from "@/auth";
@@ -227,6 +229,7 @@ export async function checkAmobilePaymentStatusAction(bookingId: string): Promis
       paidAmountRub,
     },
   });
+  await syncCarDealSafe(booking.id);
 
   revalidatePath("/moi-broni");
   revalidatePath("/account");
@@ -290,6 +293,7 @@ export async function completeFakePaymentAction(bookingId: string, plan: FakePay
       paidAmountRub,
     },
   });
+  await syncCarDealSafe(bookingId);
 
   revalidatePath("/moi-broni");
   revalidatePath("/account");

@@ -82,19 +82,27 @@ export const OPERATION_TYPE_LABEL = {
 export type DealTotals = { paidKop: number; expenseKop: number };
 
 /** Оплачено (приходы) и расходы по заездам/арендам; аннулированные операции не считаются. */
+/** Статья возврата гостю: деньги уходят из кассы, но это не расход, а уменьшение оплаты брони. */
+export const REFUND_CATEGORY = "Возврат клиенту";
+
 export async function getDealTotals(dealIds: string[]): Promise<Map<string, DealTotals>> {
   const map = new Map<string, DealTotals>();
   if (dealIds.length === 0) return map;
-  const rows = await prisma.operation.groupBy({
-    by: ["dealId", "type"],
-    where: { voidedAt: null, dealId: { in: dealIds }, type: { in: ["INCOME", "EXPENSE"] } },
-    _sum: { amountKop: true },
-  });
+  const [rows, refund] = await Promise.all([
+    prisma.operation.groupBy({
+      by: ["dealId", "type", "categoryId"],
+      where: { voidedAt: null, dealId: { in: dealIds }, type: { in: ["INCOME", "EXPENSE"] } },
+      _sum: { amountKop: true },
+    }),
+    prisma.category.findFirst({ where: { name: REFUND_CATEGORY }, select: { id: true } }),
+  ]);
   for (const r of rows) {
     if (!r.dealId) continue;
     const t = map.get(r.dealId) ?? { paidKop: 0, expenseKop: 0 };
-    if (r.type === "INCOME") t.paidKop += r._sum.amountKop ?? 0;
-    else t.expenseKop += r._sum.amountKop ?? 0;
+    const kop = r._sum.amountKop ?? 0;
+    if (r.type === "INCOME") t.paidKop += kop;
+    else if (refund && r.categoryId === refund.id) t.paidKop -= kop; // возврат уменьшает «оплачено»
+    else t.expenseKop += kop;
     map.set(r.dealId, t);
   }
   return map;

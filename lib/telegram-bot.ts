@@ -8,7 +8,8 @@ import type { ReconcileResult } from "@/lib/rc-reconcile";
 import { recognizeOggOpus, speechConfigured, VOICE_MAX_SECONDS } from "@/lib/speech-to-text";
 import { answerCallbackQuery, downloadFile, editMessageText, getFile, sendMessage, type InlineButton, type TgUpdate, type TgVoice } from "@/lib/telegram";
 import { applyText, detectIntent, dropIntentWord, missingFields, QUESTION, renderCard, type CardDeal, type OpDraft, type OpType, type Refs } from "@/lib/telegram-draft";
-import { matchCategory } from "@/lib/telegram-parse";
+import { createLaundryOps, findLaundryTargets, splitEven } from "@/lib/laundry";
+import { findAccounts, matchCategory, parseAmount } from "@/lib/telegram-parse";
 
 const HELP =
   "Скажите голосом или напишите, что случилось — в любом порядке:\n" +
@@ -260,6 +261,12 @@ async function handleText(chatId: number, text: string) {
     return;
   }
 
+  // «стирка 6000 распредели» — одна сумма на все краткосрочные брони без стирки
+  if (/распредел/.test(lower) && /(стирк|прачечн|бель)/.test(lower)) {
+    await handleLaundry(chatId, staff, trimmed);
+    return;
+  }
+
   const intent = detectIntent(trimmed);
   if (intent) {
     await startOp(chatId, staff, intent, dropIntentWord(trimmed));
@@ -278,6 +285,74 @@ async function handleText(chatId: number, text: string) {
     return;
   }
   await sendMessage(chatId, `Не понял. ${HELP}`);
+}
+
+type LaundryDraft = { totalKop: number; accountId: string; dealIds: string[]; said: string };
+
+async function handleLaundry(chatId: number, staff: Staff, text: string) {
+  const parsed = parseAmount(text);
+  if (!parsed) {
+    await sendMessage(chatId, "Назовите сумму: например «стирка 6000 распредели».");
+    return;
+  }
+  const refs = await loadRefs();
+  const accountId = findAccounts(parsed.rest, refs.accounts)[0]?.id ?? staff.defaultCashAccountId;
+  if (!accountId) {
+    await sendMessage(chatId, "Укажите кассу: например «стирка 6000 распредели касса Ева».");
+    return;
+  }
+  const totalKop = parseMoneyToKop(parsed.amount) ?? 0;
+  const targets = await findLaundryTargets();
+  if (targets.length === 0) {
+    await sendMessage(chatId, "Нет краткосрочных заездов без стирки (выезд за последние 30 дней). Запишите стирку к конкретному заезду: «расход стирка 1500 заезд 34».");
+    return;
+  }
+  const parts = splitEven(totalKop, targets.length);
+  const lines = targets.map((t, i) => `№${t.number} ${t.assetName} · ${t.guestName.slice(0, 18)} (выезд ${ddmm(t.endDate)}) — ${formatKop(parts[i])}`);
+  const shown = lines.length > 25 ? [...lines.slice(0, 25), `… и ещё ${lines.length - 25}`] : lines;
+  await prisma.telegramDraft.deleteMany({ where: { chatId: BigInt(chatId), kind: "laundry" } });
+  const input: LaundryDraft = { totalKop, accountId, dealIds: targets.map((t) => t.id), said: `Из Telegram: «${text}»` };
+  const summary = `Стирка ${formatKop(totalKop)} → ${targets.length} брон. · касса ${refs.accounts.find((a) => a.id === accountId)?.name ?? "—"}`;
+  const row = await prisma.telegramDraft.create({ data: { chatId: BigInt(chatId), kind: "laundry", input: input as unknown as object, summary } });
+  await sendMessage(chatId, `${summary}
+Поровну на заезды без стирки:
+${shown.join("\n")}
+
+Записать ${targets.length} операций? Перекосы потом можно поправить в журнале.`, [
+    [
+      { text: `✅ Записать ${targets.length}`, callback_data: `ln:yes:${row.id}` },
+      { text: "✖ Отмена", callback_data: `ln:no:${row.id}` },
+    ],
+  ]);
+}
+
+async function handleLaundryCallback(chatId: number, messageId: number, cbId: string, action: string, draftId: string) {
+  const row = await prisma.telegramDraft.findUnique({ where: { id: draftId } });
+  if (!row || row.chatId !== BigInt(chatId) || row.kind !== "laundry") {
+    await answerCallbackQuery(cbId, "Устарело — начните заново.");
+    return;
+  }
+  if (action !== "yes") {
+    await safeDeleteDraft(row.id);
+    await editMessageText(chatId, messageId, `Отменено. ${row.summary}`);
+    await answerCallbackQuery(cbId, "Отменено");
+    return;
+  }
+  const staff = await findStaffByChat(chatId);
+  if (!staff || !staff.active) {
+    await answerCallbackQuery(cbId, "Сотрудник не найден.");
+    return;
+  }
+  const d = row.input as unknown as LaundryDraft;
+  try {
+    const nums = await createLaundryOps({ ...d, date: new Date(`${todayIso()}T00:00:00Z`), createdBy: staff.name });
+    await safeDeleteDraft(row.id);
+    await editMessageText(chatId, messageId, `Записано ${nums.length} операций (№${nums[0]}–${nums[nums.length - 1]}). ${row.summary}`);
+    await answerCallbackQuery(cbId, "Записано");
+  } catch (e) {
+    await answerCallbackQuery(cbId, "Ошибка");
+    await sendMessage(chatId, `Не получилось записать: ${e instanceof Error ? e.message : "ошибка"}`);
+  }
 }
 
 /** Кнопки карточки: выбор брони / статьи / кассы, «Записать», «Отмена». */
@@ -406,6 +481,11 @@ async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
   if (parts[0] === "tgrc") {
     const [, action, draftId] = parts;
     await handleRcDupeCallback(chatId, messageId, cb.id, action === "same" ? "same" : "diff", draftId);
+    return;
+  }
+  if (parts[0] === "ln") {
+    const [, action, draftId] = parts;
+    await handleLaundryCallback(chatId, messageId, cb.id, action, draftId);
     return;
   }
   if (parts[0] === "op") {

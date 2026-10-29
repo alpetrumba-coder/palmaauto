@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { syncCarDealSafe } from "@/lib/car-deals";
 import type { Prisma } from "@prisma/client";
 
 import { auth } from "@/auth";
@@ -146,6 +148,7 @@ export async function createBookingAction(input: {
     console.warn("[booking] admin email failed:", e);
   }
 
+  await syncCarDealSafe(created.id); // карточка аренды со сквозным номером
   revalidatePath("/moi-broni");
   revalidatePath("/account");
   revalidatePath("/book");
@@ -179,6 +182,7 @@ export async function cancelBookingAction(bookingId: string): Promise<BookingAct
     where: { id: bookingId },
     data: { status: "CANCELLED" },
   });
+  await syncCarDealSafe(bookingId);
 
   revalidatePath("/moi-broni");
   revalidatePath("/account");

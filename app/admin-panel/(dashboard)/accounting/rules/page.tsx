@@ -37,8 +37,8 @@ export default async function AccountingRulesPage() {
       <h1 style={{ fontSize: "var(--text-2xl)", margin: "0 0 0.75rem" }}>Правила учёта</h1>
       <AccountingDocTabs active="rules" />
       <p style={{ margin: 0, maxWidth: "46rem", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-        Свод правил на 28.10.2026: к чему привязывать каждый расход и какие статьи используем. Названия статей в «Справочниках» пока старые — переименуем после
-        подтверждения владельца.
+        Свод правил (28–29.10.2026): к чему привязывать каждый расход и какие статьи используем. Справочник статей на сайте приведён к своду; система сама
+        требует заезд или объект там, где это обязательно.
       </p>
 
       <h2 style={h2}>Общие правила</h2>
@@ -91,7 +91,7 @@ export default async function AccountingRulesPage() {
                 <td style={cell}>{r.n}</td>
                 <td style={{ ...cell, fontWeight: 600 }}>
                   {r.name}
-                  {r.was ? <div style={{ fontWeight: 400, fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>сейчас: «{r.was}»</div> : null}
+                  {r.was ? <div style={{ fontWeight: 400, fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>было: «{r.was}»</div> : null}
                 </td>
                 <td style={cell}>
                   <span style={{ display: "inline-block", padding: "0.1rem 0.5rem", borderRadius: "999px", background: BADGE[r.binding], border: r.binding === "off" ? "1px dashed var(--color-border)" : "none" }}>

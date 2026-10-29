@@ -30,7 +30,7 @@ export async function updateOperationAction(id: string, input: OperationInput): 
   const existing = await prisma.operation.findUnique({ where: { id } });
   if (!existing) return { ok: false, error: "Операция не найдена." };
   if (existing.voidedAt) return { ok: false, error: "Аннулированную операцию изменить нельзя." };
-  const res = await buildOperationData(input);
+  const res = await buildOperationData(input, { skipBinding: existing.isImported });
   if ("error" in res) return { ok: false, error: res.error };
   await prisma.operation.update({ where: { id }, data: res.data });
   revalidate(existing.dealId);

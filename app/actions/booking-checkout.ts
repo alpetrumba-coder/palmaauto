@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { syncCarDealSafe } from "@/lib/car-deals";
 import { headers } from "next/headers";
 import type { Prisma } from "@prisma/client";
 
@@ -259,6 +261,7 @@ export async function submitBookingCheckoutAction(input: {
     return created;
   });
 
+  await syncCarDealSafe(booking.id); // карточка аренды со сквозным номером
   revalidatePath("/moi-broni");
   revalidatePath("/account");
   revalidatePath("/book");

@@ -75,6 +75,9 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
         orderBy: { startDate: "asc" },
       }),
     ]);
+    // сквозной номер: у каждой брони машины есть карточка аренды (Deal.siteBookingId)
+    const carDeals = await prisma.deal.findMany({ where: { siteBookingId: { in: bookingsRaw.map((b) => b.id) } }, select: { id: true, number: true, siteBookingId: true } });
+    const dealByBooking = new Map(carDeals.map((d) => [d.siteBookingId as string, d]));
     const isHidden = (c: { active: boolean; isTest: boolean }) => !c.active || c.isTest;
     hiddenCount = allCars.filter(isHidden).length;
     const cars = showHidden ? allCars : allCars.filter((c) => !isHidden(c));
@@ -91,17 +94,18 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
           const label = formatBookingUserLabel(b.user);
           const phone = b.user.phone ? ` · ${b.user.phone}` : "";
           const back = `/admin-panel/bookings?from=${encodeURIComponent(fromStr)}`;
+          const cd = dealByBooking.get(b.id);
           return {
             id: b.id,
             start: iso(b.startDate),
             end: iso(b.endDate),
             halfDay: false,
             color: barColor(b.status),
-            label: `${label}${phone}`,
+            label: `${cd ? `№${cd.number} ` : b.isTest ? "тест · " : ""}${label}${phone}`,
             title: `${label}${phone} · ${rd(iso(b.startDate))}–${rd(iso(b.endDate))}`,
             href: `/admin-panel/orders/${b.id}/edit?back=${encodeURIComponent(back)}`,
             info: {
-              subtitle: `Заказ на сайте · ${car.make} ${car.model}`,
+              subtitle: cd ? `Бронь №${cd.number} · заказ на сайте · ${car.make} ${car.model}` : `${b.isTest ? "Тестовый заказ" : "Заказ на сайте"} · ${car.make} ${car.model}`,
               title: label,
               lines: [
                 ["Даты", `${rd(iso(b.startDate))}.${iso(b.startDate).slice(0, 4)} – ${rd(iso(b.endDate))}.${iso(b.endDate).slice(0, 4)}`],
@@ -109,7 +113,9 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
                 ["Почта", b.user.email ?? "—"],
                 ["Статус оплаты", b.status === "PAID" ? "оплачен" : b.status === "PARTIALLY_PAID" ? "оплачен частично" : b.status === "PENDING_PAYMENT" ? "не оплачен" : String(b.status)],
               ],
-              link: { href: `/admin-panel/orders/${b.id}/edit?back=${encodeURIComponent(back)}`, label: "Открыть заказ" },
+              link: cd
+                ? { href: `/admin-panel/accounting/deals/${cd.id}`, label: "Открыть карточку аренды (оплаты, расходы)" }
+                : { href: `/admin-panel/orders/${b.id}/edit?back=${encodeURIComponent(back)}`, label: "Открыть заказ" },
             },
           };
         }),

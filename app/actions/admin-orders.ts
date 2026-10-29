@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { syncCarDealSafe } from "@/lib/car-deals";
+
 import { type AdminUserProfilePayload, updateAdminUserAction } from "@/app/actions/admin-users";
 import { carBookingOverlapWhere } from "@/lib/booking-overlap";
 import { prisma } from "@/lib/prisma";
@@ -113,6 +115,7 @@ export async function updateAdminOrderAction(input: {
     },
   });
 
+  await syncCarDealSafe(booking.id);
   revalidateOrderPaths(car.slug);
   if (car.slug !== booking.car.slug) {
     revalidateOrderPaths(booking.car.slug);
@@ -145,6 +148,7 @@ export async function cancelAdminOrderAction(
     where: { id: bookingId },
     data: { status: "CANCELLED" },
   });
+  await syncCarDealSafe(bookingId);
 
   revalidateOrderPaths(booking.car.slug);
   revalidatePath(`/admin-panel/orders/${bookingId}/edit`);

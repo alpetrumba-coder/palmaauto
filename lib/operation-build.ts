@@ -21,7 +21,10 @@ const TYPES = ["INCOME", "EXPENSE", "TRANSFER", "HANDOVER"];
 /** Проверяет ввод и приводит к данным для записи; ошибка — понятным текстом для оператора. Общее для формы в админке и Telegram-бота. */
 export type BuiltOperation = { error: string } | { data: Omit<Prisma.OperationUncheckedCreateInput, "createdBy"> };
 
-export async function buildOperationData(input: OperationInput): Promise<BuiltOperation> {
+/**
+ * skipBinding — не требовать привязку по статье (только для правки перенесённых из Excel записей: история как есть).
+ */
+export async function buildOperationData(input: OperationInput, opts: { skipBinding?: boolean } = {}): Promise<BuiltOperation> {
   if (!TYPES.includes(input.type)) return { error: "Выберите вид операции." };
 
   const date = parseDateInput(input.date);
@@ -50,6 +53,8 @@ export async function buildOperationData(input: OperationInput): Promise<BuiltOp
   }
 
   let categoryId: string | null = null;
+  let binding: string | null = null;
+  let categoryName = "";
   if (input.type === "INCOME" || input.type === "EXPENSE") {
     if (!input.categoryId) return { error: "Выберите статью." };
     const cat = await prisma.category.findUnique({ where: { id: input.categoryId } });
@@ -58,6 +63,8 @@ export async function buildOperationData(input: OperationInput): Promise<BuiltOp
       return { error: input.type === "INCOME" ? "Для прихода выберите статью дохода." : "Для расхода выберите статью расхода." };
     }
     categoryId = cat.id;
+    binding = cat.binding;
+    categoryName = cat.name;
   }
 
   // К заезду/аренде и объекту привязываются только приходы и расходы; объект берётся из заезда.
@@ -73,6 +80,16 @@ export async function buildOperationData(input: OperationInput): Promise<BuiltOp
       const asset = await prisma.asset.findUnique({ where: { id: input.assetId } });
       if (!asset) return { error: "Объект не найден." };
       assetId = asset.id;
+    }
+  }
+
+  // Свод правил учёта: статья решает, к чему обязательно привязать операцию.
+  if (!opts.skipBinding) {
+    if (binding === "deal" && !dealId) {
+      return { error: `По статье «${categoryName}» операция привязывается к заезду / аренде — выберите бронь.` };
+    }
+    if (binding === "object" && !assetId) {
+      return { error: `По статье «${categoryName}» расход привязывается к объекту — выберите квартиру или машину.` };
     }
   }
 

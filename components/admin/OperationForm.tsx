@@ -24,11 +24,12 @@ type Props = {
   doneHref: string;
 };
 
-// Перемещение между кассами оформляется из «Расхода» галочкой (внутри — тип TRANSFER), отдельной кнопки нет.
+// Перемещение между кассами — отдельный вид операции (не доход и не расход).
 // HANDOVER («Сдано в Рубин») — старый тип, показывается только при правке старых записей (см. visibleTypeButtons ниже).
 const TYPE_BUTTONS: { type: OperationInput["type"]; label: string }[] = [
   { type: "INCOME", label: "Приход" },
   { type: "EXPENSE", label: "Расход" },
+  { type: "TRANSFER", label: "Перемещение" },
   { type: "HANDOVER", label: "Сдано в Рубин (старое)" },
 ];
 
@@ -147,11 +148,11 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
   const asset = assets.find((a) => a.id === v.assetId);
   // HANDOVER предлагаем только если это уже сохранённая операция такого типа (правка старой записи).
   const visibleTypeButtons = TYPE_BUTTONS.filter((b) => b.type !== "HANDOVER" || v.type === "HANDOVER");
-  const isSelected = (t: OperationInput["type"]) => v.type === t || (t === "EXPENSE" && v.type === "TRANSFER");
+  const isSelected = (t: OperationInput["type"]) => v.type === t;
 
   return (
     <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "34rem" }}>
-      <div role="group" aria-label="Вид операции" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.5rem" }}>
+      <div role="group" aria-label="Вид операции" style={{ display: "grid", gridTemplateColumns: `repeat(${visibleTypeButtons.length}, 1fr)`, gap: "0.5rem" }}>
         {visibleTypeButtons.map((b) => (
           <button
             key={b.type}
@@ -174,12 +175,6 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
         ))}
       </div>
       <p style={{ margin: "-0.6rem 0 0", fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>{TYPE_HINT[v.type]}</p>
-      {v.type === "EXPENSE" || v.type === "TRANSFER" ? (
-        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--text-sm)" }}>
-          <input type="checkbox" checked={v.type === "TRANSFER"} onChange={(e) => changeType(e.target.checked ? "TRANSFER" : "EXPENSE")} />
-          Это перемещение из кассы в кассу (не расход)
-        </label>
-      ) : null}
 
       <label style={labelStyle}>
         Сумма, ₽ *

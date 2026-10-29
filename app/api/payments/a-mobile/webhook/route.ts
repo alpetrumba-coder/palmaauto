@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
+import { recordOnlinePayment } from "@/lib/car-deals";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -153,6 +154,9 @@ export async function POST(req: Request) {
       paidAmountRub: paidRub,
     },
   });
+
+  // в учёт: карточка аренды (сквозной номер) и приход в кассу «Монета»; сбой учёта не ломает ответ платёжке
+  await recordOnlinePayment(booking.id, paidRub, id);
 
   revalidatePath("/moi-broni");
   revalidatePath("/account");

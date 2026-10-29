@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { syncCarDealSafe } from "@/lib/car-deals";
+
 import { carBookingOverlapWhere } from "@/lib/booking-overlap";
 import { sendAdminBookingCreatedEmail } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
@@ -125,6 +127,7 @@ export async function createAdminBookingAction(input: {
     console.warn("[admin-booking] admin email failed:", e);
   }
 
+  await syncCarDealSafe(created.id); // карточка аренды со сквозным номером
   revalidatePath("/moi-broni");
   revalidatePath("/account");
   revalidatePath("/book");

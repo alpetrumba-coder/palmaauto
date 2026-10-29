@@ -60,22 +60,23 @@ type C = { name: string; kind: "INCOME" | "EXPENSE"; nature: "VARIABLE" | "FIXED
 
 const CATEGORIES: C[] = [
   // Доходы
-  { name: "Доходы от сдачи имущества в аренду", kind: "INCOME", nature: "VARIABLE", aliases: ["Доходы от сдачи имущества в аренду"] },
-  { name: "Транспортные услуги (трансфер)", kind: "INCOME", nature: "VARIABLE", aliases: ["Трансфер"] },
-  { name: "Оплата за жилье (долгосрочные жильцы)", kind: "INCOME", nature: "VARIABLE", aliases: ["оплата за жилье Прусаков А.", "аренда жилья Гаранин", "оплата за жилье Болгов А."] },
+  { name: "Доходы от сдачи недвижимости в аренду посуточно", kind: "INCOME", nature: "VARIABLE", aliases: ["Доходы от сдачи имущества в аренду"] },
+  { name: "Дополнительные доходы", kind: "INCOME", nature: "VARIABLE", aliases: ["Трансфер"] },
+  { name: "Доходы от сдачи недвижимости в аренду долгосрочно", kind: "INCOME", nature: "VARIABLE", aliases: ["оплата за жилье Прусаков А.", "аренда жилья Гаранин", "оплата за жилье Болгов А."] },
+  { name: "Доходы от сдачи машин в аренду посуточно", kind: "INCOME", nature: "VARIABLE" },
   // Переменные расходы (относятся к заезду / аренде)
   { name: "Уборка", kind: "EXPENSE", nature: "VARIABLE", aliases: ["уборка"] },
   { name: "Стирка белья", kind: "EXPENSE", nature: "VARIABLE", aliases: ["стирка белья"] },
   { name: "Комиссия агрегатора", kind: "EXPENSE", nature: "VARIABLE", aliases: ["комиссия агрегатора", " комиссия агрегатора"] },
-  { name: "Комиссионные Ева", kind: "EXPENSE", nature: "VARIABLE", aliases: ["оплата комиссионных Ева"] },
+  { name: "Комиссионные Ева и Дима", kind: "EXPENSE", nature: "VARIABLE", aliases: ["оплата комиссионных Ева"] },
   { name: "Комиссионные Татьяны", kind: "EXPENSE", nature: "VARIABLE", aliases: ["оплата комиссионных Татьяны", "оплата комиссионных татьяны"] },
   { name: "Выплата собственнику (аренда помещений)", kind: "EXPENSE", nature: "VARIABLE", aliases: ["аренда помещений и прочего имущества"] },
-  { name: "Ремонт и содержание объектов", kind: "EXPENSE", nature: "VARIABLE", aliases: ["содержание зданий и сооружений, оборудования, прочих ОС"] },
+  { name: "Мелкий ремонт", kind: "EXPENSE", nature: "VARIABLE", aliases: ["содержание зданий и сооружений, оборудования, прочих ОС"] },
   { name: "Хозяйственные расходы", kind: "EXPENSE", nature: "VARIABLE", aliases: ["хозяйственные расходы"] },
   { name: "МБП (мелкие бытовые принадлежности)", kind: "EXPENSE", nature: "VARIABLE", aliases: ["МБП"] },
-  { name: "Транспортные расходы", kind: "EXPENSE", nature: "VARIABLE", aliases: ["транспортные расходы"] },
+  { name: "Транспортные расходы (такси)", kind: "EXPENSE", nature: "VARIABLE", aliases: ["транспортные расходы"] },
   { name: "ГСМ", kind: "EXPENSE", nature: "VARIABLE", aliases: ["ГСМ"] },
-  { name: "Ремонт и обслуживание транспорта", kind: "EXPENSE", nature: "VARIABLE", aliases: ["ремонт, обслуживание и содержание транспорта"] },
+  { name: "Ремонт служебного автомобиля", kind: "EXPENSE", nature: "VARIABLE", aliases: ["ремонт, обслуживание и содержание транспорта"] },
   { name: "Возврат клиенту", kind: "EXPENSE", nature: "VARIABLE", aliases: ["возврат денежных средств"] },
   { name: "Прочие расходы (не классифицировано)", kind: "EXPENSE", nature: "FIXED", aliases: [] },
   // Служебная статья: деньги получены из кассы Рубина / на карту — это не доход, в отчёты о доходах не входит.

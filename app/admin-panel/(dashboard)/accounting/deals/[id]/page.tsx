@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import { DealCancelButton } from "@/components/admin/DealCancelButton";
 import { OperationRowActions } from "@/components/admin/OperationRowActions";
-import { OPERATION_TYPE_LABEL } from "@/lib/accounting";
+import { OPERATION_TYPE_LABEL, REFUND_CATEGORY } from "@/lib/accounting";
 import { fmtDate } from "@/lib/accounting-options";
 import { formatKop } from "@/lib/money";
 import { inclusiveRentalDays } from "@/lib/rental-dates";
@@ -49,8 +49,11 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
   if (!deal) notFound();
 
   const live = deal.operations.filter((o) => !o.voidedAt);
-  const paidKop = live.filter((o) => o.type === "INCOME").reduce((s, o) => s + o.amountKop, 0);
-  const expenseKop = live.filter((o) => o.type === "EXPENSE").reduce((s, o) => s + o.amountKop, 0);
+  // возврат клиенту — не расход: уменьшает «оплачено»
+  const isRefund = (o: (typeof live)[number]) => o.type === "EXPENSE" && o.category?.name === REFUND_CATEGORY;
+  const refundKop = live.filter(isRefund).reduce((s, o) => s + o.amountKop, 0);
+  const paidKop = live.filter((o) => o.type === "INCOME").reduce((s, o) => s + o.amountKop, 0) - refundKop;
+  const expenseKop = live.filter((o) => o.type === "EXPENSE" && !isRefund(o)).reduce((s, o) => s + o.amountKop, 0);
   const netKop = deal.grossKop - deal.commissionKop;
   const leftKop = deal.grossKop - paidKop;
   const isCar = deal.asset.kind === "CAR";
@@ -95,7 +98,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
         {stat("Сумма гостя", formatKop(deal.grossKop))}
         {stat("Комиссия площадки", formatKop(deal.commissionKop))}
         {stat("Нетто", formatKop(netKop))}
-        {stat("Оплачено", formatKop(paidKop), true)}
+        {stat(refundKop ? `Оплачено (за вычетом возвратов ${formatKop(refundKop)})` : "Оплачено", formatKop(paidKop), true)}
         {stat("Осталось доплатить", formatKop(leftKop), true, leftKop > 0 && !cancelled ? "var(--color-danger, #b00020)" : undefined)}
         {stat("Расходы по заезду", formatKop(expenseKop))}
         {stat("Остаётся (нетто − расходы)", formatKop(netKop - expenseKop), true)}

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { REFUND_CATEGORY } from "@/lib/accounting";
 import { formatKop } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 
@@ -173,9 +174,12 @@ export async function buildResults(kind: "objects" | "months", p: Period, opts: 
   const sumRows = (ids: string[], c: string) => ids.reduce((s, id) => s + rowKop(id, c), 0);
   const present = [...m.keys()].map((id) => cat.get(id)).filter((c): c is NonNullable<typeof c> => !!c);
   const byOrder = (a: { sortOrder: number; name: string }, b: { sortOrder: number; name: string }) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "ru");
+  const refundId = cats.find((c) => c.name === REFUND_CATEGORY)?.id;
   const inc = present.filter((c) => c.kind === "INCOME").sort(byOrder);
-  const expVar = present.filter((c) => c.kind === "EXPENSE" && c.nature === "VARIABLE").sort(byOrder);
-  const expFix = present.filter((c) => c.kind === "EXPENSE" && c.nature === "FIXED").sort(byOrder);
+  // возврат клиенту — не расход: показывается в доходах со знаком минус
+  const expVar = present.filter((c) => c.kind === "EXPENSE" && c.nature === "VARIABLE" && c.id !== refundId).sort(byOrder);
+  const expFix = present.filter((c) => c.kind === "EXPENSE" && c.nature === "FIXED" && c.id !== refundId).sort(byOrder);
+  const refundOf = (col: string) => (refundId ? rowKop(refundId, col) : 0);
 
   const rows: Cell[][] = [];
   const bold: number[] = [];
@@ -193,7 +197,9 @@ export async function buildResults(kind: "objects" | "months", p: Period, opts: 
   section("Доходы");
   for (const c of inc) line(c.name, (col) => rowKop(c.id, col));
   const incIds = inc.map((c) => c.id);
-  line("Итого доходов", (col) => sumRows(incIds, col), true);
+  const incomeOf = (col: string) => sumRows(incIds, col) - refundOf(col);
+  if (refundId && cols.some((c) => refundOf(c) !== 0)) line("Возвраты клиентам", (col) => -refundOf(col));
+  line("Итого доходов", incomeOf, true);
   section("Расходы переменные (к заезду / аренде)");
   for (const c of expVar) line(c.name, (col) => rowKop(c.id, col));
   const varIds = expVar.map((c) => c.id);
@@ -203,13 +209,30 @@ export async function buildResults(kind: "objects" | "months", p: Period, opts: 
   const fixIds = expFix.map((c) => c.id);
   line("Итого постоянных", (col) => sumRows(fixIds, col), true);
   line("Всего расходов", (col) => sumRows([...varIds, ...fixIds], col), true);
-  line("Результат (доходы − расходы)", (col) => sumRows(incIds, col) - sumRows([...varIds, ...fixIds], col), true);
+  line("Результат (доходы − расходы)", (col) => incomeOf(col) - sumRows([...varIds, ...fixIds], col), true);
   const pcts: Cell[] = [...cols, "_total"].map((col) => {
-    const i = col === "_total" ? cols.reduce((s, c) => s + sumRows(incIds, c), 0) : sumRows(incIds, col);
+    const i = col === "_total" ? cols.reduce((s, c) => s + incomeOf(c), 0) : incomeOf(col);
     const e = col === "_total" ? cols.reduce((s, c) => s + sumRows([...varIds, ...fixIds], c), 0) : sumRows([...varIds, ...fixIds], col);
     return { pct: i > 0 ? (e / i) * 100 : null };
   });
   rows.push(["Расходы, % от доходов", ...pcts]);
+
+  // Выведено собственнику-компании: перемещения в «Кассу Рубина» за период (не расход — показываем под результатом)
+  if (!opts.assetId) {
+    const out = await prisma.$queryRaw<{ m: string; s: bigint }[]>(Prisma.sql`
+      SELECT to_char(o.date, 'YYYY-MM') m, SUM(o.amount_kop)::bigint s
+      FROM operations o JOIN cash_accounts a ON a.id = o.to_account_id
+      WHERE o.voided_at IS NULL AND o.type = 'TRANSFER' AND a.name = ${OWNER_CASH_ACCOUNT}
+        AND o.date >= CAST(${p.fromStr} AS date) AND o.date <= CAST(${p.toStr} AS date)
+      GROUP BY 1`);
+    const byMonth = new Map(out.map((r) => [r.m, Number(r.s)]));
+    const total = [...byMonth.values()].reduce((s, v) => s + v, 0);
+    if (total > 0) {
+      const cells: Cell[] = cols.map((c) => (kind === "months" ? { kop: byMonth.get(c) ?? 0 } : ""));
+      rows.push([`Выведено собственнику (перемещения в «${OWNER_CASH_ACCOUNT}»)`, ...cells, { kop: total }]);
+      notes.push("«Выведено собственнику» — деньги, сданные собственнику-компании (перемещения в «Кассу Рубина»); это не расход и в результат не входит.");
+    }
+  }
 
   if (opts.assetId && ast.get(opts.assetId)) notes.unshift(`Только объект «${ast.get(opts.assetId)!.name}».`);
   return {
@@ -225,6 +248,8 @@ export async function buildResults(kind: "objects" | "months", p: Period, opts: 
 // ----------------------------------------------------------------------------- расчёт с собственником
 
 export const OWNER_PAYOUT_CATEGORY = "Выплата собственнику (аренда помещений)";
+/** Касса собственника-компании: сдача денег туда = «выведено собственнику». */
+const OWNER_CASH_ACCOUNT = "Касса Рубина";
 const COMMISSION_CATEGORY = "Комиссия агрегатора";
 
 /** К выплате = доля × (доход − комиссия агрегатора). Фактические выплаты берутся из операций по статье выплаты собственнику. */
@@ -238,13 +263,15 @@ export async function buildOwners(p: Period): Promise<ReportTable> {
   for (const a of owned) {
     const { facts, excludedReview } = await loadFacts(p, a.id);
     excluded += excludedReview;
-    const cats = await prisma.category.findMany({ where: { name: { in: [COMMISSION_CATEGORY, OWNER_PAYOUT_CATEGORY] } }, select: { id: true, name: true } });
+    const cats = await prisma.category.findMany({ where: { name: { in: [COMMISSION_CATEGORY, OWNER_PAYOUT_CATEGORY, REFUND_CATEGORY] } }, select: { id: true, name: true } });
     const commId = cats.find((c) => c.name === COMMISSION_CATEGORY)?.id;
+    const refId = cats.find((c) => c.name === REFUND_CATEGORY)?.id;
     const payId = cats.find((c) => c.name === OWNER_PAYOUT_CATEGORY)?.id;
     let tI = 0, tC = 0, tD = 0, tP = 0;
     for (const mo of months) {
       const fm = facts.filter((f) => f.month === mo);
-      const income = fm.filter((f) => f.type === "INCOME").reduce((s, f) => s + f.kop, 0);
+      const income =
+        fm.filter((f) => f.type === "INCOME").reduce((s, f) => s + f.kop, 0) - fm.filter((f) => f.type === "EXPENSE" && f.categoryId === refId).reduce((s, f) => s + f.kop, 0);
       const comm = fm.filter((f) => f.categoryId === commId && f.type === "EXPENSE").reduce((s, f) => s + f.kop, 0);
       const paid = fm.filter((f) => f.categoryId === payId && f.type === "EXPENSE").reduce((s, f) => s + f.kop, 0);
       if (!income && !comm && !paid) continue;
@@ -328,7 +355,7 @@ export async function buildBonus(p: Period): Promise<ReportTable> {
   const commId = id(COMMISSION_CATEGORY);
   const paidCats = {
     tat: [id("Комиссионные Татьяны")],
-    evaDima: [id("Комиссионные Ева"), id("Зарплата Дмитрий")],
+    evaDima: [id("Комиссионные Ева и Дима") ?? id("Комиссионные Ева"), id("Зарплата Дмитрий")],
   };
   const incomeIds = new Set(cats.filter((c) => c.kind === "INCOME").map((c) => c.id));
   const headers = ["Месяц", "Выручка", "Комиссия агрегатора", "База (выручка − комиссия)", "Татьяна: расчёт", "Татьяна: выплачено", "Ева и Дмитрий: расчёт", "Ева и Дмитрий: выплачено"];

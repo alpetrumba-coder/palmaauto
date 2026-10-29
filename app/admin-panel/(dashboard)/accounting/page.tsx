@@ -98,7 +98,9 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
         {(
           [
             { href: "/admin-panel/accounting/new?type=INCOME", label: "+ Приход", hint: "Деньги пришли: оплата от гостя, аренда авто и т.п.", variant: "accent" as const },
-            { href: "/admin-panel/accounting/new?type=EXPENSE", label: "+ Расход", hint: "Деньги ушли: уборка, зарплата, закупка. Перемещение между кассами — галочка в форме.", variant: "accent" as const },
+            { href: "/admin-panel/accounting/new?type=EXPENSE", label: "+ Расход", hint: "Деньги ушли: уборка, зарплата, закупка. Деньги между своими кассами — кнопка «Перемещение».", variant: "accent" as const },
+            { href: "/admin-panel/accounting/new?type=TRANSFER", label: "+ Перемещение", hint: "Деньги переехали из кассы в кассу (сдали в Рубин, перевели с карты на карту) — не доход и не расход.", variant: "accent" as const },
+            { href: "/admin-panel/accounting/laundry", label: "Стирка: распределить", hint: "Одна сумма за стирку — поровну на краткосрочные заезды без стирки.", variant: "outline" as const },
             { href: "/admin-panel/bookings?tab=apts", label: "Шахматка", hint: "Заезды и аренды: смотрите занятость и заводите новые здесь — из RealtyCalendar или Пальма-Авто.", variant: "outline" as const },
             { href: "/admin-panel/accounting/reports", label: "Отчёты", hint: "Прибыль по объектам, расчёт с собственниками, премии за период.", variant: "outline" as const },
             { href: "/admin-panel/accounting/rc", label: "Сверка RC и PA", hint: "Сверка RealtyCalendar (RC) и Пальма-Авто (PA): все ли брони заведены как заезды.", variant: "outline" as const },
