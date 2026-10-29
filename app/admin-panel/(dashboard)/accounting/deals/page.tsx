@@ -66,11 +66,15 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
         <h1 style={{ fontSize: "var(--text-2xl)", margin: 0 }}>Заезды и аренды</h1>
         <Link href="/admin-panel/accounting/deals/new" style={bigBtn}>
-          + Заезд / аренда
+          + Заезд
         </Link>
       </div>
       <p style={{ margin: "0.5rem 0 1rem", fontSize: "var(--text-sm)" }}>
         <Link href="/admin-panel/accounting">← К остаткам и журналу</Link>
+      </p>
+      <p style={{ margin: "0 0 1rem", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", maxWidth: "48rem" }}>
+        Все брони с номерами: квартиры (из RealtyCalendar) и машины (из броней на сайте). «Осталось» красным — гость ещё должен. Нажмите на номер — откроется
+        карточка с оплатами и расходами.
       </p>
 
       <form method="get" style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", alignItems: "end", marginBottom: "1rem", fontSize: "var(--text-sm)" }}>
@@ -112,7 +116,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
       </form>
 
       {deals.length === 0 ? (
-        <p style={{ color: "var(--color-text-secondary)" }}>Ничего не найдено. Нажмите «+ Заезд / аренда».</p>
+        <p style={{ color: "var(--color-text-secondary)" }}>Ничего не найдено. Измените фильтр — или заведите бронь на шахматке: квартиры приходят из RealtyCalendar, машины — из брони на сайте.</p>
       ) : (
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>

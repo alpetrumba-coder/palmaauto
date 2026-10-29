@@ -13,7 +13,6 @@ type Props = {
   channels: DealChannel[];
   dealId?: string;
   initial?: DealInput;
-  defaultKind?: "APARTMENT" | "CAR";
 };
 
 const fieldStyle: React.CSSProperties = {
@@ -46,7 +45,7 @@ function toKopLoose(s: string): number | null {
   return Math.round(Number(t) * 100);
 }
 
-export function DealForm({ assets, channels, dealId, initial, defaultKind }: Props) {
+export function DealForm({ assets, channels, dealId, initial }: Props) {
   const router = useRouter();
   const [v, setV] = useState<DealInput>(
     initial ?? {
@@ -62,7 +61,8 @@ export function DealForm({ assets, channels, dealId, initial, defaultKind }: Pro
     },
   );
   const [commissionTouched, setCommissionTouched] = useState(!!initial);
-  const [kind, setKind] = useState<"APARTMENT" | "CAR">(defaultKind ?? assets.find((a) => a.id === initial?.assetId)?.kind ?? "APARTMENT");
+  // Новая запись — только заезд в квартиру: аренда машины создаётся сама из брони на сайте (без двойного ввода).
+  const kind = assets.find((a) => a.id === initial?.assetId)?.kind ?? "APARTMENT";
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -113,30 +113,11 @@ export function DealForm({ assets, channels, dealId, initial, defaultKind }: Pro
   return (
     <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "34rem" }}>
       {!dealId ? (
-        <div role="group" aria-label="Что вносим" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-          {(["APARTMENT", "CAR"] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={kind === k}
-              onClick={() => {
-                setKind(k);
-                setV((p) => ({ ...p, assetId: assets.find((a) => a.id === p.assetId && a.kind === k) ? p.assetId : "" }));
-              }}
-              style={{
-                padding: "0.8rem 0.5rem",
-                borderRadius: "var(--radius-md)",
-                border: kind === k ? "2px solid var(--color-accent)" : "1px solid var(--color-border)",
-                background: kind === k ? "var(--color-surface)" : "transparent",
-                color: "var(--color-text)",
-                fontWeight: kind === k ? 700 : 400,
-                cursor: "pointer",
-              }}
-            >
-              {k === "APARTMENT" ? "Заезд (квартира)" : "Аренда авто"}
-            </button>
-          ))}
-        </div>
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+          Квартиры сначала заводятся в RealtyCalendar — заезд появится здесь сам при сверке. Если он нужен сразу, заведите вручную с теми же
+          датами: сверка свяжет его с бронью RC. Аренда машины — бронью на <a href="/admin-panel/bookings/new">шахматке «Машины»</a>, карточка с
+          номером появится сама.
+        </p>
       ) : null}
 
       <label style={labelStyle}>

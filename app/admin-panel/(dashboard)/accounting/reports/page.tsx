@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { buildReport, cellText, isReportKind, parsePeriod, REPORT_TITLES, type ReportKind } from "@/lib/reports";
+import { SegmentedLinks } from "@/components/admin/SegmentedLinks";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
 
@@ -30,6 +31,14 @@ const PRESETS = [
   ["all", "За всё время"],
 ] as const;
 
+const REPORT_HINTS: Record<ReportKind, string> = {
+  objects: "Доходы и расходы по каждой квартире и машине за период — сколько заработал объект; под результатом — сколько выведено в «Кассу Рубина».",
+  months: "Те же цифры помесячно: видно сезонность и динамику.",
+  owners: "Сколько причитается стороннему собственнику (Виктору — 65% от нетто его броней), сколько уже выплачено и разница.",
+  cash: "Остаток на начало, приходы, расходы, перемещения и остаток на конец по каждой кассе.",
+  bonus: "Комиссии сотрудников за период — выплачиваются после закрытия месяца.",
+};
+
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<SP> }) {
   await requireAdminPanelSession();
   const sp = await searchParams;
@@ -55,25 +64,28 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       </p>
       <h1 style={{ fontSize: "var(--text-2xl)", margin: "0 0 0.75rem" }}>Отчёты</h1>
 
-      <nav aria-label="Отчёты" style={{ display: "flex", gap: "1rem", flexWrap: "wrap", margin: "0 0 0.9rem" }}>
-        {(Object.keys(REPORT_TITLES) as ReportKind[]).map((k) => (
-          <Link
-            key={k}
-            href={`/admin-panel/accounting/reports?${new URLSearchParams({ r: k, from: period.fromStr, to: period.toStr }).toString()}`}
-            className="nav-tap-target"
-            style={{ fontSize: "var(--text-sm)", fontWeight: k === kind ? 700 : 400, textDecoration: k === kind ? "underline" : "none" }}
-          >
-            {REPORT_TITLES[k]}
-          </Link>
-        ))}
-      </nav>
+      <div style={{ margin: "0 0 0.4rem" }}>
+        <SegmentedLinks
+          label="Отчёты"
+          items={(Object.keys(REPORT_TITLES) as ReportKind[]).map((k) => ({
+            href: `/admin-panel/accounting/reports?${new URLSearchParams({ r: k, from: period.fromStr, to: period.toStr }).toString()}`,
+            label: REPORT_TITLES[k],
+            title: REPORT_HINTS[k],
+            active: k === kind,
+          }))}
+        />
+      </div>
+      <p style={{ margin: "0 0 0.9rem", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>{REPORT_HINTS[kind]}</p>
 
-      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.6rem", fontSize: "var(--text-sm)" }}>
-        {PRESETS.map(([id, label]) => (
-          <Link key={id} href={`/admin-panel/accounting/reports?${new URLSearchParams({ r: kind, preset: id, ...(sp.asset ? { asset: sp.asset } : {}), ...(sp.alloc ? { alloc: sp.alloc } : {}), ...(sp.hist ? { hist: sp.hist } : {}) }).toString()}`}>
-            {label}
-          </Link>
-        ))}
+      <div style={{ marginBottom: "0.75rem" }}>
+        <SegmentedLinks
+          label="Период"
+          items={PRESETS.map(([id, label]) => ({
+            href: `/admin-panel/accounting/reports?${new URLSearchParams({ r: kind, preset: id, ...(sp.asset ? { asset: sp.asset } : {}), ...(sp.alloc ? { alloc: sp.alloc } : {}), ...(sp.hist ? { hist: sp.hist } : {}) }).toString()}`,
+            label,
+            active: (({ fromStr, toStr }) => fromStr === period.fromStr && toStr === period.toStr)(parsePeriod({ preset: id })),
+          }))}
+        />
       </div>
 
       <form method="get" style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", alignItems: "end", marginBottom: "1rem", fontSize: "var(--text-sm)" }}>

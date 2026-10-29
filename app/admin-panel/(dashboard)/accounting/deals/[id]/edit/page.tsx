@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { DealForm } from "@/components/admin/DealForm";
 import { kopToInput } from "@/lib/money";
@@ -19,6 +19,8 @@ export default async function EditDealPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const deal = await prisma.deal.findUnique({ where: { id } });
   if (!deal || deal.status === "CANCELLED") notFound();
+  // аренда из брони сайта правится в самой брони
+  if (deal.siteBookingId) redirect(`/admin-panel/orders/${deal.siteBookingId}/edit`);
 
   const [assets, channels] = await Promise.all([
     prisma.asset.findMany({ where: { OR: [{ active: true }, { id: deal.assetId }] }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),

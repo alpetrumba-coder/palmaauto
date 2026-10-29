@@ -36,7 +36,7 @@ export async function loadOperationFormOptions(extra?: { accountIds?: (string | 
 
   return {
     accounts: accounts.map<OpAccount>((a) => ({ id: a.id, name: a.name, responsible: a.responsible })),
-    categories: categories.map<OpCategory>((c) => ({ id: c.id, name: c.name, kind: c.kind, nature: c.nature })),
+    categories: categories.map<OpCategory>((c) => ({ id: c.id, name: c.name, kind: c.kind, binding: c.binding })),
     assets: assets.map<OpAsset>((a) => ({ id: a.id, name: a.name, kind: a.kind })),
     deals: deals.map<OpDeal>((d) => ({ id: d.id, label: dealLabel(d), assetId: d.assetId })),
   };

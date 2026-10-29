@@ -408,7 +408,7 @@ model Deal {
   commissionKop  Int         @default(0) @map("commission_kop")
   comment        String?     @db.Text
   status         DealStatus  @default(ACTIVE)
-  /// Бронь сайта проката (на будущее).
+  /// Бронь машины на сайте: аренда создаётся и обновляется из неё (lib/car-deals.ts).
   siteBookingId  String?     @unique @map("site_booking_id")
   /// Номер брони в RealtyCalendar: по нему сверка находит заезд (ставится автоматически при точном совпадении).
   rcBookingId    Int?        @unique @map("rc_booking_id")

@@ -243,3 +243,20 @@ h3 {
 .site-footer {
   padding-bottom: max(calc(var(--space-unit) * 3), env(safe-area-inset-bottom, 0px));
 }
+
+/* Учёт: три главные кнопки — на телефоне одним рядом во всю ширину */
+.acc-primary {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+@media (max-width: 640px) {
+  .acc-primary {
+    width: 100%;
+  }
+  .acc-primary > a {
+    flex: 1 1 0;
+    padding-inline: 0.5rem !important;
+    font-size: var(--text-sm) !important;
+  }
+}

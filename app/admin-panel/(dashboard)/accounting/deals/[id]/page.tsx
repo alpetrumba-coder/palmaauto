@@ -63,7 +63,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
   const nights = inclusiveRentalDays(deal.startDate, deal.endDate);
 
   const stat = (label: string, value: string, strong = false, color?: string) => (
-    <div style={{ padding: "0.6rem 0.8rem", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", background: "var(--color-surface)" }}>
+    <div style={{ padding: "0.65rem 0.85rem", borderRadius: "var(--radius-md)", background: "var(--color-surface)" }}>
       <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>{label}</div>
       <div style={{ fontSize: "var(--text-lg)", fontWeight: strong ? 700 : 600, color }}>{value}</div>
     </div>
@@ -89,12 +89,20 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
         <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", alignItems: "center", marginBottom: "1.25rem" }}>
           <Link href={`/admin-panel/accounting/new?type=INCOME&deal=${deal.id}`} style={btn}>+ Оплата</Link>
           <Link href={`/admin-panel/accounting/new?type=EXPENSE&deal=${deal.id}`} style={btn}>+ Расход</Link>
-          <Link href={`/admin-panel/accounting/deals/${deal.id}/edit`} style={{ fontWeight: 600 }}>Изменить</Link>
-          <DealCancelButton id={deal.id} number={deal.number} />
+          {deal.siteBookingId ? (
+            <Link href={`/admin-panel/orders/${deal.siteBookingId}/edit`} style={{ fontWeight: 600 }} title="Даты, сумма и отмена меняются в самой брони — карточка обновится сама">
+              Изменить бронь на сайте
+            </Link>
+          ) : (
+            <>
+              <Link href={`/admin-panel/accounting/deals/${deal.id}/edit`} style={{ fontWeight: 600 }}>Изменить</Link>
+              <DealCancelButton id={deal.id} number={deal.number} />
+            </>
+          )}
         </div>
       ) : null}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(11rem, 1fr))", gap: "0.6rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(11rem, 1fr))", gap: "0.6rem", marginBottom: "1rem" }}>
         {stat("Сумма гостя", formatKop(deal.grossKop))}
         {stat("Комиссия площадки", formatKop(deal.commissionKop))}
         {stat("Нетто", formatKop(netKop))}
@@ -114,6 +122,11 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
         <p style={{ margin: "0 0 1rem", fontSize: "var(--text-sm)", color: deal.rcMissingSince ? "var(--color-danger, #b00020)" : "var(--color-text-secondary)" }}>
           RealtyCalendar №{deal.rcBookingId}
           {deal.rcMissingSince ? " · брони там больше нет, проверьте, не отменена ли она" : " · данные брони подтягиваются из RealtyCalendar при ежедневной сверке"}
+        </p>
+      ) : null}
+      {deal.siteBookingId ? (
+        <p style={{ margin: "0 0 1rem", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+          Бронь машины на сайте · даты, сумма и отмена подтягиваются из неё автоматически, онлайн-оплата записывается в «Монету» сама.
         </p>
       ) : null}
 

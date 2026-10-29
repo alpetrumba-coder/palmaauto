@@ -40,6 +40,41 @@ const bigBtn: React.CSSProperties = {
   fontSize: "var(--text-base)",
 };
 
+const PRIMARY = [
+  { href: "/admin-panel/accounting/new?type=INCOME", label: "+ Приход", hint: "Деньги пришли: оплата от гостя, аренда авто и т.п." },
+  { href: "/admin-panel/accounting/new?type=EXPENSE", label: "+ Расход", hint: "Деньги ушли: уборка, стирка, закупка, коммуналка." },
+  { href: "/admin-panel/accounting/new?type=TRANSFER", label: "+ Перемещение", hint: "Деньги переехали из кассы в кассу (сдали в Рубин, перевели с карты на карту)." },
+];
+
+const NAV_GROUPS: { title: string; ownerOnly?: boolean; items: { href: string; label: string; hint: string }[] }[] = [
+  {
+    title: "Брони",
+    items: [
+      { href: "/admin-panel/bookings?tab=apts", label: "Шахматка", hint: "Занятость квартир и машин, новые брони" },
+      { href: "/admin-panel/accounting/deals", label: "Заезды и аренды", hint: "Все брони с номерами: оплачено, осталось, расходы" },
+      { href: "/admin-panel/accounting/rc", label: "Сверка RC и PA", hint: "Все ли брони RealtyCalendar и сайта заведены" },
+      { href: "/admin-panel/accounting/laundry", label: "Стирка: распределить", hint: "Одна сумма — поровну на заезды без стирки" },
+    ],
+  },
+  {
+    title: "Итоги и правила",
+    items: [
+      { href: "/admin-panel/accounting/reports", label: "Отчёты", hint: "Прибыль по объектам, собственники, кассы, премии" },
+      { href: "/admin-panel/accounting/rules", label: "Правила учёта", hint: "К чему привязывать расходы, какие статьи" },
+      { href: "/admin-panel/accounting/agreements", label: "Договорённости", hint: "Комиссии сотрудников, расчёт с собственником" },
+      { href: "/admin-panel/accounting/bot", label: "Инструкция по боту", hint: "Как вносить деньги голосом и текстом в Telegram" },
+    ],
+  },
+  {
+    title: "Настройки",
+    ownerOnly: true,
+    items: [
+      { href: "/admin-panel/dictionaries", label: "Справочники", hint: "Объекты, кассы, статьи, каналы продаж" },
+      { href: "/admin-panel/accounting/import", label: "Импорт истории", hint: "Разовая загрузка старых данных из Excel" },
+    ],
+  },
+];
+
 export default async function AccountingPage({ searchParams }: { searchParams: Promise<SP> }) {
   const session = await requireAdminPanelSession();
   const sp = await searchParams;
@@ -92,44 +127,52 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
 
   return (
     <>
-      <h1 style={{ fontSize: "var(--text-2xl)", margin: 0 }}>Учёт</h1>
-
-      <div style={{ display: "flex", gap: "0.8rem", flexWrap: "wrap", margin: "1rem 0 1.5rem" }}>
-        {(
-          [
-            { href: "/admin-panel/accounting/new?type=INCOME", label: "+ Приход", hint: "Деньги пришли: оплата от гостя, аренда авто и т.п.", variant: "accent" as const },
-            { href: "/admin-panel/accounting/new?type=EXPENSE", label: "+ Расход", hint: "Деньги ушли: уборка, зарплата, закупка. Деньги между своими кассами — кнопка «Перемещение».", variant: "accent" as const },
-            { href: "/admin-panel/accounting/new?type=TRANSFER", label: "+ Перемещение", hint: "Деньги переехали из кассы в кассу (сдали в Рубин, перевели с карты на карту) — не доход и не расход.", variant: "accent" as const },
-            { href: "/admin-panel/accounting/laundry", label: "Стирка: распределить", hint: "Одна сумма за стирку — поровну на краткосрочные заезды без стирки.", variant: "outline" as const },
-            { href: "/admin-panel/bookings?tab=apts", label: "Шахматка", hint: "Заезды и аренды: смотрите занятость и заводите новые здесь — из RealtyCalendar или Пальма-Авто.", variant: "outline" as const },
-            { href: "/admin-panel/accounting/reports", label: "Отчёты", hint: "Прибыль по объектам, расчёт с собственниками, премии за период.", variant: "outline" as const },
-            { href: "/admin-panel/accounting/rc", label: "Сверка RC и PA", hint: "Сверка RealtyCalendar (RC) и Пальма-Авто (PA): все ли брони заведены как заезды.", variant: "outline" as const },
-            ...(session.role === "OWNER"
-              ? [
-                  { href: "/admin-panel/dictionaries", label: "Справочники", hint: "Объекты, кассы, статьи, каналы продаж — настройки для операций.", variant: "outline" as const },
-                  { href: "/admin-panel/accounting/import", label: "Импорт истории", hint: "Разовая загрузка старых данных из Excel — не для повседневной работы.", variant: "dashed" as const },
-                ]
-              : []),
-            { href: "/admin-panel/accounting/rules", label: "Правила учёта", hint: "К чему привязывать расходы, какие статьи используем: короткая памятка для всех.", variant: "outline" as const },
-            { href: "/admin-panel/accounting/agreements", label: "Договорённости", hint: "Ставки комиссий сотрудников, расчёт с собственником, когда что выплачиваем.", variant: "outline" as const },
-          ] as const
-        ).map((b) => (
-          <div key={b.href} style={{ display: "flex", flexDirection: "column", gap: "0.3rem", maxWidth: "13rem" }}>
-            <Link
-              href={b.href}
-              style={{
-                ...bigBtn,
-                ...(b.variant === "accent"
-                  ? { background: "var(--color-accent)", color: "#fff" }
-                  : b.variant === "dashed"
-                    ? { border: "1px dashed var(--color-border)", color: "var(--color-text-secondary)", fontWeight: 600 }
-                    : { border: "1px solid var(--color-border)", color: "var(--color-text)" }),
-              }}
-            >
+      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem 1rem", flexWrap: "wrap" }}>
+        <h1 style={{ fontSize: "var(--text-2xl)", margin: "0 0.5rem 0 0" }}>Учёт</h1>
+        <div className="acc-primary">
+          {PRIMARY.map((b) => (
+            <Link key={b.href} href={b.href} title={b.hint} style={{ ...bigBtn, background: "var(--color-accent)", color: "#fff" }}>
               {b.label}
             </Link>
-            <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>{b.hint}</span>
-          </div>
+          ))}
+        </div>
+      </div>
+      <p style={{ margin: "0.5rem 0 1.5rem", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+        Приход — деньги пришли · Расход — деньги ушли · Перемещение — деньги переехали между своими кассами (не доход и не расход).
+      </p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(18rem, 1fr))", gap: "1rem 1.25rem", marginBottom: "2rem" }}>
+        {NAV_GROUPS.filter((g) => !g.ownerOnly || session.role === "OWNER").map((g) => (
+          <section key={g.title}>
+            <h2 style={{ margin: "0 0 0.4rem 0.9rem", fontSize: "var(--text-xs)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-secondary)" }}>
+              {g.title}
+            </h2>
+            <div style={{ background: "var(--color-surface)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+              {g.items.map((it, i) => (
+                <Link
+                  key={it.href}
+                  href={it.href}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    padding: "0.7rem 0.9rem",
+                    textDecoration: "none",
+                    color: "var(--color-text)",
+                    borderTop: i ? "1px solid var(--color-border)" : undefined,
+                  }}
+                >
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: "block", fontWeight: 600 }}>{it.label}</span>
+                    <span style={{ display: "block", fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>{it.hint}</span>
+                  </span>
+                  <span aria-hidden="true" style={{ color: "var(--color-text-secondary)", fontSize: "1.2rem" }}>
+                    ›
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
 
@@ -141,7 +184,8 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
           <Link
             key={b.id}
             href={`/admin-panel/accounting?account=${b.id}`}
-            style={{ padding: "0.7rem 0.85rem", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", background: "var(--color-surface)", textDecoration: "none", color: "var(--color-text)", opacity: b.active ? 1 : 0.6 }}
+            title="Показать операции по этой кассе"
+            style={{ padding: "0.75rem 0.9rem", borderRadius: "var(--radius-md)", background: "var(--color-surface)", textDecoration: "none", color: "var(--color-text)", opacity: b.active ? 1 : 0.6 }}
           >
             <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
               {b.name}

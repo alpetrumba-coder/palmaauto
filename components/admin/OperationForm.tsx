@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 import { createOperationAction, updateOperationAction, type OperationInput } from "@/app/actions/accounting";
 
 export type OpAccount = { id: string; name: string; responsible: string | null };
-export type OpCategory = { id: string; name: string; kind: "INCOME" | "EXPENSE"; nature: "VARIABLE" | "FIXED" };
+/** binding — к чему статья обязательно привязывается (свод правил): deal — к заезду, object — к объекту, general — общий, null — как удобно. */
+export type OpCategory = { id: string; name: string; kind: "INCOME" | "EXPENSE"; binding: string | null };
 export type OpAsset = { id: string; name: string; kind: "APARTMENT" | "CAR" };
 export type OpDeal = { id: string; label: string; assetId: string };
 
@@ -33,11 +34,22 @@ const TYPE_BUTTONS: { type: OperationInput["type"]; label: string }[] = [
   { type: "HANDOVER", label: "Сдано в Рубин (старое)" },
 ];
 
-const MOVE_NOTE = "(перемещение из кассы в кассу)";
+const BINDING_GROUPS: { binding: string | null; label: string }[] = [
+  { binding: "deal", label: "К заезду / аренде" },
+  { binding: "object", label: "К объекту" },
+  { binding: "general", label: "Общие" },
+  { binding: null, label: "Другие" },
+];
+
+const BINDING_HINT: Record<string, string> = {
+  deal: "Эта статья всегда привязывается к заезду (брони) — выберите его ниже.",
+  object: "Эта статья привязывается к объекту — выберите квартиру или машину.",
+  general: "Общая статья: объект не нужен, в комментарии коротко напишите, на что.",
+};
 
 const TYPE_HINT: Record<OperationInput["type"], string> = {
   INCOME: "Деньги пришли в кассу: оплата от гостя, аренда авто и т.п.",
-  EXPENSE: "Деньги ушли из кассы: уборка, зарплата, закупка и т.п.",
+  EXPENSE: "Деньги ушли из кассы: уборка, стирка, закупка, коммуналка и т.п.",
   TRANSFER: "Переложили деньги из одной кассы в другую: из первой спишется, во вторую придёт; в отчётах это не расход. Сдача наличных в Рубин — кассой-получателем выберите «Касса Рубина».",
   HANDOVER: "Старый вид операции (до объединения с кассой «Касса Рубина») — для новых записей используйте «Перемещение».",
 };
@@ -63,6 +75,7 @@ const fieldStyle: React.CSSProperties = {
 };
 
 const labelStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" };
+const hintStyle: React.CSSProperties = { fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" };
 
 function localToday(): string {
   const d = new Date();
@@ -107,6 +120,16 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
   const cats = categories.filter((c) => c.kind === kind);
   const dealsForAsset = deals.filter((d) => !v.assetId || d.assetId === v.assetId);
   const dealLocked = !!v.dealId;
+  const binding = isMoney ? (categories.find((c) => c.id === v.categoryId)?.binding ?? null) : null;
+  const isGeneral = binding === "general";
+  // общий (без объекта) — просим пояснение; для статей «к заезду / к объекту» вместо этого нужна привязка
+  const generalNote = isMoney && !v.assetId && binding !== "deal" && binding !== "object";
+
+  function changeCategory(categoryId: string) {
+    const b = categories.find((c) => c.id === categoryId)?.binding;
+    // общая статья — ни к чему не привязывается
+    setV((p) => ({ ...p, categoryId, ...(b === "general" ? { assetId: "", dealId: "" } : {}) }));
+  }
 
   function changeType(t: OperationInput["type"]) {
     setV((p) => ({
@@ -128,9 +151,7 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
     e.preventDefault();
     setError(null);
     setPending(true);
-    const payload: OperationInput =
-      v.type === "TRANSFER" && !v.comment.includes(MOVE_NOTE) ? { ...v, comment: `${MOVE_NOTE} ${v.comment}`.trim() } : v;
-    const res = operationId ? await updateOperationAction(operationId, payload) : await createOperationAction(payload);
+    const res = operationId ? await updateOperationAction(operationId, v) : await createOperationAction(v);
     setPending(false);
     if (!res.ok) {
       setError(res.error);
@@ -152,7 +173,7 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
 
   return (
     <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "34rem" }}>
-      <div role="group" aria-label="Вид операции" style={{ display: "grid", gridTemplateColumns: `repeat(${visibleTypeButtons.length}, 1fr)`, gap: "0.5rem" }}>
+      <div role="group" aria-label="Вид операции" style={{ display: "grid", gridTemplateColumns: `repeat(${visibleTypeButtons.length}, 1fr)`, gap: "2px", padding: "3px", borderRadius: "calc(var(--radius-md) - 2px)", background: "var(--color-border)" }}>
         {visibleTypeButtons.map((b) => (
           <button
             key={b.type}
@@ -160,12 +181,13 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
             onClick={() => changeType(b.type)}
             aria-pressed={isSelected(b.type)}
             style={{
-              padding: "0.8rem 0.5rem",
-              borderRadius: "var(--radius-md)",
-              border: isSelected(b.type) ? "2px solid var(--color-accent)" : "1px solid var(--color-border)",
+              padding: "0.6rem 0.5rem",
+              borderRadius: "calc(var(--radius-md) - 4px)",
+              border: "none",
               background: isSelected(b.type) ? "var(--color-surface)" : "transparent",
+              boxShadow: isSelected(b.type) ? "0 1px 3px rgba(0,0,0,0.12)" : undefined,
               color: "var(--color-text)",
-              fontWeight: isSelected(b.type) ? 700 : 400,
+              fontWeight: isSelected(b.type) ? 600 : 400,
               fontSize: "var(--text-base)",
               cursor: "pointer",
             }}
@@ -221,39 +243,38 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
         <>
           <label style={labelStyle}>
             Статья *
-            <select value={v.categoryId} onChange={(e) => set("categoryId", e.target.value)} style={fieldStyle}>
+            <select value={v.categoryId} onChange={(e) => changeCategory(e.target.value)} style={fieldStyle}>
               <option value="">— выберите статью —</option>
-              {v.type === "EXPENSE" ? (
-                <>
-                  <optgroup label="К заезду / аренде">
-                    {cats.filter((c) => c.nature === "VARIABLE").map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Постоянные">
-                    {cats.filter((c) => c.nature === "FIXED").map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                </>
-              ) : (
-                cats.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))
-              )}
+              {v.type === "EXPENSE"
+                ? BINDING_GROUPS.map((g) => {
+                    const list = cats.filter((c) => c.binding === g.binding);
+                    return list.length ? (
+                      <optgroup key={g.label} label={g.label}>
+                        {list.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null;
+                  })
+                : cats.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
             </select>
+            {binding && BINDING_HINT[binding] ? <span style={hintStyle}>{BINDING_HINT[binding]}</span> : null}
           </label>
+        </>
+      ) : null}
 
+      {isMoney && !isGeneral ? (
+        <>
           <label style={labelStyle}>
-            Объект
+            {binding === "object" ? "Объект *" : "Объект"}
             <select value={v.assetId} onChange={(e) => setV((p) => ({ ...p, assetId: e.target.value, dealId: "" }))} disabled={dealLocked} style={fieldStyle}>
-              <option value="">— без объекта (общий) —</option>
+              <option value="">{binding === "object" ? "— выберите объект —" : binding === "deal" ? "— все объекты —" : "— без объекта (общий) —"}</option>
               <optgroup label="Квартиры и дома">
                 {assets.filter((a) => a.kind === "APARTMENT").map((a) => (
                   <option key={a.id} value={a.id}>
@@ -272,9 +293,10 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
           </label>
 
           <label style={labelStyle}>
-            {asset?.kind === "CAR" ? "Аренда" : "Заезд"} (необязательно)
+            {asset?.kind === "CAR" ? "Аренда" : "Заезд"}
+            {binding === "deal" ? " *" : " (необязательно)"}
             <select value={v.dealId} onChange={(e) => changeDeal(e.target.value)} style={fieldStyle}>
-              <option value="">— не привязывать —</option>
+              <option value="">{binding === "deal" ? "— выберите бронь —" : "— не привязывать —"}</option>
               {dealsForAsset.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.label}
@@ -291,16 +313,16 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
       </label>
 
       <label style={labelStyle}>
-        {isMoney && !v.assetId ? "Комментарий — на что распределяется этот общий расход? *" : "Комментарий"}
+        {generalNote ? "Комментарий — на что распределяется этот общий расход? *" : "Комментарий"}
         <textarea
           rows={2}
           value={v.comment}
           onChange={(e) => set("comment", e.target.value)}
-          placeholder={isMoney && !v.assetId ? "например: поровну на все 14 квартир, октябрь 2026" : undefined}
+          placeholder={generalNote ? "например: поровну на все 14 квартир, октябрь 2026" : undefined}
           style={{ ...fieldStyle, resize: "vertical" }}
         />
-        {isMoney && !v.assetId ? (
-          <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>
+        {generalNote ? (
+          <span style={hintStyle}>
             Без объекта операция считается общей (на несколько объектов или за период) — коротко опишите здесь, как она распределяется.
             Эта запись одна, дублировать по объектам не нужно.
           </span>
