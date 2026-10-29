@@ -303,6 +303,9 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
                 </option>
               ))}
             </select>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>
+              Нет нужной брони? Сначала заведите её на <a href="/admin-panel/bookings?tab=apts">шахматке</a> (или в боте: «новая бронь…»), потом вернитесь сюда.
+            </span>
           </label>
         </>
       ) : null}

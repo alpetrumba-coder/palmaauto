@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { DealForm } from "@/components/admin/DealForm";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
 
 export const metadata: Metadata = {
-  title: "Новый заезд / аренда — админ",
+  title: "Новый заезд — админ",
   robots: { index: false, follow: false },
 };
 
@@ -19,7 +20,10 @@ export default async function NewDealPage() {
   ]);
   return (
     <>
-      <h1 style={{ fontSize: "var(--text-2xl)", margin: "0 0 1rem" }}>Новый заезд / аренда</h1>
+      <p style={{ margin: "0 0 0.5rem", fontSize: "var(--text-sm)" }}>
+        <Link href="/admin-panel/bookings?tab=apts">← Шахматка</Link>
+      </p>
+      <h1 style={{ fontSize: "var(--text-2xl)", margin: "0 0 1rem" }}>Новый заезд</h1>
       <DealForm
         assets={assets.map((a) => ({ id: a.id, name: a.name, kind: a.kind }))}
         channels={channels.map((c) => ({ id: c.id, name: c.name, lowPct: c.commissionLowPct, highPct: c.commissionHighPct }))}

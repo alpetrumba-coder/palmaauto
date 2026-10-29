@@ -80,11 +80,7 @@ export default function AdminPanelHomePage() {
             Шахматка
           </Link>
           <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-            Шахматка и{" "}
-            <Link href="/admin-panel/bookings/new" style={{ fontWeight: 600, color: "inherit" }}>
-              создание брони
-            </Link>{" "}
-            для клиента.
+            Все брони машин и квартир. Новая бронь заводится здесь — кнопкой на шахматке.
           </p>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>

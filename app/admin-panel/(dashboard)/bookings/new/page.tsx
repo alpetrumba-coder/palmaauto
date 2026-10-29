@@ -55,7 +55,7 @@ export default async function AdminNewBookingPage({
     <>
       <p style={{ margin: "0 0 1rem", fontSize: "var(--text-sm)" }}>
         <Link href="/admin-panel/bookings" style={{ textDecoration: "none" }}>
-          ← Брони и заявки
+          ← Шахматка
         </Link>
       </p>
       <h1 style={{ fontSize: "var(--text-2xl)", marginTop: 0 }}>Новая бронь</h1>

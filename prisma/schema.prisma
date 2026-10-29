@@ -528,7 +528,8 @@ model AppSetting {
 model TelegramDraft {
   id     String @id @default(cuid())
   chatId BigInt @map("chat_id")
-  /// "expense" (черновик операции, один активный на чат) | "rcdupe" (вопрос про похожую бронь RC, их может быть несколько сразу).
+  /// "op" (карточка операции) | "bk" (карточка новой брони) — одна открытая на чат; "laundry" (расход поровну на брони);
+  /// "rcdupe" (вопрос про похожую бронь RC, их может быть несколько сразу); "expense" — старый формат.
   kind   String @default("expense")
   /// Готовые данные: для "expense" — OperationInput, для "rcdupe" — { rcId, dealId }.
   input     Json

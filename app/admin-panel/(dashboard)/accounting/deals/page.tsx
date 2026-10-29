@@ -65,8 +65,8 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
         <h1 style={{ fontSize: "var(--text-2xl)", margin: 0 }}>Заезды и аренды</h1>
-        <Link href="/admin-panel/accounting/deals/new" style={bigBtn}>
-          + Заезд
+        <Link href="/admin-panel/bookings?tab=apts" style={bigBtn} title="Новые брони заводятся только на шахматке (или через Telegram-бота)">
+          Шахматка
         </Link>
       </div>
       <p style={{ margin: "0.5rem 0 1rem", fontSize: "var(--text-sm)" }}>

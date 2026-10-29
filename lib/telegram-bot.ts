@@ -10,6 +10,17 @@ import { answerCallbackQuery, downloadFile, editMessageText, getFile, sendMessag
 import { applyText, detectIntent, dropIntentWord, missingFields, QUESTION, renderCard, type CardDeal, type OpDraft, type OpType, type Refs } from "@/lib/telegram-draft";
 import { createLaundryOps, findLaundryTargets, splitEven } from "@/lib/laundry";
 import { findAccounts, matchCategory, parseAmount, parseDealNumbers } from "@/lib/telegram-parse";
+import { buildDealData, type DealInput } from "@/lib/deal-build";
+import {
+  applyBookingText,
+  BOOKING_QUESTION,
+  commissionKop,
+  isBookingIntent,
+  missingBookingFields,
+  renderBookingCard,
+  type BChannel,
+  type BookingDraft,
+} from "@/lib/telegram-booking";
 
 const HELP =
   "Скажите голосом или напишите, что случилось — в любом порядке:\n" +
@@ -17,6 +28,7 @@ const HELP =
   "• оплата 15000 заезд 34 амра\n" +
   "• сдала 5000 в Рубин\n" +
   "• стирка 1000 заезд 6 и 52 — поровну на эти брони\n" +
+  "• новая бронь Рио с 5 по 10 ноября Иванов 25000 Авито — бронь квартиры\n" +
   "Бот покажет карточку и спросит, чего не хватает (сумма, статья, заезд или объект, касса). Отвечайте коротко — " +
   "«34», «Иванов», «с карты х» — фразу целиком повторять не нужно. Исправить: «не 1500, а 1800». " +
   "В учёт попадает только после кнопки «Записать».\n" +
@@ -83,8 +95,9 @@ const OP_DRAFT_TTL_MS = 30 * 60 * 1000;
 const money = (rub: string) => formatKop(parseMoneyToKop(rub) ?? 0);
 const ddmm = (d: Date) => fmtDate(d).slice(0, 5);
 
+/** Открытая карточка чата: операция ("op") или новая бронь ("bk") — последняя по времени. */
 async function activeOpDraft(chatId: number) {
-  const row = await prisma.telegramDraft.findFirst({ where: { chatId: BigInt(chatId), kind: "op" }, orderBy: { createdAt: "desc" } });
+  const row = await prisma.telegramDraft.findFirst({ where: { chatId: BigInt(chatId), kind: { in: ["op", "bk"] } }, orderBy: { createdAt: "desc" } });
   if (!row) return null;
   if (Date.now() - row.createdAt.getTime() > OP_DRAFT_TTL_MS) {
     await safeDeleteDraft(row.id);
@@ -210,6 +223,7 @@ async function stepOp(chatId: number, staff: Staff, base: OpDraft, text: string 
 }
 
 async function startOp(chatId: number, staff: Staff, type: OpType, text: string) {
+  await prisma.telegramDraft.deleteMany({ where: { chatId: BigInt(chatId), kind: "bk" } });
   const old = await prisma.telegramDraft.findFirst({ where: { chatId: BigInt(chatId), kind: "op" } });
   await stepOp(chatId, staff, { type, date: todayIso(), texts: [] }, text, old?.id ?? null);
 }
@@ -262,6 +276,12 @@ async function handleText(chatId: number, text: string) {
     return;
   }
 
+  // «новая бронь Рио с 5 по 10 ноября Иванов 25000 Авито»
+  if (isBookingIntent(trimmed)) {
+    await startBooking(chatId, trimmed);
+    return;
+  }
+
   // «стирка 6000 распредели» — одна сумма на все краткосрочные брони без стирки
   if (/распредел/.test(lower) && /(стирк|прачечн|бель)/.test(lower)) {
     await handleLaundry(chatId, staff, trimmed);
@@ -284,7 +304,14 @@ async function handleText(chatId: number, text: string) {
   const looksNew = /\d/.test(trimmed) && !!matchCategory(trimmed, refs.categories, "EXPENSE");
   // без слова «расход/оплата…» — это ответ на вопрос открытой карточки, если только фраза не начинает новую операцию
   const cur = await activeOpDraft(chatId);
-  if (cur) {
+  if (cur?.kind === "bk") {
+    if (!looksNew) {
+      await stepBooking(chatId, cur.input as unknown as BookingDraft, trimmed, cur.id);
+      return;
+    }
+    await safeDeleteDraft(cur.id);
+    await sendMessage(chatId, "Незаконченную бронь отменил — начинаю операцию.");
+  } else if (cur) {
     const d = cur.input as unknown as OpDraft;
     if (!(looksNew && (d.type === "TRANSFER" || (d.amount && d.categoryId)))) {
       await stepOp(chatId, staff, d, trimmed, cur.id);
@@ -524,6 +551,139 @@ async function handleRcDupeCallback(chatId: number, messageId: number, cbId: str
   await answerCallbackQuery(cbId, "Готово");
 }
 
+// ───────────── Новая бронь (квартира) ─────────────
+
+async function loadBookingRefs() {
+  const [assets, channels] = await Promise.all([
+    prisma.asset.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, kind: true, aliases: true } }),
+    prisma.channel.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, commissionLowPct: true, commissionHighPct: true } }),
+  ]);
+  return { assets, channels: channels.map((c): BChannel => ({ id: c.id, name: c.name, lowPct: c.commissionLowPct, highPct: c.commissionHighPct })) };
+}
+
+function bookingDealInput(d: BookingDraft, channels: BChannel[]): DealInput {
+  const grossKop = parseMoneyToKop(d.amount ?? "") ?? 0;
+  const comm = commissionKop(grossKop, channels.find((c) => c.id === d.channelId), d.start);
+  return {
+    assetId: d.assetId ?? "",
+    channelId: d.channelId ?? "",
+    guestName: d.guestName ?? "",
+    phone: d.phone ?? "",
+    startDate: d.start ?? "",
+    endDate: d.end ?? "",
+    gross: d.amount ?? "",
+    commission: (comm / 100).toFixed(2),
+    comment: `Из Telegram: «${d.texts.filter(Boolean).join(" / ")}»`.slice(0, 2000),
+  };
+}
+
+/** Шаг карточки брони: дописать фразу или выбор кнопкой, показать карточку с одним вопросом или с кнопкой «Записать». */
+async function stepBooking(chatId: number, base: BookingDraft, text: string | null, oldId: string | null, patch?: Partial<BookingDraft>) {
+  const { assets, channels } = await loadBookingRefs();
+  const notes: string[] = [];
+  let d: BookingDraft = { ...base, ...patch };
+  if (text !== null && text.trim()) {
+    const r = applyBookingText(d, text, assets, channels, todayIso());
+    d = r.draft;
+    if (r.carNamed) notes.push("Машины через бота не бронируются: заведите бронь на шахматке «Машины» на сайте. Здесь — только квартиры.");
+  }
+  const missing = missingBookingFields(d);
+  d.awaiting = missing[0];
+
+  // всё названо — сразу проверяем, как при записи (пересечение с другой бронью, даты)
+  let problem: string | null = null;
+  if (missing.length === 0) {
+    const res = await buildDealData(bookingDealInput(d, channels));
+    if ("error" in res) problem = res.error;
+  }
+
+  if (oldId) await safeDeleteDraft(oldId);
+  const grossKop = d.amount ? parseMoneyToKop(d.amount) : null;
+  const card = renderBookingCard(d, assets, channels, formatKop, grossKop);
+  const row = await prisma.telegramDraft.create({ data: { chatId: BigInt(chatId), kind: "bk", input: d as unknown as object, summary: card } });
+  const cancel: InlineButton = { text: "✖ Отмена", callback_data: `bk:no:${row.id}` };
+  const head = notes.length ? `${notes.join("\n")}\n\n` : "";
+
+  if (missing.length === 0) {
+    if (problem) {
+      await sendMessage(chatId, `${head}${card}\n\n⚠ ${problem}\nСкажите другие даты или квартиру — карточка обновится.`, [[cancel]]);
+      return;
+    }
+    await sendMessage(
+      chatId,
+      `${head}${card}\n\nВсё заполнено. Чтобы исправить — просто скажите исправление. Бронь появится на шахматке; в RealtyCalendar её тоже заведите — сверка свяжет их.`,
+      [[{ text: "✅ Записать бронь", callback_data: `bk:yes:${row.id}` }, cancel]],
+    );
+    return;
+  }
+
+  const field = missing[0];
+  const buttons: InlineButton[][] = [];
+  if (field === "asset") {
+    const apts = assets.filter((a) => a.kind === "APARTMENT");
+    for (let i = 0; i < apts.length; i += 3) buttons.push(apts.slice(i, i + 3).map((a) => ({ text: a.name, callback_data: `bk:a:${row.id}:${a.id}` })));
+  } else if (field === "channel") {
+    for (let i = 0; i < channels.length; i += 2) buttons.push(channels.slice(i, i + 2).map((c) => ({ text: c.name, callback_data: `bk:c:${row.id}:${c.id}` })));
+  }
+  buttons.push([cancel]);
+  await sendMessage(chatId, `${head}${card}\n\n${BOOKING_QUESTION[field]}`, buttons);
+}
+
+async function startBooking(chatId: number, text: string) {
+  await prisma.telegramDraft.deleteMany({ where: { chatId: BigInt(chatId), kind: { in: ["op", "bk"] } } });
+  await stepBooking(chatId, { texts: [] }, text, null);
+}
+
+async function handleBookingCallback(chatId: number, messageId: number, cbId: string, action: string, draftId: string, value: string | undefined) {
+  const row = await prisma.telegramDraft.findUnique({ where: { id: draftId } });
+  if (!row || row.chatId !== BigInt(chatId) || row.kind !== "bk") {
+    await answerCallbackQuery(cbId, "Карточка устарела — начните заново.");
+    return;
+  }
+  const staff = await findStaffByChat(chatId);
+  if (!staff || !staff.active) {
+    await answerCallbackQuery(cbId, "Сотрудник не найден.");
+    return;
+  }
+  const d = row.input as unknown as BookingDraft;
+
+  if (action === "no") {
+    await safeDeleteDraft(row.id);
+    await editMessageText(chatId, messageId, `Отменено.\n${row.summary}`);
+    await answerCallbackQuery(cbId, "Отменено");
+    return;
+  }
+
+  if (action === "yes") {
+    if (missingBookingFields(d).length > 0) {
+      await answerCallbackQuery(cbId, "Карточка заполнена не полностью.");
+      return;
+    }
+    const { channels } = await loadBookingRefs();
+    const res = await buildDealData(bookingDealInput(d, channels));
+    if ("error" in res) {
+      await answerCallbackQuery(cbId, "Ошибка");
+      await sendMessage(chatId, `Не получилось записать: ${res.error}`);
+      return;
+    }
+    const deal = await prisma.deal.create({ data: { ...res.data, createdBy: staff.name } });
+    await safeDeleteDraft(row.id);
+    await editMessageText(chatId, messageId, `Записано, бронь №${deal.number}. Она уже на шахматке.\n${row.summary}`);
+    await answerCallbackQuery(cbId, "Записано");
+    return;
+  }
+
+  if (!value) {
+    await answerCallbackQuery(cbId);
+    return;
+  }
+  const patch: Partial<BookingDraft> = action === "a" ? { assetId: value } : action === "c" ? { channelId: value } : {};
+  await answerCallbackQuery(cbId, "Принято");
+  await editMessageText(chatId, messageId, row.summary).catch(() => undefined);
+  await stepBooking(chatId, d, null, row.id, patch);
+}
+
+
 async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
   const chatId = cb.message?.chat.id;
   const messageId = cb.message?.message_id;
@@ -538,6 +698,11 @@ async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
   if (parts[0] === "ln") {
     const [, action, draftId] = parts;
     await handleLaundryCallback(chatId, messageId, cb.id, action, draftId);
+    return;
+  }
+  if (parts[0] === "bk") {
+    const [, action, draftId, value] = parts;
+    await handleBookingCallback(chatId, messageId, cb.id, action, draftId, value);
     return;
   }
   if (parts[0] === "op") {

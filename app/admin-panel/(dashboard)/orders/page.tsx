@@ -46,7 +46,7 @@ export default async function AdminOrdersPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
         <h1 style={{ fontSize: "var(--text-2xl)", margin: 0 }}>Заказы</h1>
         <Link
-          href="/admin-panel/bookings/new"
+          href="/admin-panel/bookings"
           className="nav-tap-target"
           style={{
             display: "inline-flex",
@@ -59,16 +59,12 @@ export default async function AdminOrdersPage() {
             fontSize: "var(--text-sm)",
           }}
         >
-          Новая бронь
+          Шахматка
         </Link>
       </div>
 
       <p style={{ marginTop: "0.75rem", color: "var(--color-text-secondary)", fontSize: "var(--text-sm)", maxWidth: "44rem" }}>
-        Активные брони. Редактирование дат, автомобиля, предоплаты и данных клиента. Откройте бронь в{" "}
-        <Link href="/admin-panel/bookings" style={{ fontWeight: 600 }}>
-          календаре
-        </Link>
-        .
+        Активные брони машин: правка дат, автомобиля, предоплаты и данных клиента. Новая бронь заводится только на шахматке (кнопка «Новая бронь»).
       </p>
 
       <OrdersListTable orders={orders} />
