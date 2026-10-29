@@ -25,15 +25,16 @@ export function OperationRowActions({ id, number }: { id: string; number: number
   }
 
   return (
-    <span style={{ display: "inline-flex", gap: "0.75rem", alignItems: "center", whiteSpace: "nowrap" }}>
-      <Link href={`/admin-panel/accounting/${id}/edit`} style={{ fontWeight: 600 }}>
+    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: "0.15rem", whiteSpace: "nowrap" }}>
+      <Link href={`/admin-panel/accounting/${id}/edit`} style={{ fontWeight: 600, textDecoration: "none" }}>
         Изменить
       </Link>
       <button
         type="button"
         onClick={onVoid}
         disabled={pending}
-        style={{ border: "none", background: "transparent", padding: 0, font: "inherit", fontWeight: 600, color: "var(--color-danger, #b00020)", cursor: pending ? "wait" : "pointer", textDecoration: "underline" }}
+        title="Операция останется в журнале зачёркнутой, но перестанет учитываться"
+        style={{ border: "none", background: "transparent", padding: 0, font: "inherit", fontWeight: 600, color: "var(--color-danger, #b00020)", cursor: pending ? "wait" : "pointer" }}
       >
         {pending ? "…" : "Аннулировать"}
       </button>

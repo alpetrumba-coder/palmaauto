@@ -36,7 +36,8 @@ export function stripDealNumber(text: string): string {
 const ACCOUNT_PATTERNS: { re: RegExp; name: string }[] = [
   { re: /касс[а-я]*\s+ев[а-я]*|налич[а-я]*|(?:^|\s)нал(?:\s|$)/, name: "Касса Ева" },
   { re: /касс[а-я]*\s+тат[а-я]*/, name: "Касса Татьяна" },
-  { re: /карт[а-я]*\s+(?:х|икс|x)(?:\s|$)/, name: "Карта Х" },
+  // голосом «Х» распознаётся как «х», «хэ», «ха», «икс» или латинская x
+  { re: /карт[а-я]*\s+(?:х|хэ|ха|хе|икс|x)(?:\s|$)/, name: "Карта Х" },
   { re: /амр[а-я]*/, name: "Карта Амра-Банк" },
   { re: /рубин[а-я]*/, name: "Касса Рубина" },
   { re: /монет[а-я]*/, name: "Монета" },
@@ -52,7 +53,9 @@ export function findAccounts(text: string, accounts: PAccount[]): PAccount[] {
     if (m && m.index !== undefined && acc) hits.push({ pos: m.index, acc });
   }
   for (const a of accounts) {
-    const i = t.indexOf(norm(a.name));
+    // точное название целым словом: «карта х» не должна найтись в «карта хорошая»
+    const name = norm(a.name);
+    const i = ` ${t} `.indexOf(` ${name} `);
     if (i >= 0 && !hits.some((h) => h.acc.id === a.id)) hits.push({ pos: i, acc: a });
   }
   return hits.sort((x, y) => x.pos - y.pos).map((h) => h.acc);

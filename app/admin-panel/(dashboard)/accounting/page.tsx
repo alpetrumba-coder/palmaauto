@@ -20,7 +20,22 @@ export const dynamic = "force-dynamic";
 
 type SP = { from?: string; to?: string; account?: string; type?: string; asset?: string; voided?: string; imp?: string; review?: string };
 
-const cell: React.CSSProperties = { padding: "0.55rem 0.7rem", borderBottom: "1px solid var(--color-border)", verticalAlign: "top" };
+const cell: React.CSSProperties = { padding: "0.45rem 0.6rem", borderBottom: "1px solid var(--color-border)", verticalAlign: "top", overflow: "hidden" };
+// журнал: не больше двух строк текста в ячейке, полный текст — во всплывающей подсказке
+const one: React.CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+const two: React.CSSProperties = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" };
+const COLS: { h: string; w: string; right?: boolean }[] = [
+  { h: "№", w: "4.2rem" },
+  { h: "Дата", w: "5.6rem" },
+  { h: "Вид", w: "6.2rem" },
+  { h: "Сумма", w: "7.2rem", right: true },
+  { h: "Касса", w: "8.5rem" },
+  { h: "Статья", w: "12rem" },
+  { h: "Объект / заезд", w: "11rem" },
+  { h: "Комментарий", w: "auto" },
+  { h: "Кто", w: "7rem" },
+  { h: "", w: "6.6rem" },
+];
 const field: React.CSSProperties = {
   padding: "0.45rem 0.55rem",
   borderRadius: "var(--radius-md)",
@@ -266,12 +281,19 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
       {rows.length === 0 ? (
         <p style={{ color: "var(--color-text-secondary)" }}>Операций нет. Нажмите «+ Приход» или «+ Расход».</p>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
+        <div style={{ overflowX: "auto", background: "var(--color-surface)", borderRadius: "var(--radius-md)" }}>
+          <table style={{ width: "100%", minWidth: "68rem", tableLayout: "fixed", borderCollapse: "collapse", fontSize: "13px", lineHeight: 1.35 }}>
+            <colgroup>
+              {COLS.map((c) => (
+                <col key={c.h} style={{ width: c.w }} />
+              ))}
+            </colgroup>
             <thead>
-              <tr style={{ background: "var(--color-surface)", textAlign: "left" }}>
-                {["№", "Дата", "Вид", "Сумма", "Касса", "Статья", "Объект / заезд", "Комментарий", "Кто", ""].map((h) => (
-                  <th key={h} style={{ ...cell, fontWeight: 600 }}>{h}</th>
+              <tr style={{ textAlign: "left", color: "var(--color-text-secondary)" }}>
+                {COLS.map((c) => (
+                  <th key={c.h} style={{ ...cell, fontWeight: 600, fontSize: "12px", textAlign: c.right ? "right" : "left" }}>
+                    {c.h}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -279,54 +301,59 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
               {rows.map((o) => {
                 const voided = !!o.voidedAt;
                 const sign = o.type === "INCOME" ? "+" : o.type === "TRANSFER" ? "" : "−";
+                const general = !o.assetId && !o.dealId && (o.type === "INCOME" || o.type === "EXPENSE");
+                const account = `${o.account.name}${o.toAccount ? ` → ${o.toAccount.name}` : ""}`;
+                const category = o.category?.name ?? (o.type === "HANDOVER" ? "Касса Рубина" : "—");
+                const comment = [o.comment, o.needsReview ? o.reviewNote : null].filter(Boolean).join(" · ");
+                const who = `${o.createdBy}${voided ? ` · аннулировал ${o.voidedBy ?? ""}` : ""}`;
                 return (
                   <tr key={o.id} style={{ opacity: voided ? 0.5 : 1, textDecoration: voided ? "line-through" : undefined }}>
                     <td style={cell}>
-                      {o.number}
-                      {o.isImported ? <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>импорт</div> : null}
+                      <div style={one}>{o.number}</div>
                       {o.needsReview ? (
-                        <div title={o.reviewNote ?? ""} style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--color-danger, #b00020)" }}>
+                        <div title={o.reviewNote ?? ""} style={{ ...one, fontSize: "11px", fontWeight: 700, color: "var(--color-danger, #b00020)" }}>
                           проверить
                         </div>
+                      ) : o.isImported ? (
+                        <div style={{ ...one, fontSize: "11px", color: "var(--color-text-secondary)" }}>импорт</div>
                       ) : null}
                     </td>
                     <td style={{ ...cell, whiteSpace: "nowrap" }}>{fmtDate(o.date)}</td>
-                    <td style={cell}>{OPERATION_TYPE_LABEL[o.type]}</td>
-                    <td style={{ ...cell, whiteSpace: "nowrap", fontWeight: 600, color: o.type === "INCOME" ? "var(--color-success, #1a7f37)" : undefined }}>
+                    <td style={cell}>
+                      <div style={one}>{OPERATION_TYPE_LABEL[o.type]}</div>
+                    </td>
+                    <td style={{ ...cell, textAlign: "right", whiteSpace: "nowrap", fontWeight: 600, color: o.type === "INCOME" ? "var(--color-success, #1a7f37)" : undefined }}>
                       {sign}
                       {formatKop(o.amountKop)}
                     </td>
                     <td style={cell}>
-                      {o.account.name}
-                      {o.toAccount ? ` → ${o.toAccount.name}` : ""}
+                      <div title={account} style={two}>{account}</div>
                     </td>
-                    <td style={cell}>{o.category?.name ?? (o.type === "HANDOVER" ? "Касса Рубина" : "—")}</td>
-                    <td style={{ ...cell, minWidth: "9rem" }}>
-                      {o.asset ? o.asset.name : null}
+                    <td style={cell}>
+                      <div title={category} style={two}>{category}</div>
+                    </td>
+                    <td style={cell}>
+                      {o.asset ? <div title={o.asset.name} style={one}>{o.asset.name}</div> : null}
                       {o.deal ? (
-                        <div style={{ fontSize: "var(--text-xs)" }}>
+                        <div title={`№${o.deal.number} ${o.deal.guestName}`} style={one}>
                           <Link href={`/admin-panel/accounting/deals/${o.deal.id}`}>
                             №{o.deal.number} {o.deal.guestName}
                           </Link>
                         </div>
                       ) : null}
-                      {!o.asset && !o.deal ? (
-                        (o.type === "INCOME" || o.type === "EXPENSE") ? <span style={{ color: "var(--color-text-secondary)" }}>общий</span> : "—"
-                      ) : null}
+                      {!o.asset && !o.deal ? <span style={{ color: "var(--color-text-secondary)" }}>{general ? "общий" : "—"}</span> : null}
                     </td>
-                    <td style={{ ...cell, minWidth: "24rem", maxWidth: "40rem", wordBreak: "break-word" }}>
-                      {!o.assetId && !o.dealId && (o.type === "INCOME" || o.type === "EXPENSE") ? (
-                        <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>{o.comment ?? ""}</span>
-                      ) : (
-                        o.comment ?? ""
-                      )}
-                      {o.needsReview && o.reviewNote ? (
-                        <div style={{ fontSize: "var(--text-xs)", color: "var(--color-danger, #b00020)" }}>{o.reviewNote}</div>
-                      ) : null}
+                    <td style={cell}>
+                      <div
+                        title={comment}
+                        style={{ ...two, color: general ? "var(--color-text-secondary)" : undefined }}
+                      >
+                        {o.comment ?? ""}
+                        {o.needsReview && o.reviewNote ? <span style={{ color: "var(--color-danger, #b00020)" }}> · {o.reviewNote}</span> : null}
+                      </div>
                     </td>
-                    <td style={{ ...cell, whiteSpace: "nowrap", color: "var(--color-text-secondary)" }}>
-                      {o.createdBy}
-                      {voided ? ` · аннулировал ${o.voidedBy ?? ""}` : ""}
+                    <td style={{ ...cell, color: "var(--color-text-secondary)" }}>
+                      <div title={who} style={two}>{who}</div>
                     </td>
                     <td style={cell}>{voided ? null : <OperationRowActions id={o.id} number={o.number} />}</td>
                   </tr>
@@ -335,7 +362,7 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
             </tbody>
           </table>
           {rows.length === 300 ? (
-            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>Показаны последние 300 операций. Сузьте период, чтобы увидеть остальные.</p>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", padding: "0 0.6rem" }}>Показаны последние 300 операций. Сузьте период, чтобы увидеть остальные.</p>
           ) : null}
         </div>
       )}
