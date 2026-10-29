@@ -45,10 +45,22 @@ export function splitEven(totalKop: number, n: number): number[] {
   return out;
 }
 
-/** Записывает по операции «Стирка белья» на каждую бронь. Возвращает номера созданных операций. */
-export async function createLaundryOps(input: { totalKop: number; accountId: string; date: Date; createdBy: string; dealIds: string[]; said?: string }): Promise<number[]> {
-  const cat = await prisma.category.findFirst({ where: { name: LAUNDRY_CATEGORY, kind: "EXPENSE" } });
-  if (!cat) throw new Error(`Нет статьи «${LAUNDRY_CATEGORY}».`);
+/**
+ * Делит сумму поровну и записывает по операции на каждую бронь (по умолчанию «Стирка белья»; бот так же делит
+ * «уборка 3000 заезд 6 и 52»). Возвращает номера созданных операций.
+ */
+export async function createLaundryOps(input: {
+  totalKop: number;
+  accountId: string;
+  date: Date;
+  createdBy: string;
+  dealIds: string[];
+  said?: string;
+  categoryName?: string;
+}): Promise<number[]> {
+  const catName = input.categoryName ?? LAUNDRY_CATEGORY;
+  const cat = await prisma.category.findFirst({ where: { name: catName, kind: "EXPENSE" } });
+  if (!cat) throw new Error(`Нет статьи «${catName}».`);
   const deals = await prisma.deal.findMany({ where: { id: { in: input.dealIds } }, select: { id: true, assetId: true, number: true }, orderBy: [{ endDate: "asc" }, { number: "asc" }] });
   if (deals.length === 0) throw new Error("Нет броней для распределения.");
   const parts = splitEven(input.totalKop, deals.length);
@@ -64,7 +76,7 @@ export async function createLaundryOps(input: { totalKop: number; accountId: str
           categoryId: cat.id,
           dealId: d.id,
           assetId: d.assetId,
-          comment: `Стирка распределена: ${total} ₽ на ${deals.length} брон.${input.said ? ` · ${input.said}` : ""}`.slice(0, 1000),
+          comment: `${catName}: ${total} ₽ поровну на ${deals.length} брон.${input.said ? ` · ${input.said}` : ""}`.slice(0, 1000),
           createdBy: input.createdBy,
         },
         select: { number: true },

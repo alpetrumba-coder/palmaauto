@@ -9,13 +9,14 @@ import { recognizeOggOpus, speechConfigured, VOICE_MAX_SECONDS } from "@/lib/spe
 import { answerCallbackQuery, downloadFile, editMessageText, getFile, sendMessage, type InlineButton, type TgUpdate, type TgVoice } from "@/lib/telegram";
 import { applyText, detectIntent, dropIntentWord, missingFields, QUESTION, renderCard, type CardDeal, type OpDraft, type OpType, type Refs } from "@/lib/telegram-draft";
 import { createLaundryOps, findLaundryTargets, splitEven } from "@/lib/laundry";
-import { findAccounts, matchCategory, parseAmount } from "@/lib/telegram-parse";
+import { findAccounts, matchCategory, parseAmount, parseDealNumbers } from "@/lib/telegram-parse";
 
 const HELP =
   "Скажите голосом или напишите, что случилось — в любом порядке:\n" +
   "• расход уборка Рио 1500 заезд 34\n" +
   "• оплата 15000 заезд 34 амра\n" +
   "• сдала 5000 в Рубин\n" +
+  "• стирка 1000 заезд 6 и 52 — поровну на эти брони\n" +
   "Бот покажет карточку и спросит, чего не хватает (сумма, статья, заезд или объект, касса). Отвечайте коротко — " +
   "«34», «Иванов», «с карты х» — фразу целиком повторять не нужно. Исправить: «не 1500, а 1800». " +
   "В учёт попадает только после кнопки «Записать».\n" +
@@ -268,26 +269,77 @@ async function handleText(chatId: number, text: string) {
   }
 
   const intent = detectIntent(trimmed);
+  // «стирка 1000 заезд 6 и 52» — расход поровну на названные брони
+  const multi = parseDealNumbers(intent ? dropIntentWord(trimmed) : trimmed);
+  if (multi.numbers.length >= 2 && (intent === null || intent === "EXPENSE")) {
+    await handleSplit(chatId, staff, trimmed, multi);
+    return;
+  }
   if (intent) {
     await startOp(chatId, staff, intent, dropIntentWord(trimmed));
     return;
   }
-  // без слова «расход/оплата…» — это ответ на вопрос открытой карточки
+  const refs = await loadRefs();
+  // новая операция без слова «расход»: статья и сумма во фразе
+  const looksNew = /\d/.test(trimmed) && !!matchCategory(trimmed, refs.categories, "EXPENSE");
+  // без слова «расход/оплата…» — это ответ на вопрос открытой карточки, если только фраза не начинает новую операцию
   const cur = await activeOpDraft(chatId);
   if (cur) {
-    await stepOp(chatId, staff, cur.input as unknown as OpDraft, trimmed, cur.id);
-    return;
+    const d = cur.input as unknown as OpDraft;
+    if (!(looksNew && (d.type === "TRANSFER" || (d.amount && d.categoryId)))) {
+      await stepOp(chatId, staff, d, trimmed, cur.id);
+      return;
+    }
+    await sendMessage(chatId, "Прошлую незаконченную карточку отменил — начинаю новую.");
   }
   // «уборка рио 1500» без слова «расход» — тоже расход, если узнали статью и есть сумма
-  const refs = await loadRefs();
-  if (/\d/.test(trimmed) && matchCategory(trimmed, refs.categories, "EXPENSE")) {
+  if (looksNew) {
     await startOp(chatId, staff, "EXPENSE", trimmed);
     return;
   }
   await sendMessage(chatId, `Не понял. ${HELP}`);
 }
 
-type LaundryDraft = { totalKop: number; accountId: string; dealIds: string[]; said: string };
+type LaundryDraft = { totalKop: number; accountId: string; dealIds: string[]; said: string; categoryName?: string };
+
+/** «стирка 1000 касса ева заезд 6 и 52» — расход по статье «к заезду» поровну на названные брони (после подтверждения). */
+async function handleSplit(chatId: number, staff: Staff, text: string, multi: { numbers: number[]; rest: string }) {
+  const refs = await loadRefs();
+  const parsed = parseAmount(multi.rest);
+  const cat = matchCategory(multi.rest, refs.categories, "EXPENSE");
+  const binding = refs.categories.find((c) => c.id === cat?.id)?.binding;
+  if (!parsed || !cat || binding !== "deal") {
+    await sendMessage(
+      chatId,
+      "Поровну на несколько броней делятся только расходы к заезду (стирка, уборка, комиссии…). Скажите статью и сумму: «стирка 1000 касса Ева заезд 6 и 52».",
+    );
+    return;
+  }
+  const deals = await prisma.deal.findMany({ where: { number: { in: multi.numbers }, status: "ACTIVE" }, include: dealInclude, orderBy: { number: "asc" } });
+  const missing = multi.numbers.filter((n) => !deals.some((d) => d.number === n));
+  if (missing.length) {
+    await sendMessage(chatId, `Не нашёл действующие брони: ${missing.map((n) => `№${n}`).join(", ")}. Проверьте номера на шахматке.`);
+    return;
+  }
+  const accountId = findAccounts(multi.rest, refs.accounts)[0]?.id ?? staff.defaultCashAccountId;
+  if (!accountId) {
+    await sendMessage(chatId, "Укажите кассу: например «стирка 1000 касса Ева заезд 6 и 52».");
+    return;
+  }
+  const totalKop = parseMoneyToKop(parsed.amount) ?? 0;
+  const parts = splitEven(totalKop, deals.length);
+  await prisma.telegramDraft.deleteMany({ where: { chatId: BigInt(chatId), kind: "laundry" } });
+  const input: LaundryDraft = { totalKop, accountId, dealIds: deals.map((d) => d.id), said: `Из Telegram: «${text}»`, categoryName: cat.name };
+  const summary = `${cat.name} ${formatKop(totalKop)} → ${deals.length} брон. · касса ${refs.accounts.find((a) => a.id === accountId)?.name ?? "—"}`;
+  const row = await prisma.telegramDraft.create({ data: { chatId: BigInt(chatId), kind: "laundry", input: input as unknown as object, summary } });
+  const lines = deals.map((d, i) => `№${d.number} ${d.asset.name} · ${d.guestName.slice(0, 18)} (${ddmm(d.startDate)}–${ddmm(d.endDate)}) — ${formatKop(parts[i])}`);
+  await sendMessage(chatId, `${summary}\nПоровну:\n${lines.join("\n")}\n\nЗаписать ${deals.length} операции?`, [
+    [
+      { text: `✅ Записать ${deals.length}`, callback_data: `ln:yes:${row.id}` },
+      { text: "✖ Отмена", callback_data: `ln:no:${row.id}` },
+    ],
+  ]);
+}
 
 async function handleLaundry(chatId: number, staff: Staff, text: string) {
   const parsed = parseAmount(text);

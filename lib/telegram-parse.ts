@@ -26,6 +26,17 @@ export function parseDealNumber(text: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/**
+ * Несколько броней в одной фразе: «заезд 6 и 52», «брони 6 и 52 и 60». Разделитель — только «и»
+ * (запятая — нет: «заезд 34, 1500» — это бронь и сумма). Возвращает номера и фразу без них.
+ */
+export function parseDealNumbers(text: string): { numbers: number[]; rest: string } {
+  const m = text.match(/(?:заезд\S*|аренд\S*|брон\S*|№)\s*№?\s*(\d{1,6}(?:\s+и\s+№?\s*\d{1,6})*)/i);
+  if (!m || m.index === undefined) return { numbers: [], rest: text };
+  const numbers = [...new Set((m[1].match(/\d{1,6}/g) ?? []).map(Number))];
+  return { numbers, rest: `${text.slice(0, m.index)} ${text.slice(m.index + m[0].length)}`.replace(/\s+/g, " ").trim() };
+}
+
 /** Убирает из фразы упоминание номера заезда, чтобы число не мешало поиску суммы. */
 export function stripDealNumber(text: string): string {
   return text.replace(/(?:заезд\S*|аренд\S*|брон\S*|№)\s*№?\s*\d{1,6}/gi, " ").replace(/\s+/g, " ").trim();

@@ -36,7 +36,8 @@ export function detectIntent(text: string): OpType | null {
   const first = norm(text).split(" ")[0] ?? "";
   if (/^(расход|потратил|потратила|заплатил|заплатила|оплатил|оплатила|купил|купила)/.test(first)) return "EXPENSE";
   if (/^(оплата|приход|получил|получила|пришл|поступ)/.test(first)) return "INCOME";
-  if (/^(передал|передала|перевел|перевела|сдал|сдала|перемещ)/.test(first)) return "TRANSFER";
+  // «перевод» сюда не входит: «перевод 5000 бронь 52» чаще значит оплату от гостя
+  if (/^(передал|передала|перевел|перевела|перекинул|переложил|сдал|сдала|перемещ)/.test(first)) return "TRANSFER";
   return null;
 }
 
@@ -101,8 +102,9 @@ export function applyText(prev: OpDraft, rawText: string, refs: Refs, today: str
       d.accountId = accs[0].id;
       d.toAccountId = accs[1].id;
     } else if (accs.length === 1) {
-      // одна касса во фразе — это «куда» (откуда — касса сотрудника), кроме ответа на вопрос «из какой кассы»
-      if (prev.awaiting === "account") d.accountId = accs[0].id;
+      // одна касса: «из/с кассы Ева» — откуда; иначе «куда» (откуда — касса сотрудника), кроме ответа на вопрос «из какой кассы»
+      const saidFrom = /(^|\s)(из|с|со)\s+(касс|карт|рубин|монет|амр|нал)/.test(norm(rest));
+      if (prev.awaiting === "account" || (saidFrom && prev.awaiting !== "to")) d.accountId = accs[0].id;
       else d.toAccountId = accs[0].id;
     }
   } else if (accs.length > 0) {
