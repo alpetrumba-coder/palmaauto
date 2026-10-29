@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { REFUND_CATEGORY } from "@/lib/accounting";
+import { BONUS_PCT } from "@/lib/accounting-agreements";
 import { formatKop } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 
@@ -340,48 +341,77 @@ export async function buildCash(p: Period, includeImported: boolean): Promise<Re
 
 // ----------------------------------------------------------------------------- премии сотрудников
 
-const MIN_TAT = 1_000_000; // 10 000 ₽ в копейках: гарантированный минимум в месяц при выручке < 200 000 ₽
-const MIN_EVA_DIMA = 2_000_000;
-const REV_THRESHOLD = 20_000_000;
+const EXTRA_INCOME_CATEGORY = "Дополнительные доходы";
+const DIRECT_CHANNEL = "Прямые бронирования";
 
 /**
- * Ориентировочный расчёт по правилам из «главного файла»: Татьяна 5%, Ева и Дмитрий вместе 10% от выручки
- * за вычетом комиссии агрегатора; при выручке меньше 200 000 ₽ в месяц — гарантированный минимум (10 000 / 20 000 ₽).
- * Допродажи, премия 2,5% за доходные заезды и +5% за прямые брони здесь не считаются.
+ * Комиссии сотрудников по таблице «Договорённости» (BONUS_PCT). Считаются по броням, месяц — по дате выезда.
+ * Ева и Дима: квартиры 15% от нетто (+5% за прямую бронь, всего 20%), машины 10% от нетто, доп. доходы (трансфер) 5%.
+ * Татьяна: 5% от брутто квартир и машин. Отменённые брони не считаются. «Выплачено» — расходы по статьям комиссий за месяц.
  */
 export async function buildBonus(p: Period): Promise<ReportTable> {
-  const [{ facts, excludedReview }, cats] = await Promise.all([loadFacts(p), prisma.category.findMany({ select: { id: true, name: true, kind: true } })]);
+  const [{ facts, excludedReview }, cats, deals, extra] = await Promise.all([
+    loadFacts(p),
+    prisma.category.findMany({ select: { id: true, name: true } }),
+    prisma.deal.findMany({
+      where: { status: "ACTIVE", endDate: { gte: p.from, lte: p.to } },
+      select: { endDate: true, grossKop: true, commissionKop: true, asset: { select: { kind: true } }, channel: { select: { name: true } } },
+    }),
+    // доп. доходы: месяц — по выезду брони, если операция к ней привязана, иначе по дате операции
+    prisma.$queryRaw<{ m: string; s: bigint }[]>(Prisma.sql`
+      SELECT to_char(COALESCE(d.end_date, o.date), 'YYYY-MM') m, SUM(o.amount_kop)::bigint s
+      FROM operations o JOIN categories c ON c.id = o.category_id LEFT JOIN deals d ON d.id = o.deal_id
+      WHERE o.voided_at IS NULL AND NOT o.needs_review AND o.type = 'INCOME' AND c.name = ${EXTRA_INCOME_CATEGORY}
+        AND COALESCE(d.end_date, o.date) >= CAST(${p.fromStr} AS date) AND COALESCE(d.end_date, o.date) <= CAST(${p.toStr} AS date)
+      GROUP BY 1`),
+  ]);
   const id = (n: string) => cats.find((c) => c.name === n)?.id;
-  const commId = id(COMMISSION_CATEGORY);
-  const paidCats = {
-    tat: [id("Комиссионные Татьяны")],
-    evaDima: [id("Комиссионные Ева и Дима") ?? id("Комиссионные Ева"), id("Зарплата Дмитрий")],
-  };
-  const incomeIds = new Set(cats.filter((c) => c.kind === "INCOME").map((c) => c.id));
-  const headers = ["Месяц", "Выручка", "Комиссия агрегатора", "База (выручка − комиссия)", "Татьяна: расчёт", "Татьяна: выплачено", "Ева и Дмитрий: расчёт", "Ева и Дмитрий: выплачено"];
+  const paidTat = id("Комиссионные Татьяны");
+  const paidEd = id("Комиссионные Ева и Дима");
+  const pct = (kop: number, rate: number) => Math.round((kop * rate) / 100);
+
+  const headers = [
+    "Месяц (по выезду)",
+    "Броней",
+    "Нетто квартир",
+    "из них прямые",
+    "Нетто машин",
+    "Доп. доходы",
+    "Брутто",
+    "Ева и Дима: начислено",
+    "Ева и Дима: выплачено",
+    "Татьяна: начислено",
+    "Татьяна: выплачено",
+  ];
   const rows: Cell[][] = [];
-  const t = [0, 0, 0, 0, 0, 0];
+  const t = new Array(10).fill(0) as number[];
   for (const mo of monthsBetween(p.from, p.to)) {
-    const fm = facts.filter((f) => f.month === mo);
-    const revenue = fm.filter((f) => f.type === "INCOME" && incomeIds.has(f.categoryId)).reduce((s, f) => s + f.kop, 0);
-    const comm = fm.filter((f) => f.categoryId === commId && f.type === "EXPENSE").reduce((s, f) => s + f.kop, 0);
-    const paid = (ids: (string | undefined)[]) => fm.filter((f) => f.type === "EXPENSE" && ids.includes(f.categoryId)).reduce((s, f) => s + f.kop, 0);
-    const pt = paid(paidCats.tat);
-    const pe = paid(paidCats.evaDima);
-    if (!revenue && !comm && !pt && !pe) continue;
-    const base = revenue - comm;
-    const tat = Math.max(Math.round(base * 0.05), base < REV_THRESHOLD ? MIN_TAT : 0);
-    const ed = Math.max(Math.round(base * 0.1), base < REV_THRESHOLD ? MIN_EVA_DIMA : 0);
-    rows.push([mo, { kop: revenue }, { kop: comm }, { kop: base }, { kop: tat }, { kop: pt }, { kop: ed }, { kop: pe }]);
-    [revenue, comm, tat, pt, ed, pe].forEach((x, i) => (t[i] += x));
+    const dm = deals.filter((d) => d.endDate.toISOString().slice(0, 7) === mo);
+    const net = (d: (typeof dm)[number]) => d.grossKop - d.commissionKop;
+    const isDirect = (d: (typeof dm)[number]) => !d.channel || d.channel.name === DIRECT_CHANNEL;
+    const apt = dm.filter((d) => d.asset.kind === "APARTMENT");
+    const aptNet = apt.reduce((s, d) => s + net(d), 0);
+    const directNet = apt.filter(isDirect).reduce((s, d) => s + net(d), 0);
+    const carNet = dm.filter((d) => d.asset.kind === "CAR").reduce((s, d) => s + net(d), 0);
+    const gross = dm.reduce((s, d) => s + d.grossKop, 0);
+    const extraKop = Number(extra.find((x) => x.m === mo)?.s ?? 0);
+    const ed = pct(aptNet, BONUS_PCT.evaDimaApt) + pct(directNet, BONUS_PCT.evaDimaDirectExtra) + pct(carNet, BONUS_PCT.evaDimaCar) + pct(extraKop, BONUS_PCT.evaDimaExtra);
+    const tat = pct(gross, BONUS_PCT.tatyana);
+    const paid = (cid?: string) => facts.filter((f) => f.month === mo && f.type === "EXPENSE" && f.categoryId === cid).reduce((s, f) => s + f.kop, 0);
+    const pe = paid(paidEd);
+    const pt = paid(paidTat);
+    if (!dm.length && !extraKop && !pe && !pt) continue;
+    const vals = [dm.length, aptNet, directNet, carNet, extraKop, gross, ed, pe, tat, pt];
+    vals.forEach((x, i) => (t[i] += x));
+    rows.push([mo, String(dm.length), ...vals.slice(1).map((kop) => ({ kop }))]);
   }
-  rows.push(["Итого", { kop: t[0] }, { kop: t[1] }, { kop: t[0] - t[1] }, { kop: t[2] }, { kop: t[3] }, { kop: t[4] }, { kop: t[5] }]);
+  rows.push(["Итого", String(t[0]), ...t.slice(1).map((kop) => ({ kop }))]);
   return {
     title: `${REPORT_TITLES.bonus} · ${p.label}`,
     notes: [
-      "Ориентировочный расчёт по правилам из главного файла: Татьяна 5%, Ева и Дмитрий вместе 10% от выручки за вычетом комиссии агрегатора; при выручке до 200 000 ₽ в месяц — гарантированный минимум 10 000 / 20 000 ₽.",
-      "Не учтены: допродажи, премия 2,5% за доходные заезды, +5% за прямые бронирования, условие «все отзывы 5». «Выплачено» — по статьям «Комиссионные Татьяны» и «Комиссионные Ева и Дима».",
-      "Внимание: это старая формула. Новые ставки — на вкладке «Договорённости»; отчёт будет переведён на них.",
+      `Ставки — вкладка «Договорённости». Ева и Дима: квартиры ${BONUS_PCT.evaDimaApt}% от нетто (прямая бронь +${BONUS_PCT.evaDimaDirectExtra}%, всего ${BONUS_PCT.evaDimaApt + BONUS_PCT.evaDimaDirectExtra}%), машины ${BONUS_PCT.evaDimaCar}% от нетто, доп. доходы (трансфер) ${BONUS_PCT.evaDimaExtra}%. Татьяна: ${BONUS_PCT.tatyana}% от брутто.`,
+      "Бронь относится к месяцу выезда. Нетто = сумма брони − комиссия площадки. Отменённые брони не считаются. Выплачивается после закрытия месяца.",
+      "«Выплачено» — расходы по статьям «Комиссионные Ева и Дима» и «Комиссионные Татьяны» в этом месяце. Брони заводятся в системе с 01.11.2026 — за более ранние месяцы начисление неполное.",
       ...reviewNote(excludedReview),
     ],
     headers,
