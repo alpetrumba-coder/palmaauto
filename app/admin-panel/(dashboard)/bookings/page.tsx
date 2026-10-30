@@ -155,6 +155,7 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
             const nights = Math.round((d.endDate.getTime() - d.startDate.getTime()) / 86400000);
             const lost = !!d.rcMissingSince;
             const stamp = (t: Date) => t.toLocaleString("ru-RU", { timeZone: "Europe/Moscow", dateStyle: "short", timeStyle: "short" });
+            const rcNo = d.rcBookingId ? `RC${d.rcBookingId}` : null;
             return {
               id: d.id,
               start: s,
@@ -163,12 +164,13 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
               color,
               dashed: lost,
               info: {
-                subtitle: `Бронь №${d.number}${d.rcBookingId ? ` · RealtyCalendar №${d.rcBookingId}` : " · внесена вручную"}`,
+                subtitle: `Бронь №${d.number}${rcNo ? ` · RealtyCalendar №${d.rcBookingId}` : " · внесена вручную"}`,
                 title: d.guestName,
                 warning: lost ? `Брони нет в RealtyCalendar (пропала ${stamp(d.rcMissingSince as Date)}). Проверьте, не отменена ли она.` : undefined,
                 lines: [
                   ["Объект", a.name],
                   ["Даты", `${rd(s)}.${s.slice(0, 4)} – ${rd(e)}.${e.slice(0, 4)} (${nights} ноч.)`],
+                  ["Номер RC", d.rcBookingId ? String(d.rcBookingId) : "нет (внесена вручную)"],
                   ["Телефон", d.phone ?? "—"],
                   ["Площадка", d.channel?.name ?? "напрямую"],
                   ["Сумма", `${Math.round(d.grossKop / 100).toLocaleString("ru-RU")} ₽`],
@@ -179,8 +181,8 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
                 history: d.changes.map((c) => `${stamp(c.at)} — ${c.text}`),
                 link: { href: `/admin-panel/accounting/deals/${d.id}`, label: "Открыть полную карточку" },
               },
-              label: `№${d.number} ${d.guestName}${lost ? " ⚠" : ""}`,
-              title: `Заезд №${d.number} · ${d.guestName} · ${rd(s)}–${rd(e)}${d.channel ? ` · ${d.channel.name}` : ""} · оплачено ${Math.round(paid / 100)} из ${Math.round(d.grossKop / 100)} ₽`,
+              label: `№${d.number}${rcNo ? ` ${rcNo}` : ""} ${d.guestName}${lost ? " ⚠" : ""}`,
+              title: `Заезд №${d.number}${rcNo ? ` · ${rcNo}` : ""} · ${d.guestName} · ${rd(s)}–${rd(e)}${d.channel ? ` · ${d.channel.name}` : ""} · оплачено ${Math.round(paid / 100)} из ${Math.round(d.grossKop / 100)} ₽`,
               href: `/admin-panel/accounting/deals/${d.id}`,
             };
           }),
@@ -195,6 +197,7 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
               lines: [
                 ["Объект", a.name],
                 ["Даты", `${rd(m.begin)}.${m.begin.slice(0, 4)} – ${rd(m.end)}.${m.end.slice(0, 4)}`],
+                ["Номер RC", String(m.rcId)],
                 ["Телефон", m.phone || "—"],
                 ["Источник", m.source || "—"],
                 ["Сумма", `${Math.round(m.amountKop / 100).toLocaleString("ru-RU")} ₽`],
@@ -208,8 +211,8 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
             color: "color-mix(in srgb, var(--color-accent) 12%, var(--color-bg))",
             textColor: "var(--color-text)",
             dashed: true,
-            label: `RC · ${m.guest || "гость"}`,
-            title: `Только в RealtyCalendar: ${m.guest || "гость не указан"} · ${rd(m.begin)}–${rd(m.end)}${m.source ? ` · ${m.source}` : ""}`,
+            label: `RC${m.rcId} · ${m.guest || "гость"}`,
+            title: `Только в RealtyCalendar №${m.rcId}: ${m.guest || "гость не указан"} · ${rd(m.begin)}–${rd(m.end)}${m.source ? ` · ${m.source}` : ""}`,
             href: "/admin-panel/accounting/rc",
           })),
       ],
