@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { OrderEditForm } from "@/components/admin/OrderEditForm";
+import { OrderEditForm, orderGuestInitialFromBooking } from "@/components/admin/OrderEditForm";
 import { bookingStatusToPaymentStatus } from "@/lib/admin-booking-payment";
-import { formatBookingUserLabel } from "@/lib/booking-display";
+import { formatBookingGuestLabel } from "@/lib/booking-display";
 import { formatDateInputUTC } from "@/lib/rental-dates";
 import { prisma } from "@/lib/prisma";
 
@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     include: { user: true, car: true },
   });
   if (!booking) return { title: "Не найдено — админ" };
-  const label = formatBookingUserLabel(booking.user);
+  const label = formatBookingGuestLabel(booking);
   return {
     title: `Заказ ${label} — админ`,
     robots: { index: false, follow: false },
@@ -73,6 +73,8 @@ export default async function AdminOrderEditPage({ params, searchParams }: PageP
     label: `${c.make} ${c.model}${c.active ? "" : " (скрыт)"}`,
     pricePerDayRub: c.pricePerDayRub,
   }));
+  const guest = orderGuestInitialFromBooking(booking);
+  const label = formatBookingGuestLabel(booking);
 
   return (
     <>
@@ -87,7 +89,7 @@ export default async function AdminOrderEditPage({ params, searchParams }: PageP
       </p>
       <h1 style={{ fontSize: "var(--text-2xl)", marginTop: 0 }}>Редактирование заказа</h1>
       <p style={{ color: "var(--color-text-secondary)", fontSize: "var(--text-sm)", marginBottom: "1.25rem" }}>
-        {formatBookingUserLabel(booking.user)} · {booking.car.make} {booking.car.model}
+        {label} · {booking.car.make} {booking.car.model}
       </p>
       <OrderEditForm
         cancelHref={cancelHref}
@@ -95,7 +97,6 @@ export default async function AdminOrderEditPage({ params, searchParams }: PageP
         initial={{
           bookingId: booking.id,
           userId: booking.userId,
-          roleLabel: booking.user.role,
           status: booking.status,
           paymentStatus: bookingStatusToPaymentStatus(booking.status),
           totalPriceRub: booking.totalPriceRub,
@@ -105,13 +106,7 @@ export default async function AdminOrderEditPage({ params, searchParams }: PageP
           paidAmountRub: booking.paidAmountRub,
           adminComment: booking.adminComment ?? "",
           isTest: booking.isTest,
-          email: booking.user.email,
-          lastName: booking.user.lastName ?? "",
-          firstName: booking.user.firstName ?? "",
-          patronymic: booking.user.patronymic ?? "",
-          phone: booking.user.phone ?? "",
-          address: booking.user.address ?? "",
-          passportData: booking.user.passportData ?? "",
+          ...guest,
         }}
       />
     </>

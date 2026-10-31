@@ -6,7 +6,7 @@
 
 import type { Prisma } from "@prisma/client";
 
-import { formatBookingUserLabel } from "@/lib/booking-display";
+import { bookingGuestPhone, formatBookingGuestLabel } from "@/lib/booking-display";
 import { prisma } from "@/lib/prisma";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -27,8 +27,8 @@ export async function syncCarDeal(bookingId: string): Promise<{ dealId: string; 
 
   const want = {
     assetId: asset.id,
-    guestName: formatBookingUserLabel(b.user),
-    phone: b.user.phone ?? null,
+    guestName: formatBookingGuestLabel(b),
+    phone: bookingGuestPhone(b),
     startDate: b.startDate,
     endDate: b.endDate,
     grossKop: Math.max(0, b.totalPriceRub) * 100,

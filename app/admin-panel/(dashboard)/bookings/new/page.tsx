@@ -16,30 +16,18 @@ export default async function AdminNewBookingPage({
   searchParams: Promise<{ carId?: string; from?: string; to?: string }>;
 }) {
   const sp = await searchParams;
-  const [users, cars] = await Promise.all([
-    prisma.user.findMany({
-      orderBy: { email: "asc" },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        patronymic: true,
-      },
-    }),
-    prisma.car.findMany({
-      orderBy: [{ make: "asc" }, { model: "asc" }],
-      select: {
-        id: true,
-        make: true,
-        model: true,
-        slug: true,
-        active: true,
-        pricePerDayRub: true,
-        minRentalDays: true,
-      },
-    }),
-  ]);
+  const cars = await prisma.car.findMany({
+    orderBy: [{ make: "asc" }, { model: "asc" }],
+    select: {
+      id: true,
+      make: true,
+      model: true,
+      slug: true,
+      active: true,
+      pricePerDayRub: true,
+      minRentalDays: true,
+    },
+  });
 
   const minDateStr = formatDateInputUTC(utcToday());
   const fromOk = sp.from?.trim() && parseDateInput(sp.from.trim());
@@ -60,11 +48,10 @@ export default async function AdminNewBookingPage({
       </p>
       <h1 style={{ fontSize: "var(--text-2xl)", marginTop: 0 }}>Новая бронь</h1>
       <p style={{ color: "var(--color-text-secondary)", fontSize: "var(--text-sm)", marginBottom: "1.25rem", maxWidth: "40rem" }}>
-        Бронь привязывается к учётной записи клиента. Общую сумму и предоплату укажите вручную; средняя стоимость в сутки
-        считается автоматически.
+        Данные туриста вносятся прямо в заказ — отдельную карточку пользователя заводить не нужно. Почта не
+        требуется. Сумму и предоплату укажите вручную.
       </p>
       <AdminBookingForm
-        users={users}
         cars={cars}
         minDateStr={minDateStr}
         initialCarId={sp.carId}

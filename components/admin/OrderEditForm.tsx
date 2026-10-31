@@ -10,11 +10,10 @@ import {
   updateAdminOrderAction,
   type AdminBookingPaymentStatus,
 } from "@/app/actions/admin-orders";
-import type { AdminUserProfilePayload } from "@/app/actions/admin-users";
 import { bookingStatusToPaymentStatus } from "@/lib/admin-booking-payment";
 import { formatPriceRub } from "@/lib/formatPrice";
 import { inclusiveRentalDays, parseDateInput } from "@/lib/rental-dates";
-import { formatRuFullName, splitRuFullName } from "@/lib/ru-full-name";
+import { formatRuFullName } from "@/lib/ru-full-name";
 import type { BookingStatus } from "@prisma/client";
 
 const fieldStyle: CSSProperties = {
@@ -31,8 +30,7 @@ export type CarOption = { id: string; label: string; pricePerDayRub: number };
 
 export type OrderEditFormInitial = {
   bookingId: string;
-  userId: string;
-  roleLabel: string;
+  userId: string | null;
   status: BookingStatus;
   paymentStatus: AdminBookingPaymentStatus;
   totalPriceRub: number;
@@ -42,24 +40,18 @@ export type OrderEditFormInitial = {
   paidAmountRub: number;
   adminComment: string;
   isTest: boolean;
-  email: string;
-  lastName: string;
-  firstName: string;
-  patronymic: string;
+  fullName: string;
+  birthYear: string;
+  passportSeries: string;
+  passportNumber: string;
   phone: string;
-  address: string;
-  passportData: string;
+  messenger: string;
 };
 
 type OrderEditFormProps = {
   initial: OrderEditFormInitial;
   cars: CarOption[];
   cancelHref: string;
-};
-
-const roleLabels: Record<string, string> = {
-  CUSTOMER: "Клиент",
-  ADMIN: "Администратор",
 };
 
 export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps) {
@@ -74,20 +66,15 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
   );
   const [adminComment, setAdminComment] = useState(initial.adminComment);
   const [isTest, setIsTest] = useState(initial.isTest);
-  const [email, setEmail] = useState(initial.email);
-  const [fullName, setFullName] = useState(() =>
-    formatRuFullName({
-      lastName: initial.lastName,
-      firstName: initial.firstName,
-      patronymic: initial.patronymic,
-    }),
-  );
+  const [fullName, setFullName] = useState(initial.fullName);
+  const [birthYear, setBirthYear] = useState(initial.birthYear);
+  const [passportSeries, setPassportSeries] = useState(initial.passportSeries);
+  const [passportNumber, setPassportNumber] = useState(initial.passportNumber);
   const [phone, setPhone] = useState(initial.phone);
-  const [passportData, setPassportData] = useState(initial.passportData);
+  const [messenger, setMessenger] = useState(initial.messenger);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  const roleRu = roleLabels[initial.roleLabel] ?? initial.roleLabel;
   const selectedCar = cars.find((c) => c.id === carId);
 
   const rentalDays = useMemo(() => {
@@ -132,17 +119,6 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
       return;
     }
 
-    const { lastName, firstName, patronymic } = splitRuFullName(fullName);
-    const user: AdminUserProfilePayload = {
-      email,
-      lastName: lastName ?? "",
-      firstName: firstName ?? "",
-      patronymic: patronymic ?? "",
-      phone,
-      address: initial.address,
-      passportData,
-    };
-
     setPending(true);
     const res = await updateAdminOrderAction({
       bookingId: initial.bookingId,
@@ -154,7 +130,14 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
       paymentStatus,
       adminComment,
       isTest,
-      user,
+      guest: {
+        fullName,
+        birthYear,
+        passportSeries,
+        passportNumber,
+        phone,
+        messenger,
+      },
     });
     setPending(false);
     if (!res.ok) {
@@ -187,9 +170,92 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
 
   return (
     <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "36rem" }}>
-      <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-        Роль клиента: <strong style={{ color: "var(--color-text)" }}>{roleRu}</strong>
-      </p>
+      <fieldset
+        style={{
+          margin: 0,
+          padding: "1rem",
+          border: "1px solid var(--color-border)",
+          borderRadius: "var(--radius-md)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.85rem",
+        }}
+      >
+        <legend style={{ fontWeight: 600, fontSize: "var(--text-sm)", padding: "0 0.25rem" }}>
+          Турист
+        </legend>
+
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+          ФИО
+          <input
+            name="fullName"
+            required
+            autoComplete="name"
+            placeholder="Фамилия Имя Отчество"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+          Год рождения
+          <input
+            name="birthYear"
+            required
+            inputMode="numeric"
+            placeholder="1990"
+            value={birthYear}
+            onChange={(e) => setBirthYear(e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+            Серия паспорта
+            <input
+              name="passportSeries"
+              value={passportSeries}
+              onChange={(e) => setPassportSeries(e.target.value)}
+              style={fieldStyle}
+            />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+            Номер паспорта
+            <input
+              name="passportNumber"
+              value={passportNumber}
+              onChange={(e) => setPassportNumber(e.target.value)}
+              style={fieldStyle}
+            />
+          </label>
+        </div>
+
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+          Телефон туриста
+          <input
+            name="phone"
+            type="tel"
+            required
+            autoComplete="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+          Мессенджер
+          <input
+            name="messenger"
+            placeholder="WhatsApp / Telegram / MAX…"
+            value={messenger}
+            onChange={(e) => setMessenger(e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+      </fieldset>
 
       <fieldset
         style={{
@@ -332,76 +398,6 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
         </label>
       </fieldset>
 
-      <fieldset
-        style={{
-          margin: 0,
-          padding: "1rem",
-          border: "1px solid var(--color-border)",
-          borderRadius: "var(--radius-md)",
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.85rem",
-        }}
-      >
-        <legend style={{ fontWeight: 600, fontSize: "var(--text-sm)", padding: "0 0.25rem" }}>
-          Клиент
-        </legend>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-          Email
-          <input
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={fieldStyle}
-          />
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-          ФИО клиента
-          <input
-            name="fullName"
-            autoComplete="name"
-            placeholder="Фамилия Имя Отчество"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            style={fieldStyle}
-          />
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-          Телефон
-          <input
-            name="phone"
-            type="tel"
-            autoComplete="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            style={fieldStyle}
-          />
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-          Паспорт (серия, номер, кем и когда выдан)
-          <textarea
-            name="passportData"
-            rows={4}
-            value={passportData}
-            onChange={(e) => setPassportData(e.target.value)}
-            style={{ ...fieldStyle, resize: "vertical", minHeight: "5rem" }}
-          />
-        </label>
-
-        <p style={{ margin: 0, fontSize: "var(--text-sm)" }}>
-          <Link href={`/admin-panel/users/${initial.userId}/edit`} style={{ fontWeight: 600 }}>
-            Только карточка пользователя
-          </Link>
-        </p>
-      </fieldset>
-
       {error ? (
         <p role="alert" style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-danger, #b00020)" }}>
           {error}
@@ -446,4 +442,62 @@ export function OrderEditForm({ initial, cars, cancelHref }: OrderEditFormProps)
       </div>
     </form>
   );
+}
+
+/** Собрать начальные поля туриста из брони (+ fallback на User для старых заказов). */
+export function orderGuestInitialFromBooking(booking: {
+  guestLastName: string | null;
+  guestFirstName: string | null;
+  guestPatronymic: string | null;
+  guestBirthYear: number | null;
+  guestPassportSeries: string | null;
+  guestPassportNumber: string | null;
+  guestPhone: string | null;
+  guestMessenger: string | null;
+  user: {
+    lastName: string | null;
+    firstName: string | null;
+    patronymic: string | null;
+    phone: string | null;
+    passportSeries: string | null;
+    passportNumber: string | null;
+    passportData: string | null;
+    ageYears: number | null;
+  } | null;
+}): Pick<
+  OrderEditFormInitial,
+  "fullName" | "birthYear" | "passportSeries" | "passportNumber" | "phone" | "messenger"
+> {
+  const hasGuestName = Boolean(booking.guestLastName || booking.guestFirstName);
+  const fullName = hasGuestName
+    ? formatRuFullName({
+        lastName: booking.guestLastName,
+        firstName: booking.guestFirstName,
+        patronymic: booking.guestPatronymic,
+      })
+    : formatRuFullName({
+        lastName: booking.user?.lastName,
+        firstName: booking.user?.firstName,
+        patronymic: booking.user?.patronymic,
+      });
+
+  let passportSeries = booking.guestPassportSeries ?? booking.user?.passportSeries ?? "";
+  let passportNumber = booking.guestPassportNumber ?? booking.user?.passportNumber ?? "";
+  const legacyPassport = booking.user?.passportData?.trim();
+  if (!passportSeries && !passportNumber && legacyPassport) {
+    const parts = legacyPassport.split(/\s+/);
+    if (parts.length >= 2) {
+      passportSeries = parts[0] ?? "";
+      passportNumber = parts[1]?.replace(/,.*/, "") ?? "";
+    }
+  }
+
+  return {
+    fullName,
+    birthYear: booking.guestBirthYear != null ? String(booking.guestBirthYear) : "",
+    passportSeries,
+    passportNumber,
+    phone: booking.guestPhone ?? booking.user?.phone ?? "",
+    messenger: booking.guestMessenger ?? "",
+  };
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { OrdersListTable, type OrderListRow } from "@/components/admin/OrdersPageClient";
+import { bookingGuestPhone, formatBookingGuestLabel } from "@/lib/booking-display";
 import { bookingHoldsCarWhere } from "@/lib/booking-overlap";
 import { formatDateInputUTC } from "@/lib/rental-dates";
 import { prisma } from "@/lib/prisma";
@@ -38,7 +39,8 @@ export default async function AdminOrdersPage() {
     totalPriceRub: b.totalPriceRub,
     paidAmountRub: b.paidAmountRub,
     isTest: b.isTest,
-    user: b.user,
+    guestLabel: formatBookingGuestLabel(b),
+    guestPhone: bookingGuestPhone(b),
   }));
 
   return (
@@ -64,7 +66,7 @@ export default async function AdminOrdersPage() {
       </div>
 
       <p style={{ marginTop: "0.75rem", color: "var(--color-text-secondary)", fontSize: "var(--text-sm)", maxWidth: "44rem" }}>
-        Активные брони машин: правка дат, автомобиля, предоплаты и данных клиента. Новая бронь заводится только на шахматке (кнопка «Новая бронь»).
+        Активные брони машин: правка дат, автомобиля, предоплаты и данных туриста в одной карточке заказа. Новая бронь — на шахматке (кнопка «Новая бронь»), без отдельного пользователя.
       </p>
 
       <OrdersListTable orders={orders} />

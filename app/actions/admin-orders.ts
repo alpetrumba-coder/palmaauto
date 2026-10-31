@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { syncCarDealSafe } from "@/lib/car-deals";
 
-import { type AdminUserProfilePayload, updateAdminUserAction } from "@/app/actions/admin-users";
+import {
+  parseAdminBookingGuest,
+  type AdminBookingGuestInput,
+} from "@/lib/admin-booking-guest";
 import { carBookingOverlapWhere } from "@/lib/booking-overlap";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
@@ -33,9 +36,15 @@ export async function updateAdminOrderAction(input: {
   paymentStatus: AdminBookingPaymentStatus;
   adminComment: string;
   isTest: boolean;
-  user: AdminUserProfilePayload;
+  guest: AdminBookingGuestInput;
 }): Promise<AdminOrderActionResult> {
   await requireAdminPanelSession();
+
+  const guestParsed = parseAdminBookingGuest(input.guest);
+  if (!guestParsed.ok) {
+    return guestParsed;
+  }
+  const { guest } = guestParsed;
 
   const start = parseDateInput(input.startDate);
   const end = parseDateInput(input.endDate);
@@ -96,11 +105,6 @@ export async function updateAdminOrderAction(input: {
     return { ok: false, error: "Эти даты пересекаются с другой активной бронью по этой машине." };
   }
 
-  const userRes = await updateAdminUserAction(booking.userId, input.user);
-  if (!userRes.ok) {
-    return userRes;
-  }
-
   await prisma.booking.update({
     where: { id: booking.id },
     data: {
@@ -112,8 +116,34 @@ export async function updateAdminOrderAction(input: {
       status: payment.status,
       adminComment: emptyToNull(input.adminComment),
       isTest: input.isTest,
+      ...guest,
     },
   });
+
+  // Старые заказы с учёткой сайта: синхронизируем ФИО/телефон/паспорт, email не трогаем.
+  if (booking.userId) {
+    const passportData =
+      guest.guestPassportSeries && guest.guestPassportNumber
+        ? `${guest.guestPassportSeries} ${guest.guestPassportNumber}`
+        : null;
+    const ageYears =
+      guest.guestBirthYear != null
+        ? Math.max(18, new Date().getFullYear() - guest.guestBirthYear)
+        : undefined;
+    await prisma.user.update({
+      where: { id: booking.userId },
+      data: {
+        lastName: guest.guestLastName,
+        firstName: guest.guestFirstName,
+        patronymic: guest.guestPatronymic,
+        phone: guest.guestPhone,
+        passportSeries: guest.guestPassportSeries,
+        passportNumber: guest.guestPassportNumber,
+        passportData,
+        ...(ageYears !== undefined ? { ageYears } : {}),
+      },
+    });
+  }
 
   await syncCarDealSafe(booking.id);
   revalidateOrderPaths(car.slug);
@@ -121,8 +151,10 @@ export async function updateAdminOrderAction(input: {
     revalidateOrderPaths(booking.car.slug);
   }
   revalidatePath(`/admin-panel/orders/${booking.id}/edit`);
-  revalidatePath("/admin-panel/users");
-  revalidatePath(`/admin-panel/users/${booking.userId}/edit`);
+  if (booking.userId) {
+    revalidatePath("/admin-panel/users");
+    revalidatePath(`/admin-panel/users/${booking.userId}/edit`);
+  }
 
   return { ok: true };
 }

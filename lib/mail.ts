@@ -34,7 +34,9 @@ export type AdminBookingEmailInput = {
   days: number;
   totalPriceRub: number;
   car: { make: string; model: string; slug: string };
-  user: { email: string; firstName: string | null; lastName: string | null; patronymic: string | null; phone: string | null };
+  guest?: { label: string; phone: string | null; messenger: string | null };
+  /** Бронь с сайта — карточка пользователя */
+  user?: { email: string; firstName: string | null; lastName: string | null; patronymic: string | null; phone: string | null };
 };
 
 /** Уведомление администратору о новой брони (Resend). */
@@ -57,9 +59,21 @@ export async function sendAdminBookingCreatedEmail(input: AdminBookingEmailInput
   }
 
   const resend = new Resend(key);
-  const userLabel = formatBookingUserLabel(input.user);
+  const guestLabel =
+    input.guest?.label ??
+    (input.user ? formatBookingUserLabel(input.user) : "Без имени");
+  const phone = input.guest?.phone ?? input.user?.phone ?? null;
+  const messenger = input.guest?.messenger ?? null;
+  const email = input.user?.email ?? null;
   const carLabel = `${input.car.make} ${input.car.model}`.trim();
   const subject = `Новая бронь ${carLabel} (${fromStr} → ${formatDateInputUTC(input.endDate)})`;
+
+  const contactLines = [
+    `Турист: ${guestLabel}`,
+    `Телефон: ${phone ?? "—"}`,
+    messenger ? `Мессенджер: ${messenger}` : null,
+    email ? `Email: ${email}` : null,
+  ].filter(Boolean) as string[];
 
   const text = [
     `Новая бронь в ПальмаАвто`,
@@ -70,12 +84,19 @@ export async function sendAdminBookingCreatedEmail(input: AdminBookingEmailInput
     `Период: ${fromStr} → ${formatDateInputUTC(input.endDate)} (${input.days} сут.)`,
     `Сумма: ${input.totalPriceRub} ₽`,
     ``,
-    `Клиент: ${userLabel}`,
-    `Email: ${input.user.email}`,
-    `Телефон: ${input.user.phone ?? "—"}`,
+    ...contactLines,
     ``,
     `Открыть в админке: ${adminLink}`,
   ].join("\n");
+
+  const contactHtml = [
+    `<strong>Турист:</strong> ${guestLabel}`,
+    `<strong>Телефон:</strong> ${phone ?? "—"}`,
+    messenger ? `<strong>Мессенджер:</strong> ${messenger}` : null,
+    email ? `<strong>Email:</strong> ${email}` : null,
+  ]
+    .filter(Boolean)
+    .join("<br/>\n    ");
 
   const html = `
     <p><strong>Новая бронь в ПальмаАвто</strong></p>
@@ -86,9 +107,7 @@ export async function sendAdminBookingCreatedEmail(input: AdminBookingEmailInput
       <li><strong>Период:</strong> ${fromStr} → ${formatDateInputUTC(input.endDate)} (${input.days} сут.)</li>
       <li><strong>Сумма:</strong> ${input.totalPriceRub} ₽</li>
     </ul>
-    <p><strong>Клиент:</strong> ${userLabel}<br/>
-    <strong>Email:</strong> ${input.user.email}<br/>
-    <strong>Телефон:</strong> ${input.user.phone ?? "—"}</p>
+    <p>${contactHtml}</p>
     <p><a href="${adminLink}">Открыть в админ-панели</a></p>
   `.trim();
 

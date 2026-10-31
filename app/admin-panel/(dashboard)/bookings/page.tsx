@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { Chessboard, type ChessBar, type ChessRow } from "@/components/admin/Chessboard";
 import { getDealTotals } from "@/lib/accounting";
-import { formatBookingUserLabel } from "@/lib/booking-display";
+import { bookingGuestPhone, formatBookingGuestLabel } from "@/lib/booking-display";
 import { bookingsOverlappingRangeWhere } from "@/lib/booking-overlap";
 import { prisma } from "@/lib/prisma";
 import type { RcRunSummary } from "@/lib/rc-sync";
@@ -71,7 +71,9 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
       prisma.car.findMany({ orderBy: [{ make: "asc" }, { model: "asc" }], select: { id: true, make: true, model: true, slug: true, active: true, isTest: true, pricePerDayRub: true } }),
       prisma.booking.findMany({
         where: bookingsOverlappingRangeWhere(viewStart, viewEnd),
-        include: { user: { select: { email: true, firstName: true, lastName: true, patronymic: true, phone: true } } },
+        include: {
+          user: { select: { email: true, firstName: true, lastName: true, patronymic: true, phone: true } },
+        },
         orderBy: { startDate: "asc" },
       }),
     ]);
@@ -91,8 +93,10 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
       bars: bookingsRaw
         .filter((b) => b.carId === car.id)
         .map<ChessBar>((b) => {
-          const label = formatBookingUserLabel(b.user);
-          const phone = b.user.phone ? ` · ${b.user.phone}` : "";
+          const label = formatBookingGuestLabel(b);
+          const phoneVal = bookingGuestPhone(b);
+          const phone = phoneVal ? ` · ${phoneVal}` : "";
+          const messenger = b.guestMessenger?.trim() ? b.guestMessenger.trim() : null;
           const back = `/admin-panel/bookings?from=${encodeURIComponent(fromStr)}`;
           const cd = dealByBooking.get(b.id);
           return {
@@ -105,12 +109,12 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
             title: `${label}${phone} · ${rd(iso(b.startDate))}–${rd(iso(b.endDate))}`,
             href: `/admin-panel/orders/${b.id}/edit?back=${encodeURIComponent(back)}`,
             info: {
-              subtitle: cd ? `Бронь №${cd.number} · заказ на сайте · ${car.make} ${car.model}` : `${b.isTest ? "Тестовый заказ" : "Заказ на сайте"} · ${car.make} ${car.model}`,
+              subtitle: cd ? `Бронь №${cd.number} · заказ · ${car.make} ${car.model}` : `${b.isTest ? "Тестовый заказ" : "Заказ"} · ${car.make} ${car.model}`,
               title: label,
               lines: [
                 ["Даты", `${rd(iso(b.startDate))}.${iso(b.startDate).slice(0, 4)} – ${rd(iso(b.endDate))}.${iso(b.endDate).slice(0, 4)}`],
-                ["Телефон", b.user.phone ?? "—"],
-                ["Почта", b.user.email ?? "—"],
+                ["Телефон", phoneVal ?? "—"],
+                ["Мессенджер", messenger ?? "—"],
                 ["Статус оплаты", b.status === "PAID" ? "оплачен" : b.status === "PARTIALLY_PAID" ? "оплачен частично" : b.status === "PENDING_PAYMENT" ? "не оплачен" : String(b.status)],
               ],
               link: cd

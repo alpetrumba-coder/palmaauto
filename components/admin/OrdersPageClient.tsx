@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { cancelAdminOrderAction } from "@/app/actions/admin-orders";
-import { formatBookingUserLabel } from "@/lib/booking-display";
 import { bookingStatusLabelRu } from "@/lib/admin-order-labels";
 import type { BookingStatus } from "@prisma/client";
 
@@ -18,13 +17,8 @@ export type OrderListRow = {
   totalPriceRub: number;
   paidAmountRub: number;
   isTest: boolean;
-  user: {
-    email: string;
-    firstName: string | null;
-    lastName: string | null;
-    patronymic: string | null;
-    phone: string | null;
-  };
+  guestLabel: string;
+  guestPhone: string | null;
 };
 
 export function OrdersListTable({ orders: initialOrders }: { orders: OrderListRow[] }) {
@@ -91,7 +85,7 @@ export function OrdersListTable({ orders: initialOrders }: { orders: OrderListRo
           <thead>
             <tr style={{ background: "var(--color-surface)", textAlign: "left" }}>
               <th style={{ padding: "0.65rem 0.75rem", borderBottom: "1px solid var(--color-border)" }}>Авто</th>
-              <th style={{ padding: "0.65rem 0.75rem", borderBottom: "1px solid var(--color-border)" }}>Клиент</th>
+              <th style={{ padding: "0.65rem 0.75rem", borderBottom: "1px solid var(--color-border)" }}>Турист</th>
               <th style={{ padding: "0.65rem 0.75rem", borderBottom: "1px solid var(--color-border)" }}>Период</th>
               <th style={{ padding: "0.65rem 0.75rem", borderBottom: "1px solid var(--color-border)" }}>Статус</th>
               <th style={{ padding: "0.65rem 0.75rem", borderBottom: "1px solid var(--color-border)" }}>Сумма</th>
@@ -121,10 +115,10 @@ export function OrdersListTable({ orders: initialOrders }: { orders: OrderListRo
                     ) : null}
                   </td>
                   <td style={{ padding: "0.6rem 0.75rem", borderBottom: "1px solid var(--color-border)" }}>
-                    {formatBookingUserLabel(o.user)}
-                    {o.user.phone ? (
+                    {o.guestLabel}
+                    {o.guestPhone ? (
                       <span style={{ display: "block", color: "var(--color-text-secondary)", fontSize: "11px" }}>
-                        {o.user.phone}
+                        {o.guestPhone}
                       </span>
                     ) : null}
                   </td>

@@ -128,7 +128,8 @@ enum ConsentType {
 /// Бронь: startDate — выдача, endDate — возврат; сутки считаются по ночам между датами.
 model Booking {
   id            String        @id @default(cuid())
-  userId        String        @map("user_id")
+  /// Клиент сайта (личный кабинет). Для брони из админки по телефону может быть пустым — данные туриста в guest*.
+  userId        String?       @map("user_id")
   carId         String        @map("car_id")
   startDate     DateTime      @map("start_date") @db.Date
   endDate       DateTime      @map("end_date") @db.Date
@@ -152,6 +153,15 @@ model Booking {
   secondDriverFeeRub Int @default(0) @map("second_driver_fee_rub")
   childSeatEnabled Boolean @default(false) @map("child_seat_enabled")
   childSeatFeeRub Int @default(0) @map("child_seat_fee_rub")
+  /// Данные туриста при брони из админки (без отдельной карточки пользователя).
+  guestLastName        String? @map("guest_last_name")
+  guestFirstName       String? @map("guest_first_name")
+  guestPatronymic      String? @map("guest_patronymic")
+  guestBirthYear       Int?    @map("guest_birth_year")
+  guestPassportSeries  String? @map("guest_passport_series")
+  guestPassportNumber  String? @map("guest_passport_number")
+  guestPhone           String? @map("guest_phone")
+  guestMessenger       String? @map("guest_messenger")
   /// Снимок данных арендатора для генерации договора (PDF).
   contractMeta  Json?       @map("contract_meta")
   /// Комментарий администратора к заказу (только админ-панель).
@@ -161,7 +171,7 @@ model Booking {
   consents      ConsentRecord[]
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   car           Car           @relation(fields: [carId], references: [id], onDelete: Cascade)
 
   @@index([userId])

@@ -103,7 +103,7 @@ export default function AdminPanelHomePage() {
             Пользователи
           </Link>
           <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
-            Клиенты: ФИО, email, телефон, адрес, паспортные данные.
+            Учётки сайта (личный кабинет). Заказы по телефону — без карточки, в «Новой брони».
           </p>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>

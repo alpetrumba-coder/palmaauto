@@ -9,7 +9,6 @@ import {
   createAdminBookingAction,
   type AdminBookingPaymentStatus,
 } from "@/app/actions/admin-bookings";
-import { formatBookingUserLabel } from "@/lib/booking-display";
 import { formatPriceRub } from "@/lib/formatPrice";
 import { inclusiveRentalDays, parseDateInput } from "@/lib/rental-dates";
 
@@ -23,14 +22,6 @@ const fieldStyle: CSSProperties = {
   color: "var(--color-text)",
 };
 
-export type AdminBookingUserOption = {
-  id: string;
-  email: string;
-  firstName: string | null;
-  lastName: string | null;
-  patronymic: string | null;
-};
-
 export type AdminBookingCarOption = {
   id: string;
   make: string;
@@ -42,7 +33,6 @@ export type AdminBookingCarOption = {
 };
 
 type AdminBookingFormProps = {
-  users: AdminBookingUserOption[];
   cars: AdminBookingCarOption[];
   minDateStr: string;
   initialCarId?: string;
@@ -50,13 +40,7 @@ type AdminBookingFormProps = {
   initialTo?: string;
 };
 
-function userLabel(u: AdminBookingUserOption): string {
-  const name = formatBookingUserLabel(u);
-  return name === u.email ? u.email : `${u.email} — ${name}`;
-}
-
 export function AdminBookingForm({
-  users,
   cars,
   minDateStr,
   initialCarId,
@@ -64,7 +48,12 @@ export function AdminBookingForm({
   initialTo,
 }: AdminBookingFormProps) {
   const router = useRouter();
-  const [userId, setUserId] = useState(users[0]?.id ?? "");
+  const [fullName, setFullName] = useState("");
+  const [birthYear, setBirthYear] = useState("");
+  const [passportSeries, setPassportSeries] = useState("");
+  const [passportNumber, setPassportNumber] = useState("");
+  const [phone, setPhone] = useState("");
+  const [messenger, setMessenger] = useState("");
   const [carId, setCarId] = useState(() => {
     if (initialCarId && cars.some((c) => c.id === initialCarId)) return initialCarId;
     return cars[0]?.id ?? "";
@@ -110,8 +99,8 @@ export function AdminBookingForm({
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!userId || !carId) {
-      setError("Выберите клиента и автомобиль.");
+    if (!carId) {
+      setError("Выберите автомобиль.");
       return;
     }
     if (rentalDays === null) {
@@ -131,7 +120,14 @@ export function AdminBookingForm({
 
     setPending(true);
     const res = await createAdminBookingAction({
-      userId,
+      guest: {
+        fullName,
+        birthYear,
+        passportSeries,
+        passportNumber,
+        phone,
+        messenger,
+      },
       carId,
       startDate: start,
       endDate: end,
@@ -148,14 +144,6 @@ export function AdminBookingForm({
     router.refresh();
   }
 
-  if (users.length === 0) {
-    return (
-      <p style={{ color: "var(--color-text-secondary)" }}>
-        Нет пользователей в базе. Сначала зарегистрируйте клиента на сайте или создайте учётную запись.
-      </p>
-    );
-  }
-
   if (cars.length === 0) {
     return (
       <p style={{ color: "var(--color-text-secondary)" }}>
@@ -166,22 +154,92 @@ export function AdminBookingForm({
 
   return (
     <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "32rem" }}>
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
-        Клиент
-        <select
-          name="userId"
-          required
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-          style={fieldStyle}
-        >
-          {users.map((u) => (
-            <option key={u.id} value={u.id}>
-              {userLabel(u)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <fieldset
+        style={{
+          margin: 0,
+          padding: "1rem",
+          border: "1px solid var(--color-border)",
+          borderRadius: "var(--radius-md)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.85rem",
+        }}
+      >
+        <legend style={{ fontWeight: 600, fontSize: "var(--text-sm)", padding: "0 0.25rem" }}>
+          Турист
+        </legend>
+
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+          ФИО
+          <input
+            name="fullName"
+            required
+            autoComplete="name"
+            placeholder="Фамилия Имя Отчество"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+          Год рождения
+          <input
+            name="birthYear"
+            required
+            inputMode="numeric"
+            placeholder="1990"
+            value={birthYear}
+            onChange={(e) => setBirthYear(e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+            Серия паспорта
+            <input
+              name="passportSeries"
+              value={passportSeries}
+              onChange={(e) => setPassportSeries(e.target.value)}
+              style={fieldStyle}
+            />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+            Номер паспорта
+            <input
+              name="passportNumber"
+              value={passportNumber}
+              onChange={(e) => setPassportNumber(e.target.value)}
+              style={fieldStyle}
+            />
+          </label>
+        </div>
+
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+          Телефон туриста
+          <input
+            name="phone"
+            type="tel"
+            required
+            autoComplete="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
+          Мессенджер
+          <input
+            name="messenger"
+            placeholder="WhatsApp / Telegram / MAX…"
+            value={messenger}
+            onChange={(e) => setMessenger(e.target.value)}
+            style={fieldStyle}
+          />
+        </label>
+      </fieldset>
 
       <label style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "var(--text-sm)" }}>
         Автомобиль

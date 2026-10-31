@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 
 import { syncCarDealSafe } from "@/lib/car-deals";
 
+import {
+  parseAdminBookingGuest,
+  type AdminBookingGuestInput,
+} from "@/lib/admin-booking-guest";
 import { carBookingOverlapWhere } from "@/lib/booking-overlap";
+import { formatBookingGuestLabel } from "@/lib/booking-display";
 import { sendAdminBookingCreatedEmail } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
@@ -19,10 +24,10 @@ export type AdminBookingActionResult = { ok: true } | { ok: false; error: string
 export type { AdminBookingPaymentStatus };
 
 /**
- * Создание брони менеджером: сумма и предоплата задаются вручную.
+ * Создание брони менеджером: данные туриста в самой карточке заказа, без отдельного пользователя.
  */
 export async function createAdminBookingAction(input: {
-  userId: string;
+  guest: AdminBookingGuestInput;
   carId: string;
   startDate: string;
   endDate: string;
@@ -31,6 +36,12 @@ export async function createAdminBookingAction(input: {
   status: AdminBookingPaymentStatus;
 }): Promise<AdminBookingActionResult> {
   await requireAdminPanelSession();
+
+  const guestParsed = parseAdminBookingGuest(input.guest);
+  if (!guestParsed.ok) {
+    return guestParsed;
+  }
+  const { guest } = guestParsed;
 
   const start = parseDateInput(input.startDate);
   const end = parseDateInput(input.endDate);
@@ -67,14 +78,7 @@ export async function createAdminBookingAction(input: {
     return payment;
   }
 
-  const [user, car] = await Promise.all([
-    prisma.user.findUnique({ where: { id: input.userId } }),
-    prisma.car.findUnique({ where: { id: input.carId } }),
-  ]);
-
-  if (!user) {
-    return { ok: false, error: "Пользователь не найден." };
-  }
+  const car = await prisma.car.findUnique({ where: { id: input.carId } });
   if (!car) {
     return { ok: false, error: "Автомобиль не найден." };
   }
@@ -94,7 +98,6 @@ export async function createAdminBookingAction(input: {
 
   const created = await prisma.booking.create({
     data: {
-      userId: input.userId,
       carId: input.carId,
       startDate: start,
       endDate: end,
@@ -103,6 +106,7 @@ export async function createAdminBookingAction(input: {
       paidAmountRub: payment.paidAmountRub,
       totalPriceRub,
       isTest: car.isTest,
+      ...guest,
     },
   });
 
@@ -115,19 +119,17 @@ export async function createAdminBookingAction(input: {
       days,
       totalPriceRub: created.totalPriceRub,
       car: { make: car.make, model: car.model, slug: car.slug },
-      user: {
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        patronymic: user.patronymic,
-        phone: user.phone,
+      guest: {
+        label: formatBookingGuestLabel(guest),
+        phone: guest.guestPhone,
+        messenger: guest.guestMessenger,
       },
     });
   } catch (e) {
     console.warn("[admin-booking] admin email failed:", e);
   }
 
-  await syncCarDealSafe(created.id); // карточка аренды со сквозным номером
+  await syncCarDealSafe(created.id);
   revalidatePath("/moi-broni");
   revalidatePath("/account");
   revalidatePath("/book");
