@@ -14,7 +14,8 @@ const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 const CHAT = FACTORY_EDITOR_PREFIX + '/chat/';
 const uploadRequest = (method: string, path: string) => method === 'POST' && new RegExp('^' + CHAT + UUID + '/attachments$').test(path);
 const attachmentRequest = (method: string, path: string) => method === 'GET' && new RegExp('^' + CHAT + UUID + '/attachments/' + UUID + '$').test(path);
-const previewRequest = (method: string, path: string) => method === 'GET' && canonicalPath(path)
+const previewRequest = (method: string, path: string) => adminPreviewRequest(method, path)
+  || method === 'GET' && canonicalPath(path)
   && new RegExp('^' + FACTORY_EDITOR_PREFIX + '/preview/' + UUID + '/' + UUID + '/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]*$').test(path);
 const responseLimit = (method: string, path: string) => previewRequest(method, path) ? MAX_PREVIEW_RESPONSE
   : attachmentRequest(method, path) ? MAX_ATTACHMENT_RESPONSE : MAX_RESPONSE;
@@ -29,7 +30,9 @@ function chatJsonRequest(method: string, path: string): boolean {
 const HEX_SESSION = /^[a-f0-9]{64}$/;
 const FORM_TYPE = /^application\/x-www-form-urlencoded(?:;\s*charset=utf-8)?$/i;
 const SECURITY = { "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer" };
-const OWNER_CSP = "default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+const OWNER_CSP = "default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-src https://palmaauto.ru/admin-panel/ai-editor/preview/; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+// Must match the verified Factory administrative document policy exactly.
+const ADMIN_PREVIEW_CSP = "default-src 'none'; script-src 'unsafe-inline' data:; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; form-action 'none'; worker-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; sandbox allow-scripts";
 type Session = Readonly<{ role: string; staffId: string }>;
 type RawHeaders = Readonly<Record<string, string | string[] | undefined>>;
 type GatewayResponse = Readonly<{ status: number; headers: RawHeaders; body: Buffer }>;
@@ -59,10 +62,43 @@ function canonicalPath(path: string): boolean {
     && /^\/admin-panel\/ai-editor(?:\/[A-Za-z0-9_.-]+)*\/?$/.test(path)
     && !path.split("/").some((part) => part === "." || part === "..");
 }
+function adminPreviewRequest(method: string, path: string): boolean {
+  if (method !== 'GET' || path.length > 2304 || !new RegExp('^' + FACTORY_EDITOR_PREFIX
+    + '/preview/' + UUID + '/' + UUID + '/admin-panel/bookings(?:\\?[A-Za-z0-9=&-]+)?$').test(path)) return false;
+  const query = path.split('?')[1];
+  if (query === undefined) return true;
+  const params = new URLSearchParams(query);
+  const pairs = [...params];
+  if (pairs.length > 3 || new Set(pairs.map(([key]) => key)).size !== pairs.length) return false;
+  for (const [key, value] of pairs) {
+    if (key === 'from') {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(Date.parse(value))
+        || new Date(value).toISOString().slice(0, 10) !== value) return false;
+    } else if (key === 'tab' ? !['cars', 'apts'].includes(value) : key !== 'hidden' || value !== '1') return false;
+  }
+  const canonical = ['from', 'tab', 'hidden'].filter(key => params.has(key))
+    .map(key => key + '=' + params.get(key)).join('&');
+  return query === canonical;
+}
+function canonicalRequestPath(method: string, path: string): boolean {
+  return canonicalPath(path) || adminPreviewRequest(method, path);
+}
+function supportedAdminBrowser(request: Request): boolean {
+  const destination = request.headers.get('sec-fetch-dest');
+  if (destination !== 'iframe' && destination !== 'empty') return false;
+  const brands = request.headers.get('sec-ch-ua') ?? '';
+  if (brands.length > 512 || !/^"[^"\\\r\n]{1,80}";v="\d{1,3}"(?:,[ \t]*"[^"\\\r\n]{1,80}";v="\d{1,3}")*$/.test(brands)) return false;
+  const entries = [...brands.matchAll(/"([^"\\\r\n]{1,80})";v="(\d{1,3})"/g)];
+  if (new Set(entries.map(entry => entry[1])).size !== entries.length
+    || entries.some(entry => /edge/i.test(entry[1]))) return false;
+  return entries.some(entry => entry[1] === 'Google Chrome' && Number(entry[2]) >= 152);
+}
 function requestPath(request: Request): string {
   const url = new URL(request.url);
-  if (url.search || url.hash || !canonicalPath(url.pathname)) fail(400);
-  return url.pathname;
+  const path = url.pathname + url.search;
+  if (request.url.includes('#') || (request.url.includes('?') && !url.search)
+    || !canonicalRequestPath(request.method, path)) fail(400);
+  return path;
 }
 function ownerCookie(request: Request): string {
   const raw = request.headers.get("cookie") ?? "";
@@ -112,7 +148,7 @@ async function bodyBytes(request: Request, path: string, timeoutMs: number): Pro
 /** Domain-separated signing key. AUTH_SECRET never crosses the site boundary. */
 export function signGatewayRequest(input: SigningInput): GatewayRequest {
   if (input.authSecret.length < 16 || input.authSecret.length > 4096
-    || !/^[A-Za-z0-9_-]{1,128}$/.test(input.staffId) || !canonicalPath(input.path)
+    || !/^[A-Za-z0-9_-]{1,128}$/.test(input.staffId) || !canonicalRequestPath(input.method, input.path)
     || (input.ownerCookie !== "" && !HEX_SESSION.test(input.ownerCookie))
     || !["GET", "POST"].includes(input.method) || input.body.length > requestLimit(input.method, input.path)) fail(403);
   const time = String(input.now ?? Date.now());
@@ -188,8 +224,18 @@ function responseHeaders(response: GatewayResponse, preview: boolean, method: st
     }
   }
   const policy = result.get("content-security-policy") ?? OWNER_CSP;
-  if (preview && (!/(?:^|;)\s*sandbox\s*(?:;|$)/.test(policy)
-    || !policy.includes("script-src 'none'") || !policy.includes("form-action 'none'") || policy.includes("allow-same-origin"))) fail(503);
+  const marker = singleHeader(response.headers, 'x-factory-admin-preview');
+  const adminDocument = adminPreviewRequest(method, path) && response.status === 200;
+  if (adminDocument) {
+    if (marker !== 'chessboard-v1' || policy !== ADMIN_PREVIEW_CSP
+      || result.get('content-type') !== 'text/html; charset=utf-8'
+      || singleHeader(response.headers, 'connection-allowlist') !== '()') fail(503);
+    result.set('x-factory-admin-preview', marker);
+    result.set('connection-allowlist', '()');
+  } else if (marker !== undefined || policy === ADMIN_PREVIEW_CSP) fail(503);
+  if (preview && !adminDocument && (!/(?:^|;)\s*sandbox\s*(?:;|$)/.test(policy)
+    || !policy.includes("script-src 'none'") || !policy.includes("form-action 'none'")
+    || policy.includes("allow-same-origin") || policy.includes("allow-scripts"))) fail(503);
   result.set("content-security-policy", policy);
   const type = (result.get('content-type') ?? '').toLowerCase();
   if (download && response.status === 200) {
@@ -220,6 +266,11 @@ function errorResponse(status: number): Response {
   const html = `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><body style="font-family:system-ui,sans-serif;margin:2rem;color:#20252b"><h1>${title}</h1><p>Вернитесь в админ-панель и откройте редактор ещё раз.</p><a href="/admin-panel">В админ-панель</a></body></html>`;
   return new Response(html, { status, headers: { ...SECURITY, "content-type": "text/html; charset=utf-8", "content-security-policy": OWNER_CSP } });
 }
+function unsupportedAdminResponse(): Response {
+  const html = '<!doctype html><html lang="ru"><meta charset="utf-8"><title>Просмотр недоступен</title><body><h1>Просмотр недоступен</h1><p>Тестовая административная шахматка доступна внутри редактора. Для просмотра нужен Google Chrome 152 или новее. Откройте редактор в поддерживаемом браузере.</p><a href="/admin-panel/ai-editor/">В редактор</a></body></html>';
+  return new Response(html, { status: 409, headers: { ...SECURITY, 'content-type': 'text/html; charset=utf-8',
+    'content-security-policy': OWNER_CSP, 'permissions-policy': 'microphone=(), camera=(), geolocation=()' } });
+}
 
 /** Every request rechecks the site's active OWNER session before signing. */
 export function createFactoryAdminHandler(options: HandlerOptions): (request: Request) => Promise<Response> {
@@ -233,6 +284,7 @@ export function createFactoryAdminHandler(options: HandlerOptions): (request: Re
       if (Date.now() - rateStarted >= 60000) { rateStarted = Date.now(); rateCount = 0; }
       if (++rateCount > 120) return errorResponse(429);
       const path = requestPath(request);
+      if (adminPreviewRequest(request.method, path) && !supportedAdminBrowser(request)) return unsupportedAdminResponse();
       const body = await bodyBytes(request, path, options.bodyTimeoutMs ?? (uploadRequest(request.method, path) ? 30000 : 5000));
       const authSecret = (options.authSecret ?? (() => process.env.AUTH_SECRET))();
       if (!authSecret) return errorResponse(503);
