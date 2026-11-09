@@ -766,6 +766,7 @@ async function handleVoice(chatId: number, voice: TgVoice) {
     const audio = await downloadFile(file_path);
     const stt = await recognizeOggOpus(audio);
     if (!stt.ok) {
+      console.error("[telegram-voice] stt", audio.length, "bytes,", voice.duration ?? "?", "s:", stt.error.slice(0, 300));
       await sendMessage(chatId, `${stt.error} Можно повторить голосом или написать текстом.`);
       return;
     }
