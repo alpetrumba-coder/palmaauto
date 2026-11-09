@@ -31,6 +31,7 @@ const HELP =
   "• новая бронь Рио с 5 по 10 ноября Иванов 25000 Авито — бронь квартиры\n" +
   "Бот покажет карточку и спросит, чего не хватает (сумма, статья, заезд или объект, касса). Отвечайте коротко — " +
   "«34», «Иванов», «с карты х» — фразу целиком повторять не нужно. Исправить: «не 1500, а 1800». " +
+  "Задним числом: «вчера», «5 ноября», «05.11». Если сумма или дата необычные — бот переспросит. " +
   "В учёт попадает только после кнопки «Записать».\n" +
   "• остаток — остатки касс · статьи — список статей · отмена — сбросить карточку";
 
@@ -45,6 +46,12 @@ async function safeDeleteDraft(id: string) {
   await prisma.telegramDraft.delete({ where: { id } }).catch((e) => {
     if ((e as { code?: string }).code !== "P2025") throw e;
   });
+}
+
+/** Забрать карточку перед записью: удаляет её атомарно; false — её уже забрал параллельный запрос (двойное нажатие, повтор от Telegram). */
+async function claimDraft(id: string): Promise<boolean> {
+  const r = await prisma.telegramDraft.deleteMany({ where: { id } });
+  return r.count === 1;
 }
 
 async function handleStart(chatId: number, code: string | undefined) {
@@ -141,6 +148,74 @@ function incomeCategoryFor(deal: DealRow, refs: Refs): string | undefined {
   return undefined;
 }
 
+const rub = (kop: number) => formatKop(kop);
+
+/**
+ * «Похоже ли на правду»: сравнивает готовую карточку с историей учёта. Чем больше записей в базе,
+ * тем точнее — типичные суммы и привычки по статьям бот берёт из уже записанных операций.
+ */
+async function sanityWarnings(d: OpDraft, refs: Refs, deal: DealRow | null): Promise<string[]> {
+  const w: string[] = [];
+  const amt = parseMoneyToKop(d.amount ?? "") ?? 0;
+  const today = todayIso();
+  const dayMs = 86400000;
+  if (d.date > today) w.push(`Дата ${d.date.split("-").reverse().join(".")} — в будущем.`);
+  else if (Date.parse(today) - Date.parse(d.date) > 45 * dayMs) w.push(`Дата ${d.date.split("-").reverse().join(".")} — больше полутора месяцев назад.`);
+
+  const cat = refs.categories.find((c) => c.id === d.categoryId);
+  if (cat && d.type !== "TRANSFER" && amt > 0) {
+    const hist = await prisma.operation.findMany({
+      where: { categoryId: cat.id, type: d.type, voidedAt: null, date: { gte: new Date(Date.now() - 365 * dayMs) } },
+      select: { amountKop: true },
+      orderBy: { date: "desc" },
+      take: 500,
+    });
+    const xs = hist.map((h) => h.amountKop).sort((a, b) => a - b);
+    if (xs.length >= 5) {
+      const med = xs[Math.floor(xs.length / 2)];
+      const p90 = xs[Math.floor(xs.length * 0.9)];
+      if (amt > Math.max(p90 * 3, med * 5)) w.push(`Обычно «${cat.name}» — до ${rub(p90)} (по ${xs.length} записям), а здесь ${rub(amt)}.`);
+      else if (amt * 20 < med) w.push(`Сумма ${rub(amt)} необычно маленькая: обычно «${cat.name}» около ${rub(med)}.`);
+    } else if (amt < 5000) w.push(`Сумма всего ${rub(amt)}.`);
+
+    // статья, которая ни разу не ставилась на машины (или на квартиры)
+    const kind = deal?.asset.kind ?? refs.assets.find((a) => a.id === d.assetId)?.kind;
+    if (kind) {
+      const total = await prisma.operation.count({ where: { categoryId: cat.id, voidedAt: null, OR: [{ assetId: { not: null } }, { dealId: { not: null } }] } });
+      if (total >= 10) {
+        const same = await prisma.operation.count({ where: { categoryId: cat.id, voidedAt: null, OR: [{ asset: { kind } }, { deal: { asset: { kind } } }] } });
+        if (same === 0) w.push(`«${cat.name}» раньше ни разу не записывалась на ${kind === "CAR" ? "машины" : "квартиры"}.`);
+      }
+    }
+  }
+
+  // оплата больше стоимости брони
+  if (d.type === "INCOME" && deal && amt > 0) {
+    const g = await prisma.deal.findUnique({ where: { id: deal.id }, select: { grossKop: true } });
+    const paid = await prisma.operation.aggregate({ where: { dealId: deal.id, type: "INCOME", voidedAt: null }, _sum: { amountKop: true } });
+    const got = (paid._sum.amountKop ?? 0) + amt;
+    if (g && g.grossKop > 0 && got > g.grossKop * 1.1) w.push(`С этой оплатой по брони №${deal.number} будет ${rub(got)}, а бронь стоит ${rub(g.grossKop)}.`);
+  }
+
+  // такая же операция уже есть за последние сутки
+  if (amt > 0) {
+    const dup = await prisma.operation.findFirst({
+      where: {
+        type: d.type,
+        amountKop: amt,
+        voidedAt: null,
+        createdAt: { gte: new Date(Date.now() - dayMs) },
+        ...(d.categoryId && d.type !== "TRANSFER" ? { categoryId: d.categoryId } : {}),
+        ...(d.dealId ? { dealId: d.dealId } : {}),
+        ...(d.accountId ? { accountId: d.accountId } : {}),
+      },
+      select: { number: true },
+    });
+    if (dup) w.push(`Такая же операция уже записана сегодня — №${dup.number}. Не дубль?`);
+  }
+  return w;
+}
+
 /**
  * Один шаг карточки: дописать фразу (или выбор кнопкой), найти бронь, подставить кассу сотрудника,
  * сохранить и показать карточку с одним вопросом — или с кнопкой «Записать», если всё заполнено.
@@ -200,6 +275,15 @@ async function stepOp(chatId: number, staff: Staff, base: OpDraft, text: string 
   const cancel: InlineButton = { text: "✖ Отмена", callback_data: `op:no:${row.id}` };
   const head = notes.length ? `${notes.join("\n")}\n\n` : "";
   if (missing.length === 0) {
+    const warns = await sanityWarnings(d, refs, deal).catch(() => [] as string[]);
+    if (warns.length > 0) {
+      await sendMessage(
+        chatId,
+        `${head}${card}\n\n⚠ Проверьте:\n${warns.map((x) => `• ${x}`).join("\n")}\n\nЕсли всё верно — «Да, верно». Если нет — скажите исправление («не 125000, а 1250»).`,
+        [[{ text: "✅ Да, верно — записать", callback_data: `op:yes:${row.id}` }, cancel]],
+      );
+      return;
+    }
     await sendMessage(chatId, `${head}${card}\n\nВсё заполнено. Чтобы исправить — просто скажите исправление.`, [
       [{ text: "✅ Записать", callback_data: `op:yes:${row.id}` }, cancel],
     ]);
@@ -423,9 +507,12 @@ async function handleLaundryCallback(chatId: number, messageId: number, cbId: st
     return;
   }
   const d = row.input as unknown as LaundryDraft;
+  if (!(await claimDraft(row.id))) {
+    await answerCallbackQuery(cbId, "Уже записано");
+    return;
+  }
   try {
     const nums = await createLaundryOps({ ...d, date: new Date(`${todayIso()}T00:00:00Z`), createdBy: staff.name });
-    await safeDeleteDraft(row.id);
     await editMessageText(chatId, messageId, `Записано ${nums.length} операций (№${nums[0]}–${nums[nums.length - 1]}). ${row.summary}`);
     await answerCallbackQuery(cbId, "Записано");
   } catch (e) {
@@ -479,8 +566,19 @@ async function handleOpCallback(chatId: number, messageId: number, cbId: string,
       await sendMessage(chatId, `Не получилось записать: ${res.error}`);
       return;
     }
-    const op = await prisma.operation.create({ data: { ...res.data, createdBy: staff.name } });
-    await safeDeleteDraft(row.id);
+    // Забираем карточку атомарно: второе нажатие «Записать» или повтор запроса от Telegram не создаст дубль
+    const claimed = await prisma.telegramDraft.deleteMany({ where: { id: row.id } });
+    if (claimed.count === 0) {
+      await answerCallbackQuery(cbId, "Уже записано");
+      return;
+    }
+    let op;
+    try {
+      op = await prisma.operation.create({ data: { ...res.data, createdBy: staff.name } });
+    } catch (e) {
+      await prisma.telegramDraft.create({ data: { id: row.id, chatId: row.chatId, kind: row.kind, input: row.input as object, summary: row.summary } }).catch(() => undefined);
+      throw e;
+    }
     await editMessageText(chatId, messageId, `Записано, операция №${op.number}.\n${row.summary}`);
     await answerCallbackQuery(cbId, "Записано");
     return;
@@ -524,8 +622,11 @@ async function handleExpenseCallback(chatId: number, messageId: number, cbId: st
     await safeDeleteDraft(draft.id);
     return;
   }
+  if (!(await claimDraft(draft.id))) {
+    await answerCallbackQuery(cbId, "Уже записано");
+    return;
+  }
   await prisma.operation.create({ data: { ...res.data, createdBy: staff.name } });
-  await safeDeleteDraft(draft.id);
   await editMessageText(chatId, messageId, `Записано: ${draft.summary}`);
   await answerCallbackQuery(cbId, "Записано");
 }
@@ -666,8 +767,11 @@ async function handleBookingCallback(chatId: number, messageId: number, cbId: st
       await sendMessage(chatId, `Не получилось записать: ${res.error}`);
       return;
     }
+    if (!(await claimDraft(row.id))) {
+      await answerCallbackQuery(cbId, "Уже записано");
+      return;
+    }
     const deal = await prisma.deal.create({ data: { ...res.data, createdBy: staff.name } });
-    await safeDeleteDraft(row.id);
     await editMessageText(chatId, messageId, `Записано, бронь №${deal.number}. Она уже на шахматке.\n${row.summary}`);
     await answerCallbackQuery(cbId, "Записано");
     return;
@@ -778,7 +882,19 @@ async function handleVoice(chatId: number, voice: TgVoice) {
   }
 }
 
-export async function handleTelegramUpdate(update: TgUpdate) {
+/** Недавно обработанные обновления: Telegram (или прокси) может прислать одно и то же повторно. */
+const seenUpdates = new Map<string, number>();
+function alreadySeen(key: string): boolean {
+  const now = Date.now();
+  if (seenUpdates.size > 2000) for (const [k, t] of seenUpdates) if (now - t > 600_000) seenUpdates.delete(k);
+  if (seenUpdates.has(key)) return true;
+  seenUpdates.set(key, now);
+  return false;
+}
+
+export async function handleTelegramUpdate(update: TgUpdate & { update_id?: number }) {
+  if (update.update_id !== undefined && alreadySeen(`u${update.update_id}`)) return;
+  if (update.callback_query && alreadySeen(`c${update.callback_query.id}`)) return;
   if (update.message) {
     const chatId = update.message.chat.id;
     if (update.message.voice) {

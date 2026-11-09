@@ -22,9 +22,17 @@ export function parseAmount(text: string): { amount: string; rest: string } | nu
 
 /** Номер заезда/аренды: «заезд 23», «заезд №23», «аренда 5», «№23». */
 export function parseDealNumber(text: string): number | null {
-  const m = norm(text.replace(/№/g, " № ")).match(/(?:заезд[а-я]*|аренд[а-я]*|брон[а-я]*|№)\s*№?\s*(\d{1,6})/);
-  return m ? Number(m[1]) : null;
+  const t = norm(text.replace(/№/g, " № "));
+  const m = t.match(/(?:заезд[а-я]*|аренд[а-я]*|брон[а-я]*|№)\s*№?\s*(\d{1,6})/);
+  if (m) return Number(m[1]);
+  // «за 32 бронь», «по 32-й брони» — номер перед словом; только после предлога, чтобы «15000 бронь» не стало номером
+  const r = t.match(REVERSE_DEAL);
+  return r ? Number(r[2]) : null;
 }
+
+const REVERSE_DEAL = /(^|\s)(?:за|по|для|на|к)\s+№?\s*(\d{1,4})(?:-?[а-я]{1,2})?\s+(?:брон|заезд|аренд)[а-я]*/i;
+// тот же шаблон для исходного текста (с регистром), чтобы вырезать упоминание
+const REVERSE_DEAL_G = /(^|\s)(?:за|по|для|на|к)\s+№?\s*\d{1,4}(?:-?[а-яё]{1,2})?\s+(?:брон|заезд|аренд)[а-яё]*/gi;
 
 /**
  * Несколько броней в одной фразе: «заезд 6 и 52», «брони 6 и 52 и 60». Разделитель — только «и»
@@ -39,7 +47,7 @@ export function parseDealNumbers(text: string): { numbers: number[]; rest: strin
 
 /** Убирает из фразы упоминание номера заезда, чтобы число не мешало поиску суммы. */
 export function stripDealNumber(text: string): string {
-  return text.replace(/(?:заезд\S*|аренд\S*|брон\S*|№)\s*№?\s*\d{1,6}/gi, " ").replace(/\s+/g, " ").trim();
+  return text.replace(/(?:заезд\S*|аренд\S*|брон\S*|№)\s*№?\s*\d{1,6}/gi, " ").replace(REVERSE_DEAL_G, " ").replace(/\s+/g, " ").trim();
 }
 
 // \b и \w в JS не понимают кириллицу: буквы — [а-я] (ё уже заменена в norm), границы — пробел/начало/конец строки.
@@ -48,7 +56,7 @@ const ACCOUNT_PATTERNS: { re: RegExp; name: string }[] = [
   { re: /касс[а-я]*\s+ев[а-я]*|налич[а-я]*|(?:^|\s)нал(?:\s|$)/, name: "Касса Ева" },
   { re: /касс[а-я]*\s+тат[а-я]*/, name: "Касса Татьяна" },
   // голосом «Х» распознаётся как «х», «хэ», «ха», «икс» или латинская x
-  { re: /карт[а-я]*\s+(?:х|хэ|ха|хе|икс|x)(?:\s|$)/, name: "Карта Х" },
+  { re: /карт[а-я]*\s+(?:х|хэ|ха|хе|икс|x)(?:\s|$)|хаджарат[а-я]*/, name: "Карта Х" },
   { re: /амр[а-я]*/, name: "Карта Амра-Банк" },
   { re: /рубин[а-я]*/, name: "Касса Рубина" },
   { re: /монет[а-я]*/, name: "Монета" },
@@ -70,6 +78,48 @@ export function findAccounts(text: string, accounts: PAccount[]): PAccount[] {
     if (i >= 0 && !hits.some((h) => h.acc.id === a.id)) hits.push({ pos: i, acc: a });
   }
   return hits.sort((x, y) => x.pos - y.pos).map((h) => h.acc);
+}
+
+/** Убирает из фразы названия касс («касса Татьяна», «на карту Х») — для пояснения общего расхода. */
+export function stripAccounts(text: string): string {
+  let t = norm(text);
+  for (const p of ACCOUNT_PATTERNS) t = t.replace(new RegExp(`(?:(?:из|с|со|в|на)\\s+)?(?:${p.re.source})`, "g"), " ");
+  return t.replace(/\s+/g, " ").trim();
+}
+
+const MONTHS = ["январ", "феврал", "март", "апрел", "ма[йя]", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр"];
+
+/**
+ * Дата операции во фразе: «5 ноября», «05.11», «5.11.2026», «5 числа». Возвращает ISO-дату и фразу без даты,
+ * чтобы число дня не стало суммой. Дата позже сегодняшней — значит прошлый год.
+ */
+export function parseOpDate(text: string, today: string): { date: string; rest: string } | null {
+  const [ty, tm] = today.split("-").map(Number);
+  const mk = (d: number, m: number, y?: number) => {
+    if (d < 1 || d > 31 || m < 1 || m > 12) return null;
+    let year = y ? (y < 100 ? 2000 + y : y) : ty;
+    let iso = `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    if (!y && iso > today) iso = `${(year -= 1)}-${iso.slice(5)}`;
+    return iso;
+  };
+  const cut = (m: RegExpMatchArray) => `${text.slice(0, m.index)} ${text.slice((m.index ?? 0) + m[0].length)}`.replace(/\s+/g, " ").trim();
+  const word = text.match(new RegExp(`(\\d{1,2})(?:-?го)?\\s+(${MONTHS.join("|")})[а-яё]*(?:\\s+(\\d{4}))?(?:\\s*г(?:ода|\\.)?)?`, "i"));
+  if (word) {
+    const m = MONTHS.findIndex((x) => new RegExp(`^${x}`, "i").test(word[2])) + 1;
+    const iso = mk(Number(word[1]), m, word[3] ? Number(word[3]) : undefined);
+    if (iso) return { date: iso, rest: cut(word) };
+  }
+  const dots = text.match(/(?:^|\s)(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?=\s|$|[,;])/);
+  if (dots) {
+    const iso = mk(Number(dots[1]), Number(dots[2]), dots[3] ? Number(dots[3]) : undefined);
+    if (iso) return { date: iso, rest: cut(dots) };
+  }
+  const day = text.match(/(\d{1,2})(?:-?го)?\s+числа/i);
+  if (day) {
+    const iso = mk(Number(day[1]), tm);
+    if (iso) return { date: iso, rest: cut(day) };
+  }
+  return null;
 }
 
 /** Синонимы разговорных слов → статья (по точному названию). carOnly/aptOnly — когда слово зависит от объекта. */

@@ -6,7 +6,7 @@
  * сотрудник отвечает («34», «Иванов», «с карты х», «не 1500, а 1800») → карточка дополняется → «Записать».
  */
 
-import { findAccounts, matchAsset, matchCategory, parseDealNumber, stripDealNumber, type PAccount, type PAsset, type PCategory } from "@/lib/telegram-parse";
+import { findAccounts, matchAsset, matchCategory, parseDealNumber, parseOpDate, stripAccounts, stripDealNumber, type PAccount, type PAsset, type PCategory } from "@/lib/telegram-parse";
 
 export type OpType = "EXPENSE" | "INCOME" | "TRANSFER";
 export type Binding = "deal" | "object" | "general";
@@ -69,22 +69,33 @@ export function applyText(prev: OpDraft, rawText: string, refs: Refs, today: str
   const t = norm(text);
 
   if (prev.awaiting === "note") {
-    d.note = text;
+    // «общий расход касса Татьяна» — касса уходит в кассу, а не в пояснение
+    const accs = findAccounts(text, refs.accounts);
+    if (accs.length > 0) d.accountId = accs[0].id;
+    const note = stripAccounts(text).replace(/(^|\s)(это\s+)?общ[а-я]*\s+расход[а-я]*/g, " ").replace(/\s+/g, " ").trim();
+    d.note = note.length >= 3 ? note : prev.note;
     return res;
   }
 
   if (/(^|\s)вчера(\s|$)/.test(t)) d.date = addDaysIso(today, -1);
   if (/(^|\s)позавчера(\s|$)/.test(t)) d.date = addDaysIso(today, -2);
 
-  // номер брони: «заезд 34», «№34»; а если ждём заезд — достаточно голого числа
+  // дата словами или цифрами («5 ноября», «05.11») — вырезаем, чтобы день не стал суммой
   let rest = text;
-  const dn = parseDealNumber(text);
+  const od = parseOpDate(rest, today);
+  if (od) {
+    d.date = od.date;
+    rest = od.rest;
+  }
+
+  // номер брони: «заезд 34», «№34»; а если ждём заезд — достаточно голого числа
+  const dn = parseDealNumber(rest);
   if (dn !== null) {
     res.dealNo = dn;
-    rest = stripDealNumber(text);
+    rest = stripDealNumber(rest);
   } else if (prev.awaiting === "deal") {
-    const nums = numbers(text);
-    const onlyNumber = /^\D*\d{1,6}\D*$/.test(text) && !/(руб|тыс|₽)/.test(t);
+    const nums = numbers(rest);
+    const onlyNumber = /^\D*\d{1,6}\D*$/.test(rest) && !/(руб|тыс|₽)/.test(t);
     if (nums.length === 1 && onlyNumber) {
       res.dealNo = Number(nums[0]);
       rest = "";
@@ -93,7 +104,12 @@ export function applyText(prev: OpDraft, rawText: string, refs: Refs, today: str
 
   // сумма: при исправлении «не 1500, а 1800» берём последнее число
   const nums = numbers(rest);
-  if (nums.length > 0) d.amount = /(^|\s)не\s/.test(t) && nums.length > 1 ? nums[nums.length - 1] : nums[0];
+  if (nums.length > 0) {
+    const cand = /(^|\s)не\s/.test(t) && nums.length > 1 ? nums[nums.length - 1] : nums[0];
+    // сумма уже есть, а в ответе на другой вопрос мелкое число без слова «сумма/руб» — это не сумма (день, кол-во)
+    const cue = /(сумм|руб|₽|тыс|(^|\s)не\s)/.test(t);
+    if (!(prev.amount && prev.awaiting !== "amount" && !cue && Number(cand) < 100)) d.amount = cand;
+  }
 
   // кассы
   const accs = findAccounts(rest, refs.accounts);
