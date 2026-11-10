@@ -381,3 +381,83 @@ test('release JSON is permitted only for exact POST apply and rollback UUID rout
     assert.equal((await run(request(route, post('csrf=x')))).status, 503, route);
   }
 });
+
+const modelRoutes = [
+  ['GET', '/chat/routes'],
+  ['POST', '/chat/routes/refresh'],
+  ['POST', '/chat/routes/selection'],
+];
+const routeRequest = (method, path, body = 'csrf=preserved-test-token') =>
+  request(path, method === 'POST' ? post(body) : undefined);
+
+test('model route JSON is allowed only for the three exact methods and paths', async () => {
+  const payload = '{"catalog":{"routes":[]},"selection":null}';
+  const run = handler({ transport: async () => response({
+    headers: { 'content-type': 'application/json; charset=utf-8' }, body: Buffer.from(payload),
+  }) });
+  for (const [method, path] of modelRoutes) {
+    const result = await run(routeRequest(method, path));
+    assert.equal(result.status, 200, method + ' ' + path);
+    assert.equal(await result.text(), payload);
+    assert.equal((await run(routeRequest(method === 'GET' ? 'POST' : 'GET', path))).status, 503);
+    for (const suffix of ['/', '/extra']) {
+      assert.equal((await run(routeRequest(method, path + suffix))).status, 503);
+    }
+    for (const suffix of ['?refresh=1', '%2fextra', '?destination=https://evil.test']) {
+      assert.equal((await run(routeRequest(method, path + suffix))).status, 400);
+    }
+    assert.equal((await run(request(path, { method: 'DELETE' }))).status, 405);
+  }
+});
+
+test('model routes require the active OWNER and retain same-origin form and CSRF forwarding', async () => {
+  let calls = 0;
+  const transport = async input => {
+    calls++;
+    if (input.method === 'POST') {
+      assert.equal(input.body.toString(), 'csrf=preserved-test-token');
+      assert.equal(input.headers['content-type'], 'application/x-www-form-urlencoded');
+    }
+    assert.equal(gatewayRequestOptions(input, 'CA').hostname, '151.243.225.140');
+    return response({ headers: { 'content-type': 'application/json' }, body: Buffer.from('{}') });
+  };
+  for (const [method, path] of modelRoutes) {
+    for (const [session, status] of [[null, 303], [{ ...owner, role: 'OPERATOR' }, 403],
+      [{ ...owner, role: 'ADMIN' }, 403]]) {
+      const result = await handler({ getSession: async () => session, transport })(routeRequest(method, path));
+      assert.equal(result.status, status);
+    }
+    if (method === 'POST') {
+      for (const headers of [{}, { origin: 'https://evil.test', 'content-type': 'application/x-www-form-urlencoded' },
+        { origin: 'https://palmaauto.ru', 'content-type': 'application/json' }]) {
+        assert.equal((await handler({ transport })(request(path, { method, headers, body: 'csrf=invalid' }))).status, 403);
+      }
+    }
+    assert.equal((await handler({ transport })(routeRequest(method, path))).status, 200);
+  }
+  assert.equal(calls, 3);
+});
+
+test('only exact model metadata responses receive four MiB in handler and transport', async () => {
+  for (const [method, path] of [...modelRoutes, ['GET', '/chat/' + chatId + '/state'],
+    ['POST', '/chat/routes'], ['GET', '/chat/routes/refresh'], ['POST', '/chat/routes/selection/extra']]) {
+    const metadata = modelRoutes.some(([verb, route]) => verb === method && route === path);
+    const limit = (metadata ? 4 : 2) * 1024 * 1024;
+    for (const excess of [0, 1]) {
+      const body = Buffer.alloc(limit + excess, ' ');
+      const run = handler({ transport: async () => response({
+        headers: { 'content-type': metadata || path.endsWith('/state') ? 'application/json' : 'text/html' }, body,
+      }) });
+      const result = await run(routeRequest(method, path));
+      assert.equal(result.status, excess ? 503 : 200, method + ' ' + path + ' +' + excess);
+      const signed = signGatewayRequest({ method, path: prefix + path, body: Buffer.alloc(0),
+        ownerCookie: '', staffId: 'env', authSecret: secret });
+      const fake = fakeTransport(callback => {
+        const stream = Readable.from([body]); stream.statusCode = 200; stream.headers = {}; callback(stream);
+      });
+      const pending = sendGatewayRequest(signed, { ca: 'CA', request: fake.request, timeoutMs: 1000 });
+      if (excess) await assert.rejects(pending);
+      else assert.equal((await pending).body.length, limit);
+    }
+  }
+});
