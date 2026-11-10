@@ -18,6 +18,18 @@ export type OperationInput = {
 
 const TYPES = ["INCOME", "EXPENSE", "TRANSFER", "HANDOVER"];
 
+/** Сегодня по московскому времени (UTC+3, как в Абхазии) — полночь UTC этой даты. Сервер живёт в UTC. */
+export function mskToday(): Date {
+  const msk = new Date(Date.now() + 3 * 3600000);
+  return new Date(Date.UTC(msk.getUTCFullYear(), msk.getUTCMonth(), msk.getUTCDate()));
+}
+
+/** Операцию нельзя провести будущим числом: деньги двигаются только по факту. */
+export function futureDateError(date: Date): string | null {
+  if (date.getTime() <= mskToday().getTime()) return null;
+  return `Дата ${date.toLocaleDateString("ru-RU", { timeZone: "UTC" })} ещё не наступила — будущим числом операции не проводятся. Укажите сегодняшнюю или прошедшую дату.`;
+}
+
 /** Проверяет ввод и приводит к данным для записи; ошибка — понятным текстом для оператора. Общее для формы в админке и Telegram-бота. */
 export type BuiltOperation = { error: string } | { data: Omit<Prisma.OperationUncheckedCreateInput, "createdBy"> };
 
@@ -29,10 +41,9 @@ export async function buildOperationData(input: OperationInput, opts: { skipBind
 
   const date = parseDateInput(input.date);
   if (!date) return { error: "Укажите дату." };
-  const now = Date.now();
-  if (date.getTime() < Date.UTC(2024, 0, 1) || date.getTime() > now + 400 * 86400000) {
-    return { error: "Дата вне допустимого диапазона." };
-  }
+  if (date.getTime() < Date.UTC(2024, 0, 1)) return { error: "Дата вне допустимого диапазона." };
+  const future = futureDateError(date);
+  if (future) return { error: future };
 
   const amountKop = parseMoneyToKop(input.amount);
   if (amountKop === null || amountKop <= 0) return { error: "Сумма — число больше нуля, например 3500 или 3500,50." };

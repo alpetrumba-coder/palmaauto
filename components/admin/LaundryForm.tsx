@@ -79,7 +79,7 @@ export function LaundryForm({ accounts, defaultAccountId }: { accounts: { id: st
         </label>
         <label style={label}>
           Дата
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={field} />
+          <input type="date" value={date} max={new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 10)} onChange={(e) => setDate(e.target.value)} style={field} />
         </label>
         <button type="submit" disabled={pending} style={btn}>
           Показать брони

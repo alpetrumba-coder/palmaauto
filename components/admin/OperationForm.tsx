@@ -312,7 +312,7 @@ export function OperationForm({ accounts, categories, assets, deals, operationId
 
       <label style={labelStyle}>
         Дата *
-        <input type="date" value={v.date} onChange={(e) => set("date", e.target.value)} style={fieldStyle} />
+        <input type="date" value={v.date} max={new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 10)} onChange={(e) => set("date", e.target.value)} style={fieldStyle} />
       </label>
 
       <label style={labelStyle}>

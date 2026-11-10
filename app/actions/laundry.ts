@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createLaundryOps, findLaundryTargets, splitEven } from "@/lib/laundry";
 import { parseMoneyToKop } from "@/lib/money";
+import { futureDateError } from "@/lib/operation-build";
 import { parseDateInput } from "@/lib/rental-dates";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
@@ -31,6 +32,8 @@ export async function createLaundryAction(input: { amount: string; accountId: st
   if (totalKop === null || totalKop <= 0) return { ok: false, error: "Сумма — число больше нуля." };
   const date = parseDateInput(input.date);
   if (!date) return { ok: false, error: "Укажите дату." };
+  const future = futureDateError(date);
+  if (future) return { ok: false, error: future };
   if (!input.accountId || !(await prisma.cashAccount.findUnique({ where: { id: input.accountId } }))) return { ok: false, error: "Выберите кассу." };
   if (input.dealIds.length === 0) return { ok: false, error: "Нет броней для распределения." };
   try {
