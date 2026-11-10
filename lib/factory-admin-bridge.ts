@@ -7,25 +7,29 @@ const SITE_ORIGIN = "https://palmaauto.ru";
 const COOKIE_NAME = "factory_editor_session";
 const MAX_REQUEST = 65536;
 const MAX_RESPONSE = 2097152;
+const MAX_MODEL_ROUTE_RESPONSE = 4 * 1024 * 1024;
 const MAX_UPLOAD_REQUEST = 16 * 1024 * 1024;
 const MAX_ATTACHMENT_RESPONSE = 10 * 1024 * 1024;
 const MAX_PREVIEW_RESPONSE = 40 * 1024 * 1024;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 const CHAT = FACTORY_EDITOR_PREFIX + '/chat/';
+const modelRouteRequest = (method: string, path: string) => method === 'GET' ? path === CHAT + 'routes'
+  : method === 'POST' && (path === CHAT + 'routes/refresh' || path === CHAT + 'routes/selection');
 const uploadRequest = (method: string, path: string) => method === 'POST' && new RegExp('^' + CHAT + UUID + '/attachments$').test(path);
 const attachmentRequest = (method: string, path: string) => method === 'GET' && new RegExp('^' + CHAT + UUID + '/attachments/' + UUID + '$').test(path);
 const previewRequest = (method: string, path: string) => adminPreviewRequest(method, path)
   || method === 'GET' && canonicalPath(path)
   && new RegExp('^' + FACTORY_EDITOR_PREFIX + '/preview/' + UUID + '/' + UUID + '/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]*$').test(path);
 const responseLimit = (method: string, path: string) => previewRequest(method, path) ? MAX_PREVIEW_RESPONSE
-  : attachmentRequest(method, path) ? MAX_ATTACHMENT_RESPONSE : MAX_RESPONSE;
+  : attachmentRequest(method, path) ? MAX_ATTACHMENT_RESPONSE
+  : modelRouteRequest(method, path) ? MAX_MODEL_ROUTE_RESPONSE : MAX_RESPONSE;
 function requestLimit(method: string, path: string): number {
   if (uploadRequest(method, path)) return MAX_UPLOAD_REQUEST;
   return method === 'POST' && new RegExp('^' + CHAT + UUID + '/messages$').test(path) ? 256 * 1024 : MAX_REQUEST;
 }
 function chatJsonRequest(method: string, path: string): boolean {
-  return method === 'GET' ? new RegExp('^' + CHAT + UUID + '/(?:state|history/' + UUID + ')$').test(path)
-    : method === 'POST' && (path === CHAT + 'new' || new RegExp('^' + CHAT + UUID + '/(?:messages|attachments|prepare/' + UUID + '|release/' + UUID + '/(?:apply|rollback))$').test(path));
+  return modelRouteRequest(method, path) || (method === 'GET' ? new RegExp('^' + CHAT + UUID + '/(?:state|history/' + UUID + ')$').test(path)
+    : method === 'POST' && (path === CHAT + 'new' || new RegExp('^' + CHAT + UUID + '/(?:messages|attachments|prepare/' + UUID + '|release/' + UUID + '/(?:apply|rollback))$').test(path)));
 }
 const HEX_SESSION = /^[a-f0-9]{64}$/;
 const FORM_TYPE = /^application\/x-www-form-urlencoded(?:;\s*charset=utf-8)?$/i;
