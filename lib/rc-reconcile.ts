@@ -69,7 +69,9 @@ const sameGuest = (a: string, b: string) => {
 /** Название источника в RealtyCalendar -> название нашей площадки. */
 export function mapSource(name: string | null | undefined): string | null {
   const n = norm(name);
-  if (!n || n === "корзина" || n.includes("модуль") || n.includes("прям")) return "Прямые бронирования";
+  // «Корзина» (буква «К» в RC) — брони Авито с оплатой через площадку (протокол перехода 10.11)
+  if (n === "корзина") return "Авито";
+  if (!n || n.includes("модуль") || n.includes("прям")) return "Прямые бронирования";
   if (n.includes("ostrovok") || n.includes("островок")) return "Островок";
   if (n.includes("sutochno") || n.includes("суточно")) return "Суточно";
   if (n.includes("tvil") || n.includes("твил")) return "Твил";

@@ -117,7 +117,7 @@ async function syncLinkedDeals(rows: RcRow[], from: string, to: string, fetched:
 export async function runRcSync(trigger: "cron" | "manual", startedBy: string | null): Promise<{ runId: string; ok: boolean; error?: string }> {
   const today = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
   const from = addDays(today, -45);
-  const to = addDays(today, 150);
+  const to = addDays(today, 400); // брони на лето видны на шахматке заранее
   const run = await prisma.rcSyncRun.create({ data: { trigger, startedBy, periodFrom: from, periodTo: to } });
 
   try {

@@ -44,7 +44,7 @@ const CASH: { name: string; kind: "CARD" | "CASH" | "ONLINE"; responsible?: stri
   { name: "Касса Татьяна", kind: "CASH", responsible: "Татьяна" },
   { name: "Карта Х", kind: "CARD", responsible: "Ева" },
   { name: "Карта Амра-Банк", kind: "CARD", responsible: "Ева" },
-  { name: "Касса Рубина", kind: "CASH" },
+  { name: "Касса Гумистинская", kind: "CASH" },
   // Онлайн-оплаты с сайта проката (A-Mobile); при выводе на карту — «Перемещение».
   { name: "Монета", kind: "ONLINE" },
   // Использовались в старой истории (УК.xlsx); в формах ввода не показываются.

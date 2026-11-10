@@ -86,6 +86,7 @@ const NAV_GROUPS: { title: string; ownerOnly?: boolean; items: { href: string; l
     items: [
       { href: "/admin-panel/dictionaries", label: "Справочники", hint: "Объекты, кассы, статьи, каналы продаж" },
       { href: "/admin-panel/accounting/import", label: "Импорт истории", hint: "Разовая загрузка старых данных из Excel" },
+      { href: "/admin-panel/accounting/opening", label: "Ввод первоначальных остатков", hint: "Протокол перехода 10.11: остатки касс и решения по броням" },
     ],
   },
 ];
@@ -303,7 +304,7 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
                 const sign = o.type === "INCOME" ? "+" : o.type === "TRANSFER" ? "" : "−";
                 const general = !o.assetId && !o.dealId && (o.type === "INCOME" || o.type === "EXPENSE");
                 const account = `${o.account.name}${o.toAccount ? ` → ${o.toAccount.name}` : ""}`;
-                const category = o.category?.name ?? (o.type === "HANDOVER" ? "Касса Рубина" : "—");
+                const category = o.category?.name ?? (o.type === "HANDOVER" ? "Касса Гумистинская" : "—");
                 const comment = [o.comment, o.needsReview ? o.reviewNote : null].filter(Boolean).join(" · ");
                 const who = `${o.createdBy}${voided ? ` · аннулировал ${o.voidedBy ?? ""}` : ""}`;
                 return (

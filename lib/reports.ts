@@ -250,7 +250,7 @@ export async function buildResults(kind: "objects" | "months", p: Period, opts: 
 
 export const OWNER_PAYOUT_CATEGORY = "Выплата собственнику (аренда помещений)";
 /** Касса собственника-компании: сдача денег туда = «выведено собственнику». */
-const OWNER_CASH_ACCOUNT = "Касса Рубина";
+const OWNER_CASH_ACCOUNT = "Касса Гумистинская";
 const COMMISSION_CATEGORY = "Комиссия агрегатора";
 
 /** К выплате = доля × (доход − комиссия агрегатора). Фактические выплаты берутся из операций по статье выплаты собственнику. */
