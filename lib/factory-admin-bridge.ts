@@ -37,6 +37,8 @@ const SECURITY = { "cache-control": "no-store", "x-content-type-options": "nosni
 const OWNER_CSP = "default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-src https://palmaauto.ru/admin-panel/ai-editor/preview/; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 // Must match the verified Factory administrative document policy exactly.
 const ADMIN_PREVIEW_CSP = "default-src 'none'; script-src 'unsafe-inline' data:; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; form-action 'none'; worker-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; sandbox allow-scripts";
+// Exact policy of the reviewed static Factory controller, including its hash.
+const PORTABLE_ADMIN_PREVIEW_CSP = "default-src 'none'; script-src 'sha256-P0CWn6X93J3oEwDAJN6DxCi4svyJOoxykdfIcfFjb4w='; script-src-attr 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; form-action 'none'; worker-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; sandbox allow-scripts";
 type Session = Readonly<{ role: string; staffId: string }>;
 type RawHeaders = Readonly<Record<string, string | string[] | undefined>>;
 type GatewayResponse = Readonly<{ status: number; headers: RawHeaders; body: Buffer }>;
@@ -87,9 +89,12 @@ function adminPreviewRequest(method: string, path: string): boolean {
 function canonicalRequestPath(method: string, path: string): boolean {
   return canonicalPath(path) || adminPreviewRequest(method, path);
 }
-function supportedAdminBrowser(request: Request): boolean {
+function supportedAdminDestination(request: Request): boolean {
   const destination = request.headers.get('sec-fetch-dest');
-  if (destination !== 'iframe' && destination !== 'empty') return false;
+  return destination === 'iframe' || destination === 'empty';
+}
+function supportedAdminBrowser(request: Request): boolean {
+  if (!supportedAdminDestination(request)) return false;
   const brands = request.headers.get('sec-ch-ua') ?? '';
   if (brands.length > 512 || !/^"[^"\\\r\n]{1,80}";v="\d{1,3}"(?:,[ \t]*"[^"\\\r\n]{1,80}";v="\d{1,3}")*$/.test(brands)) return false;
   const entries = [...brands.matchAll(/"([^"\\\r\n]{1,80})";v="(\d{1,3})"/g)];
@@ -229,14 +234,17 @@ function responseHeaders(response: GatewayResponse, preview: boolean, method: st
   }
   const policy = result.get("content-security-policy") ?? OWNER_CSP;
   const marker = singleHeader(response.headers, 'x-factory-admin-preview');
+  const portablePolicy = policy === PORTABLE_ADMIN_PREVIEW_CSP;
   const adminDocument = adminPreviewRequest(method, path) && response.status === 200;
   if (adminDocument) {
-    if (marker !== 'chessboard-v1' || policy !== ADMIN_PREVIEW_CSP
+    const legacy = marker === 'chessboard-v1' && policy === ADMIN_PREVIEW_CSP;
+    const portable = marker === 'chessboard-portable-v1' && portablePolicy;
+    if ((!legacy && !portable)
       || result.get('content-type') !== 'text/html; charset=utf-8'
       || singleHeader(response.headers, 'connection-allowlist') !== '()') fail(503);
     result.set('x-factory-admin-preview', marker);
     result.set('connection-allowlist', '()');
-  } else if (marker !== undefined || policy === ADMIN_PREVIEW_CSP) fail(503);
+  } else if (marker !== undefined || policy === ADMIN_PREVIEW_CSP || portablePolicy) fail(503);
   if (preview && !adminDocument && (!/(?:^|;)\s*sandbox\s*(?:;|$)/.test(policy)
     || !policy.includes("script-src 'none'") || !policy.includes("form-action 'none'")
     || policy.includes("allow-same-origin") || policy.includes("allow-scripts"))) fail(503);
@@ -288,7 +296,7 @@ export function createFactoryAdminHandler(options: HandlerOptions): (request: Re
       if (Date.now() - rateStarted >= 60000) { rateStarted = Date.now(); rateCount = 0; }
       if (++rateCount > 120) return errorResponse(429);
       const path = requestPath(request);
-      if (adminPreviewRequest(request.method, path) && !supportedAdminBrowser(request)) return unsupportedAdminResponse();
+      if (adminPreviewRequest(request.method, path) && !supportedAdminDestination(request)) return unsupportedAdminResponse();
       const body = await bodyBytes(request, path, options.bodyTimeoutMs ?? (uploadRequest(request.method, path) ? 30000 : 5000));
       const authSecret = (options.authSecret ?? (() => process.env.AUTH_SECRET))();
       if (!authSecret) return errorResponse(503);
@@ -296,8 +304,9 @@ export function createFactoryAdminHandler(options: HandlerOptions): (request: Re
       const response = await (options.transport ?? sendGatewayRequest)(signed);
       if (![200, 202, 303, 400, 401, 403, 404, 408, 409, 413, 415, 429, 500, 503].includes(response.status)
         || !Buffer.isBuffer(response.body) || response.body.length > responseLimit(request.method, path)) fail(503);
-      return new Response(new Uint8Array(response.body), { status: response.status,
-        headers: responseHeaders(response, path.startsWith(FACTORY_EDITOR_PREFIX + "/preview/"), request.method, path) });
+      const headers = responseHeaders(response, path.startsWith(FACTORY_EDITOR_PREFIX + "/preview/"), request.method, path);
+      if (headers.get('x-factory-admin-preview') === 'chessboard-v1' && !supportedAdminBrowser(request)) return unsupportedAdminResponse();
+      return new Response(new Uint8Array(response.body), { status: response.status, headers });
     } catch (error) { return errorResponse(error instanceof BridgeFailure ? error.status : 503); }
   };
 }

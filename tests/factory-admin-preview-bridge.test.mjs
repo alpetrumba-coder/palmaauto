@@ -10,9 +10,12 @@ const target=`${prefix}/preview/${mission}/${run}/admin-panel/bookings`;
 const material=randomBytes(32).toString('hex');
 const supportedBrowser='"Google Chrome";v="157", "Chromium";v="157"';
 const adminPolicy="default-src 'none'; script-src 'unsafe-inline' data:; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; form-action 'none'; worker-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; sandbox allow-scripts";
+// Frozen reviewed Factory controller: 5954 UTF-8 bytes, LF-only.
+const portablePolicy="default-src 'none'; script-src 'sha256-P0CWn6X93J3oEwDAJN6DxCi4svyJOoxykdfIcfFjb4w='; script-src-attr 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; form-action 'none'; worker-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; sandbox allow-scripts";
 const staticPolicy="default-src 'none'; script-src 'none'; form-action 'none'; sandbox";
 const adminHeaders={'content-type':'text/html; charset=utf-8','content-security-policy':adminPolicy,
   'x-factory-admin-preview':'chessboard-v1','connection-allowlist':'()'};
+const portableHeaders={...adminHeaders,'content-security-policy':portablePolicy,'x-factory-admin-preview':'chessboard-portable-v1'};
 const request=(path=target,init)=>new Request('https://palmaauto.ru'+path,{...init,
   headers:{'sec-ch-ua':supportedBrowser,'sec-fetch-dest':'iframe',...Object.fromEntries(new Headers(init?.headers))}});
 const reply=(headers=adminHeaders)=>({status:200,headers,body:Buffer.from('<script>synthetic()</script>')});
@@ -118,7 +121,7 @@ test('owner editor fallback CSP limits frames to preview namespace and preserves
   assert.equal(denied.status,403);
 });
 
-test('administrative direct navigation blocks browsers without required WebRTC policy support',async()=>{
+test('legacy administrative response remains Chrome-only after exact response classification',async()=>{
   let calls=0;
   const handle=handler({transport:async()=>{calls++;return reply();}});
   for(const brand of [undefined,'','"Google Chrome";v="151", "Chromium";v="151"',
@@ -128,10 +131,13 @@ test('administrative direct navigation blocks browsers without required WebRTC p
     const init={headers:{'sec-fetch-dest':'iframe',...(brand===undefined?{}:{'sec-ch-ua':brand})}};
     const result=await handle(new Request('https://palmaauto.ru'+target,init));
     assert.equal(result.status,409,String(brand));
-    assert.match(await result.text(),/Google Chrome 152/);
+    const body=await result.text();
+    assert.match(body,/Google Chrome 152/);
+    assert.equal(body.includes('synthetic()'),false);
     assert.equal(result.headers.get('x-factory-admin-preview'),null);
+    assert.equal(result.headers.get('connection-allowlist'),null);
   }
-  assert.equal(calls,0);
+  assert.equal(calls,8);
 });
 
 test('administrative candidate is served only to an iframe or explicit isolated fetch',async()=>{
@@ -157,4 +163,90 @@ test('administrative response must provide exact connection isolation policy',as
     assert.equal(result.status,503);
     assert.equal(result.headers.get('x-factory-admin-preview'),null);
   }
+});
+
+test('portable exact document accepts Safari without client hints and Chromium browser brands',async()=>{
+  const browsers=[
+    {'user-agent':'Mozilla/5.0 Version/18.0 Safari/605.1.15'},
+    {'sec-ch-ua':'"Microsoft Edge";v="157", "Chromium";v="157"'},
+    {'sec-ch-ua':'"Yandex";v="25", "Chromium";v="157"'},
+    {'sec-ch-ua':'"Google Chrome";v="152", "Chromium";v="152"'},
+    {'sec-ch-ua':'not client hints'},
+  ];
+  for(const browser of browsers){
+    let signed;
+    const result=await handler({transport:async value=>{signed=value;return reply(portableHeaders);}})(
+      new Request('https://palmaauto.ru'+target+'?tab=apts',{headers:{'sec-fetch-dest':'iframe',...browser}}));
+    assert.equal(result.status,200,JSON.stringify(browser));
+    assert.equal(result.headers.get('content-security-policy'),portablePolicy);
+    assert.equal(result.headers.get('x-factory-admin-preview'),'chessboard-portable-v1');
+    assert.equal(result.headers.get('connection-allowlist'),'()');
+    assert.equal(result.headers.get('permissions-policy'),'microphone=(), camera=(), geolocation=()');
+    assert.equal(result.headers.get('cache-control'),'no-store');
+    assert.equal(await result.text(),'<script>synthetic()</script>');
+    assert.equal(signed.path,target+'?tab=apts');
+    assert.equal(Object.keys(signed.headers).some(key=>/sec-ch|user-agent|cookie|authorization/i.test(key)),false);
+  }
+});
+
+test('portable exact response supports isolated fetch but never standalone or forged destinations',async()=>{
+  let calls=0;
+  const handle=handler({transport:async()=>{calls++;return reply(portableHeaders);}});
+  const valid=await handle(new Request('https://palmaauto.ru'+target,{headers:{'sec-fetch-dest':'empty'}}));
+  assert.equal(valid.status,200);
+  assert.equal(calls,1);
+  for(const destination of [undefined,'document','object','image','script','iframe, empty','Iframe']){
+    const headers=destination===undefined?{}:{'sec-fetch-dest':destination};
+    const result=await handle(new Request('https://palmaauto.ru'+target,{headers}));
+    assert.equal(result.status,409,String(destination));
+    assert.equal((await result.text()).includes('synthetic()'),false);
+    assert.equal(result.headers.get('x-factory-admin-preview'),null);
+  }
+  assert.equal(calls,1);
+});
+
+test('portable and legacy marker-policy pairs cannot be mixed or broadened',async()=>{
+  const invalid=[
+    {...portableHeaders,'content-security-policy':adminPolicy},
+    {...adminHeaders,'content-security-policy':portablePolicy},
+    {...portableHeaders,'x-factory-admin-preview':'other'},
+    {...portableHeaders,'x-factory-admin-preview':['chessboard-portable-v1','chessboard-portable-v1']},
+    {...portableHeaders,'content-security-policy':[portablePolicy,portablePolicy]},
+    {...portableHeaders,'content-security-policy':portablePolicy.replace(/(sha256-)([A-Za-z0-9+/])/,(_all,prefix,char)=>prefix+(char==='A'?'B':'A'))},
+    {...portableHeaders,'content-security-policy':portablePolicy+'; script-src \'unsafe-inline\''},
+    {...portableHeaders,'content-security-policy':portablePolicy+'; sandbox allow-same-origin'},
+    {...portableHeaders,'content-type':'text/html'},
+    {...portableHeaders,'connection-allowlist':'*'},
+    Object.fromEntries(Object.entries(portableHeaders).filter(([key])=>key!=='connection-allowlist')),
+  ];
+  for(const headers of invalid){
+    const result=await handler({transport:async()=>reply(headers)})(request());
+    assert.equal(result.status,503,JSON.stringify(headers));
+    assert.equal(result.headers.get('x-factory-admin-preview'),null);
+    assert.equal((await result.text()).includes('synthetic()'),false);
+  }
+});
+
+test('portable script permission cannot escape the exact administrative target or status',async()=>{
+  for(const path of [prefix+'/',prefix+'/chat-client.js',target+'/extra',target.replace('/bookings','/users'),`${prefix}/preview/${mission}/${run}/`]){
+    const result=await handler({transport:async()=>reply(portableHeaders)})(request(path));
+    assert.equal(result.status,503,path);
+    assert.equal((await result.text()).includes('synthetic()'),false);
+  }
+  const result=await handler({transport:async()=>({...reply(portableHeaders),status:503})})(request());
+  assert.equal(result.status,503);
+  assert.equal(result.headers.get('x-factory-admin-preview'),null);
+  assert.equal((await result.text()).includes('synthetic()'),false);
+});
+
+test('portable preview retains OWNER, cookie, canonical-query and GET-body checks before transport',async()=>{
+  let calls=0;
+  const transport=async()=>{calls++;return reply(portableHeaders);};
+  const safari=path=>new Request('https://palmaauto.ru'+path,{headers:{'sec-fetch-dest':'iframe'}});
+  assert.equal((await handler({transport,getSession:async()=>null})(safari(target))).status,303);
+  assert.equal((await handler({transport,getSession:async()=>({role:'OPERATOR',staffId:'fixture-owner'})})(safari(target))).status,403);
+  assert.equal((await handler({transport})(safari(target+'?tab=cars&tab=apts'))).status,400);
+  assert.equal((await handler({transport})(new Request('https://palmaauto.ru'+target,{headers:{'sec-fetch-dest':'iframe',cookie:'factory_editor_session=forged'}}))).status,403);
+  assert.equal((await handler({transport})(new Request('https://palmaauto.ru'+target,{headers:{'sec-fetch-dest':'iframe','content-length':'1'}}))).status,400);
+  assert.equal(calls,0);
 });
