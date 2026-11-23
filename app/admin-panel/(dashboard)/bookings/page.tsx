@@ -63,7 +63,8 @@ type SP = { from?: string; tab?: string; hidden?: string };
 
 export default async function ChessboardPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  if (sp.tab === "apts") return <ApartmentsRc from={sp.from} />;
+  // Квартиры и машины — одна шахматка в виде RealtyCalendar; старый вид — только по ?tab=old
+  if (sp.tab !== "old") return <ApartmentsRc from={sp.from} showHidden={sp.hidden === "1"} />;
   // старая шахматка (общая) — теперь только для машин; ветка квартир ниже оставлена на случай отката
   const tab = "cars" as "cars" | "apts";
   const showHidden = sp.hidden === "1";
@@ -320,7 +321,7 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
 }
 
 /** Шахматка квартир в виде RealtyCalendar (оформление, шрифты, полосы броней). */
-async function ApartmentsRc({ from }: { from?: string }) {
+async function ApartmentsRc({ from, showHidden }: { from?: string; showHidden: boolean }) {
   const session = await requireAdminPanelSession();
   const today = utcToday();
   const parsed = from ? parseDateInput(from) : null;
@@ -341,7 +342,18 @@ async function ApartmentsRc({ from }: { from?: string }) {
     }),
     prisma.rcSyncRun.findFirst({ where: { status: "ok" }, orderBy: { startedAt: "desc" } }),
   ]);
-  const totals = await getDealTotals(deals.map((d) => d.id));
+  // машины: заказы с сайта, у каждого — карточка аренды (Deal.siteBookingId) со сквозным номером
+  const [allCars, carBookings] = await Promise.all([
+    prisma.car.findMany({ orderBy: [{ make: "asc" }, { model: "asc" }], select: { id: true, make: true, model: true, active: true, isTest: true } }),
+    prisma.booking.findMany({
+      where: bookingsOverlappingRangeWhere(viewStart, viewEnd),
+      include: { user: { select: { email: true, firstName: true, lastName: true, patronymic: true, phone: true } } },
+      orderBy: { startDate: "asc" },
+    }),
+  ]);
+  const carDeals = await prisma.deal.findMany({ where: { siteBookingId: { in: carBookings.map((b) => b.id) } }, select: { id: true, number: true, siteBookingId: true, grossKop: true } });
+  const dealByBooking = new Map(carDeals.map((d) => [d.siteBookingId as string, d]));
+  const totals = await getDealTotals([...deals.map((d) => d.id), ...carDeals.map((d) => d.id)]);
   const rc = (lastRun?.result as RcRunSummary | null | undefined) ?? null;
   const rcOnly = (rc?.missing ?? []).filter((m) => m.assetId && m.end > days[0] && m.begin <= days[days.length - 1]);
   const stamp = (t: Date) => t.toLocaleString("ru-RU", { timeZone: "Europe/Moscow", dateStyle: "short", timeStyle: "short" });
@@ -425,7 +437,54 @@ async function ApartmentsRc({ from }: { from?: string }) {
     ],
   }));
 
-  const link = (d: Date) => `/admin-panel/bookings?tab=apts&from=${iso(d)}`;
+  const isHiddenCar = (c: { active: boolean; isTest: boolean }) => !c.active || c.isTest;
+  const cars = showHidden ? allCars : allCars.filter((c) => !isHiddenCar(c));
+  const carRows: RcRow[] = cars.map((car) => ({
+    id: car.id,
+    group: "Машины",
+    muted: isHiddenCar(car),
+    title: `${car.make} ${car.model}${car.isTest ? " (тест)" : !car.active ? " (скрыт)" : ""}`,
+    bars: carBookings
+      .filter((b) => b.carId === car.id)
+      .map<RcBar>((b) => {
+        const label = formatBookingGuestLabel(b);
+        const phone = bookingGuestPhone(b);
+        const cd = dealByBooking.get(b.id);
+        const s = iso(b.startDate);
+        const last = iso(b.endDate); // аренда машины — по дням включительно
+        const paidKop = cd ? (totals.get(cd.id)?.paidKop ?? 0) : 0;
+        const paidShare = cd && cd.grossKop > 0 ? paidKop / cd.grossKop : b.status === "PAID" ? 1 : b.status === "PARTIALLY_PAID" ? 0.5 : 0;
+        const status = b.status === "PAID" ? "оплачен" : b.status === "PARTIALLY_PAID" ? "оплачен частично" : b.status === "PENDING_PAYMENT" ? "не оплачен" : String(b.status);
+        const back = `/admin-panel/bookings?from=${encodeURIComponent(iso(viewStart))}`;
+        return {
+          id: b.id,
+          start: s,
+          end: iso(addUtcDays(b.endDate, 1)),
+          pin: { letter: "С", bg: "rgb(255, 224, 0)", color: "#000", title: "Заказ с сайта" },
+          paid: paidShare,
+          paidFull: paidShare >= 1,
+          dashed: b.isTest,
+          label: `${label}${phone ? ` ${phone}` : ""}${cd ? ` · №${cd.number}` : b.isTest ? " · тест" : ""}`,
+          title: `${cd ? `Аренда №${cd.number} · ` : ""}${label} · ${rd(s)}–${rd(last)} · ${status}`,
+          info: {
+            subtitle: cd ? `Аренда №${cd.number} · заказ с сайта · ${car.make} ${car.model}` : `${b.isTest ? "Тестовый заказ" : "Заказ"} · ${car.make} ${car.model}`,
+            title: label,
+            lines: [
+              ["Даты", `${rd(s)}.${s.slice(0, 4)} – ${rd(last)}.${last.slice(0, 4)}`],
+              ["Телефон", phone ?? "—"],
+              ["Мессенджер", b.guestMessenger?.trim() || "—"],
+              ["Статус оплаты", status],
+            ],
+            link: cd
+              ? { href: `/admin-panel/accounting/deals/${cd.id}`, label: "Открыть карточку аренды (оплаты, расходы)" }
+              : { href: `/admin-panel/orders/${b.id}/edit?back=${encodeURIComponent(back)}`, label: "Открыть заказ" },
+          },
+        };
+      }),
+  }));
+  const hiddenCars = allCars.filter(isHiddenCar).length;
+
+  const link = (d: Date) => `/admin-panel/bookings?from=${iso(d)}${showHidden ? "&hidden=1" : ""}`;
   const m0 = utcStartOfMonth(today);
   const shiftMonth = (k: number) => new Date(Date.UTC(m0.getUTCFullYear(), m0.getUTCMonth() + k, 1));
   const monthLabel = (d: Date) => `${MONTH_NAMES[d.getUTCMonth()]}${d.getUTCFullYear() !== today.getUTCFullYear() || d.getUTCMonth() !== today.getUTCMonth() ? `, ${d.getUTCFullYear()}` : ""}`;
@@ -440,16 +499,19 @@ async function ApartmentsRc({ from }: { from?: string }) {
       <RcChessboard
         days={days}
         today={iso(today)}
-        rows={rows}
+        rows={[...rows, ...carRows]}
         nav={nav}
         datePickerFrom={fromIso}
         tabs={[
-          { label: "Машины", href: "/admin-panel/bookings" },
-          { label: "Квартиры", href: "/admin-panel/bookings?tab=apts", active: true },
+          {
+            label: showHidden ? `Скрыть тестовые машины` : `Показать скрытые и тестовые машины${hiddenCars ? ` (${hiddenCars})` : ""}`,
+            href: `/admin-panel/bookings?from=${fromIso}${showHidden ? "" : "&hidden=1"}`,
+          },
         ]}
         actions={[
           { label: "Сверка с RC", href: "/admin-panel/accounting/rc" },
           { label: "+ Новый заезд", href: "/admin-panel/accounting/deals/new" },
+          { label: "+ Аренда машины", href: "/admin-panel/bookings/new" },
         ]}
         note={lastRun ? { text: `${rcOnly.length ? `${rcOnly.length} только в RC · ` : ""}данные RC на ${stamp(lastRun.startedAt)}`, href: "/admin-panel/accounting/rc" } : null}
       />

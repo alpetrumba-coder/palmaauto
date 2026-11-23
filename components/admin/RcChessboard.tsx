@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import { BarInfoModal, type BarInfo } from "@/components/admin/Chessboard";
 
@@ -29,7 +29,8 @@ export type RcBar = {
   info: BarInfo;
 };
 
-export type RcRow = { id: string; title: string; bars: RcBar[] };
+/** `group` — раздел шахматки (например «Машины»): перед первой строкой нового раздела — отступ и заголовок. */
+export type RcRow = { id: string; title: string; bars: RcBar[]; group?: string; muted?: boolean };
 
 export type RcNavLink = { label: string; href: string; active?: boolean };
 
@@ -216,10 +217,19 @@ export function RcChessboard({
                 </td>
               </tr>
             ) : null}
-            {shown.map((row) => (
-              <tr key={row.id}>
+            {shown.map((row, i) => (
+              <Fragment key={row.id}>
+              {row.group && row.group !== shown[i - 1]?.group ? (
+                <tr>
+                  <th style={{ position: "sticky", left: 0, zIndex: 2, background: "#fff", height: 56, padding: "24px 8px 6px 0", textAlign: "left", verticalAlign: "bottom", fontSize: 16, lineHeight: "16px", fontWeight: 700, borderBottom: ROW_BORDER }}>
+                    {row.group}
+                  </th>
+                  <td colSpan={n} style={{ borderBottom: ROW_BORDER }} />
+                </tr>
+              ) : null}
+              <tr>
                 <th style={{ position: "sticky", left: 0, zIndex: 2, background: "#fff", height: ROW_H, padding: "0 8px 0 0", textAlign: "left", fontWeight: 400, borderBottom: ROW_BORDER }}>
-                  <span title={row.title} style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontSize: 11, lineHeight: "13.2px", fontWeight: 500, color: BLUE }}>
+                  <span title={row.title} style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontSize: 11, lineHeight: "13.2px", fontWeight: 500, color: BLUE, opacity: row.muted ? 0.55 : 1 }}>
                     {row.title}
                   </span>
                 </th>
@@ -271,6 +281,7 @@ export function RcChessboard({
                   </div>
                 </td>
               </tr>
+              </Fragment>
             ))}
           </tbody>
         </table>
