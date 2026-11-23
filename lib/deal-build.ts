@@ -65,10 +65,12 @@ export async function buildDealData(input: DealInput, selfId?: string, opts: { a
   }
 
   // Двойное бронирование: период [начало, конец) не должен пересекаться с другим действующим по тому же объекту.
+  // Пропавшая из RealtyCalendar бронь (пунктир) даты не занимает — новая бронь заводится поверх неё.
   const clash = await prisma.deal.findFirst({
     where: {
       assetId: asset.id,
       status: "ACTIVE",
+      rcMissingSince: null,
       ...(selfId ? { id: { not: selfId } } : {}),
       startDate: { lt: endDate.getTime() === startDate.getTime() ? new Date(endDate.getTime() + 86400000) : endDate },
       endDate: { gt: startDate },

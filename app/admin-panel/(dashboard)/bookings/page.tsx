@@ -385,13 +385,15 @@ async function ApartmentsRc({ from, showHidden }: { from?: string; showHidden: b
             pin: pinFor(source, d.channel?.name ?? null),
             paid: d.grossKop > 0 ? paid / d.grossKop : 0,
             paidFull: d.grossKop > 0 && paid >= d.grossKop,
-            dashed: lost,
-            label: `${d.guestName}${d.phone ? ` ${d.phone}` : ""} · №${d.number}${lost ? " ⚠" : ""}`,
+            ghost: lost,
+            label: `${d.guestName}${d.phone ? ` ${d.phone}` : ""} · №${d.number}${lost ? " · нет в RC" : ""}`,
             title: `Бронь №${d.number}${d.rcBookingId ? ` · RC №${d.rcBookingId}` : ""} · ${d.guestName} · ${rd(s)}–${rd(e)}${d.channel ? ` · ${d.channel.name}` : ""} · оплачено ${rub(paid)} из ${rub(d.grossKop)}`,
             info: {
               subtitle: `Бронь №${d.number}${d.rcBookingId ? ` · RealtyCalendar №${d.rcBookingId}` : " · внесена вручную"}`,
               title: d.guestName,
-              warning: lost ? `Брони нет в RealtyCalendar (пропала ${stamp(d.rcMissingSince as Date)}). Проверьте, не отменена ли она.` : undefined,
+              warning: lost
+                ? `Брони нет в RealtyCalendar (пропала ${stamp(d.rcMissingSince as Date)}). Она не учитывается и не занимает даты. Если новая бронь не закрыла пунктир — выясните, что не устроило гостя, и отмените или верните бронь.`
+                : undefined,
               lines: [
                 ["Объект", a.title],
                 ["Даты", `${rd(s)}.${s.slice(0, 4)} – ${rd(e)}.${e.slice(0, 4)} (${nights} ноч.)`],

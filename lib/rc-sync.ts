@@ -132,7 +132,8 @@ export async function runRcSync(trigger: "cron" | "manual", startedBy: string | 
 
     const linked = await syncLinkedDeals(rows, iso(from), iso(to), events.length);
 
-    const dealRows = await prisma.deal.findMany({ where: { status: "ACTIVE" }, include: { asset: { select: { name: true } } } });
+    // пунктирные (пропавшие из RC) не участвуют в сверке: новая бронь RC на их даты заводится поверх, а не считается дублем
+    const dealRows = await prisma.deal.findMany({ where: { status: "ACTIVE", rcMissingSince: null }, include: { asset: { select: { name: true } } } });
     const totals = await getDealTotals(dealRows.map((d) => d.id));
     const deals: OurDeal[] = dealRows.map((d) => ({
       id: d.id,

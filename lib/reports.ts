@@ -354,7 +354,7 @@ export async function buildBonus(p: Period): Promise<ReportTable> {
     loadFacts(p),
     prisma.category.findMany({ select: { id: true, name: true } }),
     prisma.deal.findMany({
-      where: { status: "ACTIVE", endDate: { gte: p.from, lte: p.to } },
+      where: { status: "ACTIVE", rcMissingSince: null, endDate: { gte: p.from, lte: p.to } },
       select: { endDate: true, grossKop: true, commissionKop: true, asset: { select: { kind: true } }, channel: { select: { name: true } } },
     }),
     // доп. доходы: месяц — по выезду брони, если операция к ней привязана, иначе по дате операции

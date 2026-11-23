@@ -132,11 +132,13 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
                 const t = totals.get(d.id) ?? { paidKop: 0, expenseKop: 0 };
                 const left = d.grossKop - t.paidKop;
                 const cancelled = d.status === "CANCELLED";
+                const ghost = !cancelled && !!d.rcMissingSince; // пропала из RealtyCalendar — пунктир, не учитывается
                 return (
-                  <tr key={d.id} style={{ opacity: cancelled ? 0.5 : 1 }}>
+                  <tr key={d.id} style={{ opacity: cancelled || ghost ? 0.5 : 1 }}>
                     <td style={cell}>
                       <Link href={`/admin-panel/accounting/deals/${d.id}`} style={{ fontWeight: 600 }}>№{d.number}</Link>
                       {cancelled ? <div style={{ fontSize: "var(--text-xs)" }}>отменён</div> : null}
+                      {ghost ? <div style={{ fontSize: "var(--text-xs)", color: "var(--color-danger, #b00020)" }}>нет в RC · не учитывается</div> : null}
                     </td>
                     <td style={cell}>{d.asset.name}</td>
                     <td style={cell}>{d.guestName}</td>

@@ -26,6 +26,8 @@ export type RcBar = {
   /** Оплачено полностью — жёлтая, иначе красная (как в RC). */
   paidFull: boolean;
   dashed?: boolean;
+  /** Бронь пропала из RealtyCalendar: только пунктирная рамка, лежит под остальными — новая бронь её закрывает. */
+  ghost?: boolean;
   info: BarInfo;
 };
 
@@ -244,7 +246,7 @@ export function RcChessboard({
                 </th>
                 <td colSpan={n} style={{ padding: 0, height: ROW_H, borderBottom: ROW_BORDER, position: "relative" }}>
                   <div style={{ position: "relative", height: ROW_H - 1, width: n * DAY_W }}>
-                    {row.bars.map((b) => {
+                    {[...row.bars].sort((x, y) => Number(!!y.ghost) - Number(!!x.ghost)).map((b) => {
                       const g = geometry(b);
                       if (!g) return null;
                       return (
@@ -261,13 +263,15 @@ export function RcChessboard({
                             height: 26,
                             padding: "2px 0 3px 2px",
                             margin: 0,
-                            border: b.dashed ? "1px dashed rgba(0,0,0,0.55)" : 0,
-                            background: b.paidFull ? "rgb(250, 218, 152)" : "rgba(254, 0, 0, 0.5)",
+                            border: b.ghost ? "1px dashed rgba(0,0,0,0.5)" : b.dashed ? "1px dashed rgba(0,0,0,0.55)" : 0,
+                            // непрозрачная подложка: пунктир пропавшей брони под новой бронью не просвечивает
+                            background: b.ghost ? "#fff" : `linear-gradient(${b.paidFull ? "rgb(250, 218, 152)" : "rgba(254, 0, 0, 0.5)"}, ${b.paidFull ? "rgb(250, 218, 152)" : "rgba(254, 0, 0, 0.5)"}), #fff`,
+                            opacity: b.ghost ? 0.75 : 1,
                             cursor: "pointer",
                             overflow: "hidden",
                             textAlign: "left",
                             fontFamily: "inherit",
-                            zIndex: 1,
+                            zIndex: b.ghost ? 1 : 2,
                           }}
                         >
                           <span style={{ display: "flex", alignItems: "center", gap: 4, height: 11, marginTop: 4, paddingLeft: 1, fontSize: 10, lineHeight: "11px", color: "rgb(34, 34, 34)", whiteSpace: "nowrap" }}>
@@ -281,9 +285,9 @@ export function RcChessboard({
                             ) : null}
                             <span style={{ overflow: "hidden", textOverflow: "clip" }}>{b.label}</span>
                           </span>
-                          <span style={{ position: "absolute", left: 3, right: 2, top: 21, height: 2, background: "#fff" }}>
+                          {b.ghost ? null : <span style={{ position: "absolute", left: 3, right: 2, top: 21, height: 2, background: "#fff" }}>
                             <span style={{ display: "block", height: 2, width: `${Math.round(Math.min(Math.max(b.paid, 0), 1) * 100)}%`, background: "rgb(126, 211, 33)" }} />
-                          </span>
+                          </span>}
                         </button>
                       );
                     })}
