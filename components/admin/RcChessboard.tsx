@@ -122,6 +122,7 @@ export function RcChessboard({
             <input type="hidden" name="tab" value="apts" />
             <input
               type="date"
+              className="rc-date"
               name="from"
               defaultValue={datePickerFrom}
               aria-label="Показать с даты"

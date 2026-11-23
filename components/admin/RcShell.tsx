@@ -31,7 +31,16 @@ export function RcShell({ isOwner, userName, children }: { isOwner: boolean; use
         </header>
         <main style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>{children}</main>
       </div>
-      <style>{`.rc-topbar nav { flex-wrap: nowrap !important; gap: 0.9rem !important; } .rc-topbar nav a { white-space: nowrap; font-size: 14px !important; } .rc-topbar nav a:not([style*="border-radius"]) { color: #212529; }`}</style>
+      <style>{`
+        .rc-topbar nav { flex-wrap: nowrap !important; gap: 14px !important; }
+        .rc-topbar nav a { white-space: nowrap; font-size: 14px !important; font-weight: 400 !important; min-height: 0 !important; padding-block: 0 !important; }
+        .rc-topbar nav a:not([style*="border-radius"]) { color: #212529; padding-inline: 0 !important; }
+        .rc-topbar nav a[style*="border-radius"] { padding: 4px 10px !important; margin-left: 0 !important; box-shadow: none !important; font-size: 13px !important; }
+        .rc-topbar > div:first-child { overflow-x: auto; scrollbar-width: none; }
+        .rc-date::-webkit-datetime-edit, .rc-date::-webkit-datetime-edit-fields-wrapper { display: none; }
+        .rc-date { color: transparent !important; }
+        .rc-date::-webkit-calendar-picker-indicator { margin: 0; cursor: pointer; opacity: 0.7; }
+      `}</style>
     </div>
   );
 }
