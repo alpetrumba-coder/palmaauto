@@ -5,9 +5,10 @@
  *  - Ostrovok, оплачено полностью в RC: площадка удерживает комиссию, остаток приходит на Карту Х в день заезда;
  *  - Суточно, ПриветТур, Ostrovok с частичной предоплатой: предоплата — комиссия площадки, к нам не приходит; остальное — с гостя при заезде;
  *  - прямые брони и аренда машин: всё, что не оплачено, — с гостя.
+ * Заезды до начала учёта не показываем: деньги за них уже в начальных остатках.
  * Ожидаемое = сумма брони − комиссия площадки − уже полученное в кассы.
  */
-import { getDealTotals } from "@/lib/accounting";
+import { getAccountingStartDate, getDealTotals } from "@/lib/accounting";
 import { prisma } from "@/lib/prisma";
 
 /** Источник брони в RC из комментария «Из RealtyCalendar №… (Корзина)». */
@@ -29,8 +30,15 @@ export type ExpectedReceipt = {
 const DAY = 86400000;
 
 export async function getExpectedReceipts(today: Date): Promise<ExpectedReceipt[]> {
+  // заезды до начала учёта не ждём: деньги за них уже в начальных остатках касс
+  const start = await getAccountingStartDate();
   const deals = await prisma.deal.findMany({
-    where: { status: "ACTIVE", rcMissingSince: null, endDate: { gte: new Date(today.getTime() - 30 * DAY) } },
+    where: {
+      status: "ACTIVE",
+      rcMissingSince: null,
+      endDate: { gte: new Date(today.getTime() - 30 * DAY) },
+      ...(start ? { startDate: { gte: new Date(`${start}T00:00:00Z`) } } : {}),
+    },
     select: {
       id: true, number: true, guestName: true, startDate: true, grossKop: true, commissionKop: true, rcPaidKop: true, comment: true,
       asset: { select: { name: true, kind: true } }, channel: { select: { name: true } },
