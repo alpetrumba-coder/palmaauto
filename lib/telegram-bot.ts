@@ -10,6 +10,7 @@ import { answerCallbackQuery, downloadFile, editMessageText, getFile, sendMessag
 import { applyText, detectIntent, dropIntentWord, missingFields, QUESTION, renderCard, type CardDeal, type OpDraft, type OpType, type Refs } from "@/lib/telegram-draft";
 import { createLaundryOps, findLaundryTargets, splitEven } from "@/lib/laundry";
 import { findAccounts, matchCategory, parseAmount, parseDealNumbers } from "@/lib/telegram-parse";
+import { continueRepair, handleRepairCallback, handleRepairPhoto, isRepairIntent, REPAIR_HELP, startRepair } from "@/lib/telegram-repair";
 import { buildDealData, type DealInput } from "@/lib/deal-build";
 import {
   applyBookingText,
@@ -33,7 +34,9 @@ const HELP =
   "«34», «Иванов», «с карты х» — фразу целиком повторять не нужно. Исправить: «не 1500, а 1800». " +
   "Задним числом: «вчера», «5 ноября», «05.11». Если сумма или дата необычные — бот переспросит. " +
   "В учёт попадает только после кнопки «Записать».\n" +
-  "• остаток — остатки касс · статьи — список статей · отмена — сбросить карточку";
+  "• остаток — остатки касс · статьи — список статей · отмена — сбросить карточку\n\n" +
+  "Ремонт Акиртава (начните со слова «Акиртава»):\n" +
+  REPAIR_HELP;
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -359,6 +362,14 @@ async function handleText(chatId: number, text: string) {
     await sendMessage(chatId, cur ? "Карточка отменена." : "Нечего отменять.");
     return;
   }
+
+  // ремонт Акиртава: «Акиртава, купил клей 3 мешка 1950, с карты Х», «…взял гонорар 50000»
+  if (isRepairIntent(trimmed)) {
+    await startRepair(chatId, staff, trimmed);
+    return;
+  }
+  // ответ на вопрос карточки ремонта («1950»)
+  if (await continueRepair(chatId, trimmed)) return;
 
   // «новая бронь Рио с 5 по 10 ноября Иванов 25000 Авито»
   if (isBookingIntent(trimmed)) {
@@ -814,6 +825,12 @@ async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
     await handleOpCallback(chatId, messageId, cb.id, action, draftId, value);
     return;
   }
+  if (parts[0] === "rp") {
+    const [, action, draftId, value] = parts;
+    const staff = await findStaffByChat(chatId);
+    await handleRepairCallback(chatId, messageId, cb.id, action, draftId, value, staff && staff.active ? staff : null);
+    return;
+  }
   const [, action, draftId] = parts;
   await handleExpenseCallback(chatId, messageId, cb.id, action, draftId);
 }
@@ -899,6 +916,23 @@ export async function handleTelegramUpdate(update: TgUpdate & { update_id?: numb
     const chatId = update.message.chat.id;
     if (update.message.voice) {
       await handleVoice(chatId, update.message.voice);
+      return;
+    }
+    const photo = update.message.photo?.length ? update.message.photo[update.message.photo.length - 1] : null;
+    const doc = update.message.document;
+    if (photo || (doc && /^(image\/|application\/pdf)/.test(doc.mime_type ?? ""))) {
+      const staff = await findStaffByChat(chatId);
+      if (!staff || !staff.active) {
+        await sendMessage(chatId, "Этот чат не привязан к сотруднику.");
+        return;
+      }
+      const file = photo
+        ? { fileId: photo.file_id, name: `foto-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.jpg`, mime: "image/jpeg" }
+        : { fileId: doc!.file_id, name: doc!.file_name ?? "file", mime: doc!.mime_type ?? "application/octet-stream" };
+      await handleRepairPhoto(chatId, staff, file, update.message.caption?.trim() || null).catch(async (e) => {
+        console.error("[telegram-photo]", e);
+        await sendMessage(chatId, "Не удалось обработать фото, попробуйте ещё раз.");
+      });
       return;
     }
     if (update.message.text) await handleText(chatId, update.message.text);

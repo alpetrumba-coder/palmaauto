@@ -101,7 +101,10 @@ export async function downloadFile(filePath: string): Promise<Buffer> {
 // --- типы входящих апдейтов (только то, что используем) ---
 export type TgVoice = { file_id: string; duration?: number; mime_type?: string; file_size?: number };
 
+export type TgPhotoSize = { file_id: string; file_size?: number; width?: number; height?: number };
+export type TgDocument = { file_id: string; file_name?: string; mime_type?: string; file_size?: number };
+
 export type TgUpdate = {
-  message?: { message_id: number; chat: { id: number }; text?: string; voice?: TgVoice };
+  message?: { message_id: number; chat: { id: number }; text?: string; voice?: TgVoice; photo?: TgPhotoSize[]; document?: TgDocument; caption?: string };
   callback_query?: { id: string; data?: string; message?: { message_id: number; chat: { id: number } } };
 };

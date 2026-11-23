@@ -552,3 +552,102 @@ model TelegramDraft {
   @@index([chatId])
   @@map("telegram_drafts")
 }
+
+// ============================================================================
+// Ремонт (сейчас — Акиртава 27): смета прораба, накладные и расходы по строкам,
+// привязанные к строкам сметы. Каждая накладная/расход — это и операция журнала учёта.
+// ============================================================================
+
+/// Строка сметы ремонта (из сметы прораба) + служебные строки «Гонорар прораба», «Накладные 5%».
+model RepairEstimateItem {
+  id         String          @id @default(cuid())
+  /// Какой ремонт: "akirtava".
+  project    String
+  lineNo     Int             @map("line_no")
+  /// material | work | fee | overhead
+  kind       String
+  section    String
+  subsection String          @default("")
+  name       String
+  /// Артикул из названия (6–8 цифр), по нему строки накладных находят строку сметы.
+  article    String?
+  unit       String          @default("")
+  qty        Float?
+  priceKop   Int?            @map("price_kop")
+  sumKop     Int             @map("sum_kop")
+  lines      RepairDocLine[]
+
+  @@unique([project, lineNo])
+  @@index([project, article])
+  @@map("repair_estimate_items")
+}
+
+/// Накладная или расход по ремонту: из УНФ (Рубин), из Telegram-бота, вручную.
+model RepairDoc {
+  id          String          @id @default(cuid())
+  project     String
+  /// unf | bot | site
+  source      String
+  /// Уникальная ссылка на источник: «unf:rn:НФНФ-068845» — повторная загрузка не создаёт дублей.
+  externalRef String?         @unique @map("external_ref")
+  /// Номер документа поставщика (для людей).
+  number      String?
+  date        DateTime        @db.Date
+  /// Поставщик или кому заплачено.
+  supplier    String?
+  /// goods — товар, work — оплата работ, fee — гонорар прораба, return — возврат товара.
+  kind        String          @default("goods")
+  /// Куда относится: akirtava | palma | unknown (без пометки в комментарии УНФ).
+  destination String          @default("akirtava")
+  totalKop    Int             @map("total_kop")
+  comment     String?         @db.Text
+  /// Связанная строка журнала учёта.
+  operationId String?         @unique @map("operation_id")
+  createdBy   String          @map("created_by")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  voidedAt    DateTime?       @map("voided_at")
+  lines       RepairDocLine[]
+  files       RepairFile[]
+
+  @@index([project, date])
+  @@map("repair_docs")
+}
+
+/// Строка накладной/расхода; estimateItemId — к какой строке сметы относится (null — вне сметы или ещё не разобрано).
+model RepairDocLine {
+  id             String              @id @default(cuid())
+  docId          String              @map("doc_id")
+  lineNo         Int                 @map("line_no")
+  name           String
+  article        String?
+  unit           String?
+  qty            Float?
+  priceKop       Int?                @map("price_kop")
+  sumKop         Int                 @map("sum_kop")
+  estimateItemId String?             @map("estimate_item_id")
+  /// Как привязано: article | name | manual | fee | none (вне сметы).
+  matchMode      String              @default("none") @map("match_mode")
+  doc            RepairDoc           @relation(fields: [docId], references: [id], onDelete: Cascade)
+  estimateItem   RepairEstimateItem? @relation(fields: [estimateItemId], references: [id], onDelete: SetNull)
+
+  @@index([docId])
+  @@index([estimateItemId])
+  @@map("repair_doc_lines")
+}
+
+/// Фото накладной/чека (из Telegram или с сайта).
+model RepairFile {
+  id        String     @id @default(cuid())
+  docId     String?    @map("doc_id")
+  name      String
+  mime      String
+  data      Bytes
+  /// Подпись к фото из Telegram (номер накладной и т.п.).
+  caption   String?
+  createdBy String     @map("created_by")
+  createdAt DateTime   @default(now()) @map("created_at")
+  doc       RepairDoc? @relation(fields: [docId], references: [id], onDelete: SetNull)
+
+  @@index([docId])
+  @@map("repair_files")
+}
