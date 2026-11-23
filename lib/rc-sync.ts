@@ -66,6 +66,11 @@ async function syncLinkedDeals(rows: RcRow[], from: string, to: string, fetched:
 
     const data: Prisma.DealUpdateInput = {};
     let touched = false;
+    // «оплачено по RC» — отметка, не деньги: переносим всегда, изменение пишем в историю
+    if (d.rcPaidKop !== row.paidKop) {
+      if (d.rcPaidKop !== null) logs.push(`Оплачено по RealtyCalendar: ${rub(d.rcPaidKop)} → ${rub(row.paidKop)}`);
+      data.rcPaidKop = row.paidKop;
+    }
     if (changedInRc) {
       if (ds !== row.begin || de !== row.end) {
         logs.push(`Даты: ${rd(ds)}–${rd(de)} → ${rd(row.begin)}–${rd(row.end)} (изменено в RealtyCalendar)`);
@@ -98,7 +103,7 @@ async function syncLinkedDeals(rows: RcRow[], from: string, to: string, fetched:
       }
       data.rcSnapshot = cur;
     }
-    if (!changedInRc && logs.length === 0) continue;
+    if (!changedInRc && logs.length === 0 && data.rcPaidKop === undefined) continue;
     if (d.rcMissingSince) data.rcMissingSince = null;
     if (logs.length > 0) data.changes = { create: logs.map((text) => ({ source: "rc", text })) };
     if (touched) updated++;

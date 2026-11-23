@@ -6,6 +6,7 @@ import { RcChessboard, type RcBar, type RcPin, type RcRow } from "@/components/a
 import { RcShell } from "@/components/admin/RcShell";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
 import { getDealTotals } from "@/lib/accounting";
+import { rcSourceOf } from "@/lib/expected-receipts";
 import { bookingGuestPhone, formatBookingGuestLabel } from "@/lib/booking-display";
 import { bookingsOverlappingRangeWhere } from "@/lib/booking-overlap";
 import { prisma } from "@/lib/prisma";
@@ -42,7 +43,6 @@ function pinFor(source: string | null, channel: string | null): RcPin | null {
   if (c.includes("прям") || !c) return pin("П", "rgb(255, 224, 0)", "#000", "Прямое бронирование");
   return null;
 }
-const rcSourceOf = (comment: string | null) => comment?.match(/Из RealtyCalendar №\d+ \(([^)]+)\)/)?.[1] ?? null;
 const MONTH_NAMES = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 
 const GREEN = "rgba(90, 140, 90, 0.92)";
@@ -337,7 +337,7 @@ async function ApartmentsRc({ from, showHidden }: { from?: string; showHidden: b
       where: { status: "ACTIVE", startDate: { lte: viewEnd }, endDate: { gt: viewStart }, asset: { kind: "APARTMENT" } },
       select: {
         id: true, number: true, assetId: true, guestName: true, phone: true, startDate: true, endDate: true, grossKop: true, commissionKop: true,
-        comment: true, rcBookingId: true, rcMissingSince: true, channel: { select: { name: true } },
+        comment: true, rcBookingId: true, rcMissingSince: true, rcPaidKop: true, channel: { select: { name: true } },
         changes: { orderBy: { at: "desc" }, take: 6, select: { at: true, text: true } },
       },
       orderBy: { startDate: "asc" },
@@ -372,7 +372,9 @@ async function ApartmentsRc({ from, showHidden }: { from?: string; showHidden: b
       ...deals
         .filter((d) => d.assetId === a.id)
         .map<RcBar>((d) => {
-          const paid = totals.get(d.id)?.paidKop ?? 0;
+          const paid = totals.get(d.id)?.paidKop ?? 0; // получено в кассы
+          const rcPaid = d.rcPaidKop ?? 0; // отметка «оплачено» в RealtyCalendar
+          const shown = Math.max(paid, rcPaid); // цвет — как в RC, но если в кассы пришло больше, берём это
           const s = iso(d.startDate);
           const e = iso(d.endDate);
           const nights = Math.round((d.endDate.getTime() - d.startDate.getTime()) / 86400000);
@@ -383,11 +385,11 @@ async function ApartmentsRc({ from, showHidden }: { from?: string; showHidden: b
             start: s,
             end: e,
             pin: pinFor(source, d.channel?.name ?? null),
-            paid: d.grossKop > 0 ? paid / d.grossKop : 0,
-            paidFull: d.grossKop > 0 && paid >= d.grossKop,
+            paid: d.grossKop > 0 ? shown / d.grossKop : 0,
+            paidFull: d.grossKop > 0 && shown >= d.grossKop,
             ghost: lost,
             label: `${d.guestName}${d.phone ? ` ${d.phone}` : ""} · №${d.number}${lost ? " · нет в RC" : ""}`,
-            title: `Бронь №${d.number}${d.rcBookingId ? ` · RC №${d.rcBookingId}` : ""} · ${d.guestName} · ${rd(s)}–${rd(e)}${d.channel ? ` · ${d.channel.name}` : ""} · оплачено ${rub(paid)} из ${rub(d.grossKop)}`,
+            title: `Бронь №${d.number}${d.rcBookingId ? ` · RC №${d.rcBookingId}` : ""} · ${d.guestName} · ${rd(s)}–${rd(e)}${d.channel ? ` · ${d.channel.name}` : ""} · оплачено по RC ${rub(rcPaid)}, в кассы ${rub(paid)} из ${rub(d.grossKop)}`,
             info: {
               subtitle: `Бронь №${d.number}${d.rcBookingId ? ` · RealtyCalendar №${d.rcBookingId}` : " · внесена вручную"}`,
               title: d.guestName,
@@ -402,7 +404,9 @@ async function ApartmentsRc({ from, showHidden }: { from?: string; showHidden: b
                 ["Площадка", `${d.channel?.name ?? "напрямую"}${source ? ` (в RC: ${source})` : ""}`],
                 ["Сумма", rub(d.grossKop)],
                 ["Комиссия", rub(d.commissionKop)],
-                ["Оплачено", `${rub(paid)} (осталось ${rub(Math.max(d.grossKop - paid, 0))})`],
+                ["Оплачено по RC", `${rub(rcPaid)} (отметка в RealtyCalendar, не деньги в кассах)`],
+                ["Получено в кассы", rub(paid)],
+                ["Осталось получить", `${rub(Math.max(d.grossKop - d.commissionKop - paid, 0))} (сумма − комиссия площадки − получено)`],
                 ...(d.comment ? ([["Комментарий", d.comment]] as [string, string][]) : []),
               ],
               history: d.changes.map((c) => `${stamp(c.at)} — ${c.text}`),

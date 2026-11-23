@@ -51,6 +51,7 @@ export async function createDealFromRow(row: RcRow, createdBy: string): Promise<
       createdBy,
       rcBookingId: rcId,
       rcSnapshot: rcSnapshotOf(row),
+      rcPaidKop: row.paidKop,
       changes: { create: { source: "rc", text: `Создан из брони RealtyCalendar №${rcId}` } },
     },
   });

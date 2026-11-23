@@ -106,7 +106,8 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
         {stat("Сумма гостя", formatKop(deal.grossKop))}
         {stat("Комиссия площадки", formatKop(deal.commissionKop))}
         {stat("Нетто", formatKop(netKop))}
-        {stat(refundKop ? `Оплачено (за вычетом возвратов ${formatKop(refundKop)})` : "Оплачено", formatKop(paidKop), true)}
+        {deal.rcPaidKop !== null ? stat("Оплачено по RC (отметка, не деньги)", formatKop(deal.rcPaidKop)) : null}
+        {stat(refundKop ? `Получено в кассы (за вычетом возвратов ${formatKop(refundKop)})` : "Получено в кассы", formatKop(paidKop), true)}
         {stat("Осталось доплатить", formatKop(leftKop), true, leftKop > 0 && !cancelled ? "var(--color-danger, #b00020)" : undefined)}
         {stat("Расходы по заезду", formatKop(expenseKop))}
         {stat("Остаётся (нетто − расходы)", formatKop(netKop - expenseKop), true)}

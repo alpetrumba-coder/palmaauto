@@ -426,6 +426,8 @@ model Deal {
   rcMissingSince DateTime?   @map("rc_missing_since")
   /// Последние значения из RC, которые мы применили (даты, гость, сумма): по ним видно, что в RC изменилось.
   rcSnapshot     Json?       @map("rc_snapshot")
+  /// «Оплачено» по RealtyCalendar (предоплата там), обновляется ежедневной сверкой. Только отметка, не деньги в кассах.
+  rcPaidKop      Int?        @map("rc_paid_kop")
   createdBy      String      @map("created_by")
   createdAt      DateTime    @default(now()) @map("created_at")
   updatedAt      DateTime    @updatedAt @map("updated_at")

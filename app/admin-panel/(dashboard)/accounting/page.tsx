@@ -67,6 +67,7 @@ const NAV_GROUPS: { title: string; ownerOnly?: boolean; items: { href: string; l
     items: [
       { href: "/admin-panel/bookings?tab=apts", label: "Шахматка", hint: "Занятость квартир и машин, новые брони" },
       { href: "/admin-panel/accounting/deals", label: "Заезды и аренды", hint: "Все брони с номерами: оплачено, осталось, расходы" },
+      { href: "/admin-panel/accounting/expected", label: "Ожидаем поступлений", hint: "Какие деньги, по какой брони и когда должны прийти" },
       { href: "/admin-panel/accounting/rc", label: "Сверка RC и PA", hint: "Все ли брони RealtyCalendar и сайта заведены" },
       { href: "/admin-panel/accounting/laundry", label: "Стирка: распределить", hint: "Одна сумма — поровну на заезды без стирки" },
     ],
