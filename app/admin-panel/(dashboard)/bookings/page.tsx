@@ -22,7 +22,9 @@ export const dynamic = "force-dynamic";
 
 const NUM_DAYS = 42;
 /** Квартиры — как в RealtyCalendar: длинная лента дней с прокруткой. */
-const APT_DAYS = 92;
+const APT_DAYS = 106;
+/** Без даты в адресе показываем и две недели назад: шахматка сама прокручивается к сегодняшнему дню. */
+const PAST_DAYS = 14;
 
 /** Кружок-буква площадки, цвета как в RealtyCalendar. Источник — из RC («Из RealtyCalendar №… (Корзина)»), иначе канал. */
 function pinFor(source: string | null, channel: string | null): RcPin | null {
@@ -325,7 +327,7 @@ async function ApartmentsRc({ from, showHidden }: { from?: string; showHidden: b
   const session = await requireAdminPanelSession();
   const today = utcToday();
   const parsed = from ? parseDateInput(from) : null;
-  const viewStart = parsed && parsed.getTime() >= addUtcDays(today, -365).getTime() && parsed.getTime() <= addUtcDays(today, 800).getTime() ? parsed : today;
+  const viewStart = parsed && parsed.getTime() >= addUtcDays(today, -365).getTime() && parsed.getTime() <= addUtcDays(today, 800).getTime() ? parsed : addUtcDays(today, -PAST_DAYS);
   const viewEnd = addUtcDays(viewStart, APT_DAYS - 1);
   const days = buildUtcDayRange(viewStart, APT_DAYS).map(iso);
 
@@ -451,7 +453,7 @@ async function ApartmentsRc({ from, showHidden }: { from?: string; showHidden: b
         const phone = bookingGuestPhone(b);
         const cd = dealByBooking.get(b.id);
         const s = iso(b.startDate);
-        const last = iso(b.endDate); // аренда машины — по дням включительно
+        const last = iso(b.endDate); // день возврата машины — как день выезда у квартир
         const paidKop = cd ? (totals.get(cd.id)?.paidKop ?? 0) : 0;
         const paidShare = cd && cd.grossKop > 0 ? paidKop / cd.grossKop : b.status === "PAID" ? 1 : b.status === "PARTIALLY_PAID" ? 0.5 : 0;
         const status = b.status === "PAID" ? "оплачен" : b.status === "PARTIALLY_PAID" ? "оплачен частично" : b.status === "PENDING_PAYMENT" ? "не оплачен" : String(b.status);
@@ -459,7 +461,7 @@ async function ApartmentsRc({ from, showHidden }: { from?: string; showHidden: b
         return {
           id: b.id,
           start: s,
-          end: iso(addUtcDays(b.endDate, 1)),
+          end: last,
           pin: { letter: "С", bg: "rgb(255, 224, 0)", color: "#000", title: "Заказ с сайта" },
           paid: paidShare,
           paidFull: paidShare >= 1,
@@ -490,7 +492,7 @@ async function ApartmentsRc({ from, showHidden }: { from?: string; showHidden: b
   const monthLabel = (d: Date) => `${MONTH_NAMES[d.getUTCMonth()]}${d.getUTCFullYear() !== today.getUTCFullYear() || d.getUTCMonth() !== today.getUTCMonth() ? `, ${d.getUTCFullYear()}` : ""}`;
   const fromIso = iso(viewStart);
   const nav = [
-    { label: "Сегодня", href: link(today), active: fromIso === iso(today) },
+    { label: "Сегодня", href: `/admin-panel/bookings${showHidden ? "?hidden=1" : ""}`, active: !from },
     ...[-1, 0, 1].map((k) => ({ label: k === 0 ? MONTH_NAMES[shiftMonth(0).getUTCMonth()] : monthLabel(shiftMonth(k)), href: link(shiftMonth(k)), active: fromIso === iso(shiftMonth(k)) })),
   ];
 
@@ -500,6 +502,7 @@ async function ApartmentsRc({ from, showHidden }: { from?: string; showHidden: b
         days={days}
         today={iso(today)}
         rows={[...rows, ...carRows]}
+        autoScroll={!from}
         nav={nav}
         datePickerFrom={fromIso}
         tabs={[

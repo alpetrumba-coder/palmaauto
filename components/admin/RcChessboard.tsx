@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 
 import { BarInfoModal, type BarInfo } from "@/components/admin/Chessboard";
 
@@ -54,6 +54,7 @@ export function RcChessboard({
   tabs,
   actions,
   note,
+  autoScroll = false,
 }: {
   days: string[];
   today: string;
@@ -63,10 +64,18 @@ export function RcChessboard({
   tabs: RcNavLink[];
   actions: RcNavLink[];
   note?: { text: string; href: string } | null;
+  /** Прокрутить к сегодняшнему дню при открытии (когда дата в адресе не выбрана). */
+  autoScroll?: boolean;
 }) {
   const [open, setOpen] = useState<BarInfo | null>(null);
   const [q, setQ] = useState("");
   const n = days.length;
+  const scroller = useRef<HTMLDivElement>(null);
+  // как в RealtyCalendar: при открытии сегодняшний день — первый видимый, прошлое — прокруткой влево
+  useEffect(() => {
+    const i = days.indexOf(today);
+    if (autoScroll && scroller.current && i > 0) scroller.current.scrollLeft = i * DAY_W;
+  }, [autoScroll, days, today]);
 
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -154,7 +163,7 @@ export function RcChessboard({
       </div>
 
       {/* шахматка: прокрутка в обе стороны, колонка объектов и шапка дней закреплены */}
-      <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+      <div ref={scroller} style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         <table style={{ borderCollapse: "separate", borderSpacing: 0, tableLayout: "fixed", width: NAME_W + n * DAY_W }}>
           <colgroup>
             <col style={{ width: NAME_W }} />
