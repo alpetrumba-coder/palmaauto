@@ -60,12 +60,6 @@ const dow = (iso: string) => new Date(`${iso}T00:00:00Z`).getUTCDay();
 
 export function Chessboard({ days, today, rows }: { days: string[]; today: string; rows: ChessRow[] }) {
   const [open, setOpen] = useState<BarInfo | null>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
   const n = days.length;
   const minWidth = `calc(${LABEL_W} + ${n} * ${COL_W}rem)`;
 
@@ -188,6 +182,22 @@ export function Chessboard({ days, today, rows }: { days: string[]; today: strin
         ))}
       </div>
 
+      <BarInfoModal open={open} onClose={() => setOpen(null)} />
+    </div>
+  );
+}
+
+/** Карточка брони во всплывающем окне (общая для шахматок). */
+export function BarInfoModal({ open, onClose }: { open: BarInfo | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  const setOpen = (v: null) => (v === null ? onClose() : undefined);
+  return (
+    <>
       {open ? (
         <div
           onClick={() => setOpen(null)}
@@ -239,6 +249,6 @@ export function Chessboard({ days, today, rows }: { days: string[]; today: strin
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

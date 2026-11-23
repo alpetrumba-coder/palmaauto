@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Chessboard, type ChessBar, type ChessRow } from "@/components/admin/Chessboard";
+import { RcChessboard, type RcBar, type RcPin, type RcRow } from "@/components/admin/RcChessboard";
+import { RcShell } from "@/components/admin/RcShell";
+import { requireAdminPanelSession } from "@/lib/require-admin-panel";
 import { getDealTotals } from "@/lib/accounting";
 import { bookingGuestPhone, formatBookingGuestLabel } from "@/lib/booking-display";
 import { bookingsOverlappingRangeWhere } from "@/lib/booking-overlap";
@@ -18,6 +21,27 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 const NUM_DAYS = 42;
+/** Квартиры — как в RealtyCalendar: длинная лента дней с прокруткой. */
+const APT_DAYS = 92;
+
+/** Кружок-буква площадки, цвета как в RealtyCalendar. Источник — из RC («Из RealtyCalendar №… (Корзина)»), иначе канал. */
+function pinFor(source: string | null, channel: string | null): RcPin | null {
+  const s = (source ?? "").toLowerCase();
+  const c = (channel ?? "").toLowerCase();
+  const pin = (letter: string, bg: string, color: string, title: string): RcPin => ({ letter, bg, color, title });
+  if (s === "корзина") return pin("К", "rgb(255, 224, 0)", "#000", "Корзина (Авито)");
+  if (s.includes("модуль")) return pin("М", "rgb(255, 224, 0)", "#000", "Модуль бронирования (сайт)");
+  if (s.includes("avito") || c.includes("авито")) return pin("A", "rgb(0, 165, 255)", "#fff", "Авито");
+  if (s.includes("sutochno") || c.includes("суточно")) return pin("S", "rgb(238, 32, 78)", "#fff", "Суточно");
+  if (s.includes("ostrovok") || c.includes("островок")) return pin("O", "rgb(171, 239, 128)", "rgb(13, 65, 210)", "Островок");
+  if (s.includes("tvil") || c.includes("твил")) return pin("T", "rgb(239, 49, 49)", "#fff", "Твил");
+  if (s.includes("privet") || c.includes("привет")) return pin("P", "rgb(243, 243, 243)", "#000", "ПриветТур");
+  if (s.includes("yandex") || c.includes("яндекс")) return pin("Я", "rgb(255, 204, 0)", "#000", "Яндекс Путешествия");
+  if (c.includes("прям") || !c) return pin("П", "rgb(255, 224, 0)", "#000", "Прямое бронирование");
+  return null;
+}
+const rcSourceOf = (comment: string | null) => comment?.match(/Из RealtyCalendar №\d+ \(([^)]+)\)/)?.[1] ?? null;
+const MONTH_NAMES = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 
 const GREEN = "rgba(90, 140, 90, 0.92)";
 const ORANGE = "rgba(220, 140, 120, 0.95)";
@@ -39,7 +63,9 @@ type SP = { from?: string; tab?: string; hidden?: string };
 
 export default async function ChessboardPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  const tab: "cars" | "apts" = sp.tab === "apts" ? "apts" : "cars";
+  if (sp.tab === "apts") return <ApartmentsRc from={sp.from} />;
+  // старая шахматка (общая) — теперь только для машин; ветка квартир ниже оставлена на случай отката
+  const tab = "cars" as "cars" | "apts";
   const showHidden = sp.hidden === "1";
 
   const parsed = sp.from ? parseDateInput(sp.from) : null;
@@ -290,5 +316,143 @@ export default async function ChessboardPage({ searchParams }: { searchParams: P
 
       <Chessboard days={days} today={iso(today)} rows={rows} />
     </div>
+  );
+}
+
+/** Шахматка квартир в виде RealtyCalendar (оформление, шрифты, полосы броней). */
+async function ApartmentsRc({ from }: { from?: string }) {
+  const session = await requireAdminPanelSession();
+  const today = utcToday();
+  const parsed = from ? parseDateInput(from) : null;
+  const viewStart = parsed && parsed.getTime() >= addUtcDays(today, -365).getTime() && parsed.getTime() <= addUtcDays(today, 800).getTime() ? parsed : today;
+  const viewEnd = addUtcDays(viewStart, APT_DAYS - 1);
+  const days = buildUtcDayRange(viewStart, APT_DAYS).map(iso);
+
+  const [assets, deals, lastRun] = await Promise.all([
+    prisma.asset.findMany({ where: { kind: "APARTMENT", active: true }, select: { id: true, name: true, rcName: true } }),
+    prisma.deal.findMany({
+      where: { status: "ACTIVE", startDate: { lte: viewEnd }, endDate: { gt: viewStart }, asset: { kind: "APARTMENT" } },
+      select: {
+        id: true, number: true, assetId: true, guestName: true, phone: true, startDate: true, endDate: true, grossKop: true, commissionKop: true,
+        comment: true, rcBookingId: true, rcMissingSince: true, channel: { select: { name: true } },
+        changes: { orderBy: { at: "desc" }, take: 6, select: { at: true, text: true } },
+      },
+      orderBy: { startDate: "asc" },
+    }),
+    prisma.rcSyncRun.findFirst({ where: { status: "ok" }, orderBy: { startedAt: "desc" } }),
+  ]);
+  const totals = await getDealTotals(deals.map((d) => d.id));
+  const rc = (lastRun?.result as RcRunSummary | null | undefined) ?? null;
+  const rcOnly = (rc?.missing ?? []).filter((m) => m.assetId && m.end > days[0] && m.begin <= days[days.length - 1]);
+  const stamp = (t: Date) => t.toLocaleString("ru-RU", { timeZone: "Europe/Moscow", dateStyle: "short", timeStyle: "short" });
+  const rub = (kop: number) => `${Math.round(kop / 100).toLocaleString("ru-RU")} ₽`;
+
+  // Название как в RealtyCalendar («6.1 Дом на Эшерской - Ачадара»), порядок — по номеру в начале, как там
+  const titled = assets.map((a) => ({ ...a, title: (a.rcName ?? "").split("\n").map((x) => x.trim()).find(Boolean) ?? a.name }));
+  titled.sort((x, y) => x.title.localeCompare(y.title, "ru", { numeric: true }));
+
+  const rows: RcRow[] = titled.map((a) => ({
+    id: a.id,
+    title: a.title,
+    bars: [
+      ...deals
+        .filter((d) => d.assetId === a.id)
+        .map<RcBar>((d) => {
+          const paid = totals.get(d.id)?.paidKop ?? 0;
+          const s = iso(d.startDate);
+          const e = iso(d.endDate);
+          const nights = Math.round((d.endDate.getTime() - d.startDate.getTime()) / 86400000);
+          const lost = !!d.rcMissingSince;
+          const source = rcSourceOf(d.comment);
+          return {
+            id: d.id,
+            start: s,
+            end: e,
+            pin: pinFor(source, d.channel?.name ?? null),
+            paid: d.grossKop > 0 ? paid / d.grossKop : 0,
+            paidFull: d.grossKop > 0 && paid >= d.grossKop,
+            dashed: lost,
+            label: `${d.guestName}${d.phone ? ` ${d.phone}` : ""} · №${d.number}${lost ? " ⚠" : ""}`,
+            title: `Бронь №${d.number}${d.rcBookingId ? ` · RC №${d.rcBookingId}` : ""} · ${d.guestName} · ${rd(s)}–${rd(e)}${d.channel ? ` · ${d.channel.name}` : ""} · оплачено ${rub(paid)} из ${rub(d.grossKop)}`,
+            info: {
+              subtitle: `Бронь №${d.number}${d.rcBookingId ? ` · RealtyCalendar №${d.rcBookingId}` : " · внесена вручную"}`,
+              title: d.guestName,
+              warning: lost ? `Брони нет в RealtyCalendar (пропала ${stamp(d.rcMissingSince as Date)}). Проверьте, не отменена ли она.` : undefined,
+              lines: [
+                ["Объект", a.title],
+                ["Даты", `${rd(s)}.${s.slice(0, 4)} – ${rd(e)}.${e.slice(0, 4)} (${nights} ноч.)`],
+                ["Номер RC", d.rcBookingId ? String(d.rcBookingId) : "нет (внесена вручную)"],
+                ["Телефон", d.phone ?? "—"],
+                ["Площадка", `${d.channel?.name ?? "напрямую"}${source ? ` (в RC: ${source})` : ""}`],
+                ["Сумма", rub(d.grossKop)],
+                ["Комиссия", rub(d.commissionKop)],
+                ["Оплачено", `${rub(paid)} (осталось ${rub(Math.max(d.grossKop - paid, 0))})`],
+                ...(d.comment ? ([["Комментарий", d.comment]] as [string, string][]) : []),
+              ],
+              history: d.changes.map((c) => `${stamp(c.at)} — ${c.text}`),
+              link: { href: `/admin-panel/accounting/deals/${d.id}`, label: "Открыть полную карточку" },
+            },
+          };
+        }),
+      ...rcOnly
+        .filter((m) => m.assetId === a.id)
+        .map<RcBar>((m) => ({
+          id: `rc${m.rcId}`,
+          start: m.begin,
+          end: m.end,
+          pin: pinFor(m.source, null),
+          paid: m.amountKop > 0 ? m.paidKop / m.amountKop : 0,
+          paidFull: m.amountKop > 0 && m.paidKop >= m.amountKop,
+          dashed: true,
+          label: `${m.guest || "гость"}${m.phone ? ` ${m.phone}` : ""} · только в RC`,
+          title: `Только в RealtyCalendar №${m.rcId}: ${m.guest || "гость не указан"} · ${rd(m.begin)}–${rd(m.end)}${m.source ? ` · ${m.source}` : ""}`,
+          info: {
+            subtitle: `Бронь только в RealtyCalendar №${m.rcId}`,
+            title: m.guest || "Гость не указан",
+            warning: "В Пальме по этой брони нет заезда (например, пересекается с другим заездом). Решите на странице сверки.",
+            lines: [
+              ["Объект", a.title],
+              ["Даты", `${rd(m.begin)}.${m.begin.slice(0, 4)} – ${rd(m.end)}.${m.end.slice(0, 4)}`],
+              ["Номер RC", String(m.rcId)],
+              ["Телефон", m.phone || "—"],
+              ["Источник", m.source || "—"],
+              ["Сумма", rub(m.amountKop)],
+              ["Оплачено в RC", rub(m.paidKop)],
+            ],
+            link: { href: "/admin-panel/accounting/rc", label: "Перейти к сверке" },
+          },
+        })),
+    ],
+  }));
+
+  const link = (d: Date) => `/admin-panel/bookings?tab=apts&from=${iso(d)}`;
+  const m0 = utcStartOfMonth(today);
+  const shiftMonth = (k: number) => new Date(Date.UTC(m0.getUTCFullYear(), m0.getUTCMonth() + k, 1));
+  const monthLabel = (d: Date) => `${MONTH_NAMES[d.getUTCMonth()]}${d.getUTCFullYear() !== today.getUTCFullYear() || d.getUTCMonth() !== today.getUTCMonth() ? `, ${d.getUTCFullYear()}` : ""}`;
+  const fromIso = iso(viewStart);
+  const nav = [
+    { label: "Сегодня", href: link(today), active: fromIso === iso(today) },
+    ...[-1, 0, 1].map((k) => ({ label: k === 0 ? MONTH_NAMES[shiftMonth(0).getUTCMonth()] : monthLabel(shiftMonth(k)), href: link(shiftMonth(k)), active: fromIso === iso(shiftMonth(k)) })),
+  ];
+
+  return (
+    <RcShell isOwner={session.role === "OWNER"} userName={session.name}>
+      <RcChessboard
+        days={days}
+        today={iso(today)}
+        rows={rows}
+        nav={nav}
+        datePickerFrom={fromIso}
+        tabs={[
+          { label: "Машины", href: "/admin-panel/bookings" },
+          { label: "Квартиры", href: "/admin-panel/bookings?tab=apts", active: true },
+        ]}
+        actions={[
+          { label: "Сверка с RC", href: "/admin-panel/accounting/rc" },
+          { label: "+ Новый заезд", href: "/admin-panel/accounting/deals/new" },
+        ]}
+        note={lastRun ? { text: `${rcOnly.length ? `${rcOnly.length} только в RC · ` : ""}данные RC на ${stamp(lastRun.startedAt)}`, href: "/admin-panel/accounting/rc" } : null}
+      />
+    </RcShell>
   );
 }
