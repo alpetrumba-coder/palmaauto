@@ -102,7 +102,8 @@ export default function RemontAkirtavaPage() {
         </div>
         <p style={{ marginTop: "0.5rem", color: "var(--color-text-secondary)", fontSize: "var(--text-sm)" }}>
           Планировка — чтобы примерно понимать, что делаем. Смета — на окончание ремонта (часть работ уже сделана),
-          по ней контролируем Дмитрия Леготкина.
+          по ней контролируем Дмитрия Леготкина. Гонорар прораба (Д. Леготкин) — 250 000 ₽, в Excel-файле его нет,
+          добавлен отдельной строкой в итоги ниже.
         </p>
       </section>
 
@@ -117,7 +118,12 @@ export default function RemontAkirtavaPage() {
             <tr><td style={cell}>Работы</td><td style={num}>{rub(t.works)} ₽</td></tr>
             <tr><td style={cell}>Итого по смете</td><td style={num}>{rub(t.subtotal)} ₽</td></tr>
             <tr><td style={cell}>Накладные расходы 5%</td><td style={num}>{rub(t.overhead)} ₽</td></tr>
-            <tr><td style={{ ...cell, fontWeight: 700 }}>Всего</td><td style={{ ...num, fontWeight: 700 }}>{rub(t.total)} ₽</td></tr>
+            <tr><td style={cell}>Всего по смете Леготкина</td><td style={num}>{rub(t.total)} ₽</td></tr>
+            <tr style={{ background: "color-mix(in srgb, var(--color-accent) 12%, transparent)" }}>
+              <td style={{ ...cell, fontWeight: 600 }}>Гонорар прораба — {smeta.foreman}</td>
+              <td style={{ ...num, fontWeight: 600 }}>{rub(t.foremanFee)} ₽</td>
+            </tr>
+            <tr><td style={{ ...cell, fontWeight: 700 }}>Всего с гонораром прораба</td><td style={{ ...num, fontWeight: 700 }}>{rub(t.grandTotal)} ₽</td></tr>
           </tbody>
         </table>
 
