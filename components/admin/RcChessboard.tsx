@@ -245,7 +245,8 @@ export function RcChessboard({
                   </span>
                 </th>
                 <td colSpan={n} style={{ padding: 0, height: ROW_H, borderBottom: ROW_BORDER, position: "relative" }}>
-                  <div style={{ position: "relative", height: ROW_H - 1, width: n * DAY_W }}>
+                  {/* isolation: полосы (z-index 1–2) остаются в своём слое и при прокрутке уходят под закреплённую колонку названий и шапку дней */}
+                  <div style={{ position: "relative", height: ROW_H - 1, width: n * DAY_W, isolation: "isolate" }}>
                     {[...row.bars].sort((x, y) => Number(!!y.ghost) - Number(!!x.ghost)).map((b) => {
                       const g = geometry(b);
                       if (!g) return null;
