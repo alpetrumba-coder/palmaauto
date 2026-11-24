@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { setDealMonthlyAction } from "@/app/actions/deals";
 import { DealCancelButton } from "@/components/admin/DealCancelButton";
 import { OperationRowActions } from "@/components/admin/OperationRowActions";
 import { OPERATION_TYPE_LABEL, REFUND_CATEGORY } from "@/lib/accounting";
 import { fmtDate } from "@/lib/accounting-options";
-import { formatKop } from "@/lib/money";
+import { buildSchedule, isDepositComment, isLongStay, periodLabel } from "@/lib/deal-schedule";
+import { formatKop, kopToInput } from "@/lib/money";
 import { inclusiveRentalDays } from "@/lib/rental-dates";
 import { targetExpenseShare } from "@/lib/season";
 import { prisma } from "@/lib/prisma";
@@ -61,6 +63,12 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
   const share = netKop > 0 ? expenseKop / netKop : 0;
   const target = targetExpenseShare(deal.startDate);
   const nights = inclusiveRentalDays(deal.startDate, deal.endDate);
+  const longStay = !isCar && isLongStay(deal.startDate, deal.endDate);
+  const depositKop = Math.min(paidKop, live.filter((o) => o.type === "INCOME" && isDepositComment(o.comment)).reduce((s, o) => s + o.amountKop, 0));
+  const schedule = longStay
+    ? buildSchedule({ startDate: deal.startDate, endDate: deal.endDate, netKop, monthlyKop: deal.monthlyKop, paidFrontKop: paidKop - depositKop, paidBackKop: depositKop })
+    : [];
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   const stat = (label: string, value: string, strong = false, color?: string) => (
     <div style={{ padding: "0.65rem 0.85rem", borderRadius: "var(--radius-md)", background: "var(--color-surface)" }}>
@@ -129,6 +137,53 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
         <p style={{ margin: "0 0 1rem", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
           Бронь машины на сайте · даты, сумма и отмена подтягиваются из неё автоматически, онлайн-оплата записывается в «Монету» сама.
         </p>
+      ) : null}
+
+      {schedule.length ? (
+        <>
+          <h2 style={{ fontSize: "var(--text-lg)", margin: "1.5rem 0 0.5rem" }}>График оплат по месяцам</h2>
+          <p style={{ margin: "0 0 0.5rem", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", maxWidth: "52rem" }}>
+            Месяцы считаются от дня заезда, платёж ждём в первый день месяца — в этот день бот напоминает сотрудникам. Полученное засчитывается с первого месяца,
+            депозит (в комментарии оплаты «депозит» или «аванс за последний месяц») — в последний.
+            {depositKop ? ` Депозит: ${formatKop(depositKop)}.` : ""}
+          </p>
+          {!cancelled ? (
+            <form action={setDealMonthlyAction.bind(null, deal.id)} style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap", margin: "0 0 0.6rem", fontSize: "var(--text-sm)" }}>
+              <label htmlFor="monthly">Платёж в месяц, ₽:</label>
+              <input id="monthly" name="monthly" defaultValue={deal.monthlyKop ? kopToInput(deal.monthlyKop) : ""} placeholder="поровну" inputMode="decimal" style={{ width: "8rem", padding: "0.35rem 0.5rem" }} />
+              <button type="submit" style={{ padding: "0.35rem 0.8rem", cursor: "pointer" }}>Сохранить</button>
+              <span style={{ color: "var(--color-text-secondary)" }}>пусто — полные месяцы поровну, последний неполный — по ночам</span>
+            </form>
+          ) : null}
+          <div style={{ overflowX: "auto", marginBottom: "1rem" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
+              <thead>
+                <tr style={{ background: "var(--color-surface)", textAlign: "left" }}>
+                  {["№", "Месяц", "Ночей", "Сумма", "Получено", "Статус"].map((h) => (
+                    <th key={h} style={{ ...cell, fontWeight: 600 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {schedule.map((it) => {
+                  const late = it.leftKop > 0 && it.from < todayIso;
+                  return (
+                    <tr key={it.index} style={{ color: late && !cancelled ? "var(--color-danger, #b00020)" : undefined }}>
+                      <td style={cell}>{it.index}</td>
+                      <td style={{ ...cell, whiteSpace: "nowrap" }}>{periodLabel(it)}</td>
+                      <td style={cell}>{it.nights}</td>
+                      <td style={{ ...cell, whiteSpace: "nowrap" }}>{formatKop(it.amountKop)}</td>
+                      <td style={{ ...cell, whiteSpace: "nowrap" }}>{formatKop(it.paidKop)}</td>
+                      <td style={cell}>
+                        {it.leftKop <= 0 ? "оплачено" : late ? `просрочено, ждём ${formatKop(it.leftKop)}` : `ждём ${formatKop(it.leftKop)} ${fmtDate(new Date(`${it.from}T00:00:00Z`))}`}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : null}
 
       <h2 style={{ fontSize: "var(--text-lg)", margin: "1.5rem 0 0.5rem" }}>Оплаты и расходы</h2>

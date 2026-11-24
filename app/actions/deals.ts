@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { buildDealData, type DealInput } from "@/lib/deal-build";
+import { formatKop, parseMoneyToKop } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPanelSession } from "@/lib/require-admin-panel";
 
@@ -52,4 +53,20 @@ export async function cancelDealAction(id: string): Promise<DealResult> {
   await prisma.deal.update({ where: { id }, data: { status: "CANCELLED" } });
   revalidate(id);
   return { ok: true, id };
+}
+
+/** Долгосрочная бронь: фиксированный платёж в месяц (пусто — полные месяцы поровну). Форма на карточке брони. */
+export async function setDealMonthlyAction(id: string, formData: FormData): Promise<void> {
+  const me = await requireAdminPanelSession();
+  const raw = String(formData.get("monthly") ?? "").trim();
+  const kop = raw ? parseMoneyToKop(raw) : null;
+  if (raw && (kop === null || kop <= 0)) return;
+  const existing = await prisma.deal.findUnique({ where: { id }, select: { monthlyKop: true } });
+  if (!existing || existing.monthlyKop === kop) return;
+  await prisma.deal.update({ where: { id }, data: { monthlyKop: kop } });
+  await prisma.dealChange.create({
+    data: { dealId: id, source: "system", text: `Платёж в месяц: ${existing.monthlyKop ? formatKop(existing.monthlyKop) : "поровну"} → ${kop ? formatKop(kop) : "поровну"} (${me.name})` },
+  });
+  revalidate(id);
+  revalidatePath("/admin-panel/accounting/expected");
 }

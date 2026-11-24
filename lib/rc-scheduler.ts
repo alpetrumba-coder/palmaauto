@@ -1,5 +1,6 @@
 import { syncCarDeals } from "@/lib/car-deals";
 import { rcConfigured } from "@/lib/rc-client";
+import { sendPaymentRemindersIfDue } from "@/lib/payment-reminders";
 import { runRcSync } from "@/lib/rc-sync";
 import { prisma } from "@/lib/prisma";
 
@@ -30,6 +31,8 @@ async function tick() {
     // брони машин → карточки аренды: подстраховка для изменений, которые прошли мимо (автоотмена неоплаченных и т.п.)
     await syncCarDeals(lastCarSweep ?? undefined).catch((e) => console.error("[car-deals] sweep", e instanceof Error ? e.message : e));
     lastCarSweep = new Date(Date.now() - 5 * 60_000);
+    // напоминание о помесячных платежах долгосрочных броней — раз в день после 08:00 МСК
+    await sendPaymentRemindersIfDue().catch((e) => console.error("[payment-reminders]", e instanceof Error ? e.message : e));
     if (!(await rcConfigured())) return;
     const last = await prisma.rcSyncRun.findFirst({ where: { trigger: "cron" }, orderBy: { startedAt: "desc" }, select: { startedAt: true, status: true } });
     if (isDue(new Date(), last)) await runRcSync("cron", null);

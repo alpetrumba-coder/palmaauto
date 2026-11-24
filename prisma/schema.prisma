@@ -428,6 +428,8 @@ model Deal {
   rcSnapshot     Json?       @map("rc_snapshot")
   /// «Оплачено» по RealtyCalendar (предоплата там), обновляется ежедневной сверкой. Только отметка, не деньги в кассах.
   rcPaidKop      Int?        @map("rc_paid_kop")
+  /// Долгосрочная бронь: фиксированный платёж в месяц (коп.). Пусто — полные месяцы делятся поровну (lib/deal-schedule.ts).
+  monthlyKop     Int?        @map("monthly_kop")
   createdBy      String      @map("created_by")
   createdAt      DateTime    @default(now()) @map("created_at")
   updatedAt      DateTime    @updatedAt @map("updated_at")
